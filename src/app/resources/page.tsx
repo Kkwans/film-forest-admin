@@ -16,9 +16,13 @@ interface MagnetResource {
   id: number;
   contentType: string;
   contentId: number;
+  episodeId: number | null;
   title: string;
+  magnetUrl: string;
   resolution: string;
   hasSubtitle: boolean;
+  isSpecialSub: boolean;
+  sort: number;
   createdAt: string;
 }
 
