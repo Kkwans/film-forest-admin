@@ -1,9 +1,17 @@
 import axios from 'axios';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://100.106.29.60:8081';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://100.106.29.60:8080';
 
 const client = axios.create({
   baseURL: API_BASE,
+  timeout: 10000,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+const ADMIN_BASE = process.env.NEXT_PUBLIC_ADMIN_API_URL || 'http://100.106.29.60:8081';
+
+const adminClient = axios.create({
+  baseURL: ADMIN_BASE,
   timeout: 10000,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -73,5 +81,66 @@ export interface CrawlerTaskLog {
   startedAt: string;
   finishedAt: string | null;
 }
+
+export const resourceApi = {
+  // 资源统计
+  getStats: () => adminClient.get('/api/admin/resources/stats'),
+  // 在线资源列表
+  listOnline: (contentType?: string, contentId?: number) =>
+    adminClient.get('/api/admin/resources/online', { params: { contentType, contentId } }),
+  // 磁力资源列表
+  listMagnet: (contentType?: string, contentId?: number) =>
+    adminClient.get('/api/admin/resources/magnet', { params: { contentType, contentId } }),
+};
+
+// 内容管理 API（管理端）
+export const contentApi = {
+  // 电影
+  listMovies: (params: { page?: number; size?: number; year?: number; keyword?: string }) =>
+    adminClient.get('/api/content/movies', { params }),
+  getMovie: (id: number) => adminClient.get(`/api/content/movies/${id}`),
+  createMovie: (data: any) => adminClient.post('/api/content/movies', data),
+  updateMovie: (id: number, data: any) => adminClient.put(`/api/content/movies/${id}`, data),
+  deleteMovie: (id: number) => adminClient.delete(`/api/content/movies/${id}`),
+
+  // 剧集
+  listDramas: (params: { page?: number; size?: number; year?: number; keyword?: string }) =>
+    adminClient.get('/api/content/dramas', { params }),
+  getDrama: (id: number) => adminClient.get(`/api/content/dramas/${id}`),
+  createDrama: (data: any) => adminClient.post('/api/content/dramas', data),
+  updateDrama: (id: number, data: any) => adminClient.put(`/api/content/dramas/${id}`, data),
+  deleteDrama: (id: number) => adminClient.delete(`/api/content/dramas/${id}`),
+
+  // 综艺
+  listVarieties: (params: { page?: number; size?: number; year?: number; keyword?: string }) =>
+    adminClient.get('/api/content/varieties', { params }),
+  getVariety: (id: number) => adminClient.get(`/api/content/varieties/${id}`),
+  createVariety: (data: any) => adminClient.post('/api/content/varieties', data),
+  updateVariety: (id: number, data: any) => adminClient.put(`/api/content/varieties/${id}`, data),
+  deleteVariety: (id: number) => adminClient.delete(`/api/content/varieties/${id}`),
+
+  // 动漫
+  listAnimes: (params: { page?: number; size?: number; year?: number; keyword?: string }) =>
+    adminClient.get('/api/content/animes', { params }),
+  getAnime: (id: number) => adminClient.get(`/api/content/animes/${id}`),
+  createAnime: (data: any) => adminClient.post('/api/content/animes', data),
+  updateAnime: (id: number, data: any) => adminClient.put(`/api/content/animes/${id}`, data),
+  deleteAnime: (id: number) => adminClient.delete(`/api/content/animes/${id}`),
+
+  // 短剧
+  listShortDramas: (params: { page?: number; size?: number; year?: number; keyword?: string }) =>
+    adminClient.get('/api/content/short-dramas', { params }),
+  getShortDrama: (id: number) => adminClient.get(`/api/content/short-dramas/${id}`),
+  createShortDrama: (data: any) => adminClient.post('/api/content/short-dramas', data),
+  updateShortDrama: (id: number, data: any) => adminClient.put(`/api/content/short-dramas/${id}`, data),
+  deleteShortDrama: (id: number) => adminClient.delete(`/api/content/short-dramas/${id}`),
+
+  // 合并列表
+  listAll: (params: { type?: string; page?: number; size?: number }) =>
+    adminClient.get('/api/content/all', { params }),
+
+  // 统计
+  getStats: () => adminClient.get('/api/content/stats'),
+};
 
 export default client;
