@@ -23,7 +23,7 @@ export default function AdminSidebar() {
       {/* Mobile toggle button — visible only on small screens */}
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-zinc-800 border border-zinc-700 md:hidden"
+        className="fixed top-3 left-3 z-[60] p-2 rounded-lg bg-zinc-800 border border-zinc-700 md:hidden"
         aria-label="打开菜单"
       >
         <Menu className="w-5 h-5 text-zinc-300" />
@@ -32,7 +32,7 @@ export default function AdminSidebar() {
       {/* Overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          className="fixed inset-0 z-[55] bg-black/50 md:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -40,7 +40,7 @@ export default function AdminSidebar() {
       {/* Sidebar */}
       <aside
         className={`
-          fixed md:relative inset-y-0 left-0 z-50
+          fixed md:relative inset-y-0 left-0 z-[56]
           w-64 bg-zinc-900 border-r border-zinc-800 flex flex-col
           transform transition-transform duration-200 ease-in-out
           md:translate-x-0 md:block

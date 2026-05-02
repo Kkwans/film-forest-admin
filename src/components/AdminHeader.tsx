@@ -7,7 +7,7 @@ export default function AdminHeader() {
   return (
     <header className="h-16 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 md:px-6">
       {/* Mobile placeholder for sidebar toggle - sidebar has its own toggle */}
-      <div className="w-10 md:hidden" />
+      <div className="w-8 md:hidden" />
 
       <div className="flex items-center gap-4">
         <button
