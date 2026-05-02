@@ -248,8 +248,8 @@ export default function ContentPage() {
               <AlertCircle className="w-4 h-4" /> {error}
             </div>
           )}
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
+            <table className="w-full min-w-[600px]">
               <thead>
                 <tr className="border-b border-zinc-800">
                   <th className="text-left px-4 py-3 text-sm font-medium text-zinc-500">内容</th>

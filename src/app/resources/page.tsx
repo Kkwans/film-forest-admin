@@ -115,8 +115,9 @@ export default function ResourcesPage() {
               <p>暂无磁力资源记录 — 爬虫抓取后自动更新</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              <div className="grid grid-cols-12 gap-2 text-xs text-zinc-500 px-4 py-2 border-b border-zinc-800">
+            <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
+            <div className="min-w-[600px]">
+            <div className="hidden md:block grid grid-cols-12 gap-2 text-xs text-zinc-500 px-4 py-2 border-b border-zinc-800">
                 <div className="col-span-1">类型</div>
                 <div className="col-span-2">标题</div>
                 <div className="col-span-2">分辨率</div>
@@ -125,33 +126,58 @@ export default function ResourcesPage() {
                 <div className="col-span-1">时间</div>
               </div>
               {magnets.map((m) => (
-                <div key={m.id} className="grid grid-cols-12 gap-2 items-center px-4 py-3 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/60 transition-colors text-sm">
-                  <div className="col-span-1">
-                    <Badge variant="outline" className="text-xs border-zinc-700 text-zinc-400">
-                      {m.contentType}
-                    </Badge>
+                <>
+                  {/* Desktop row */}
+                  <div key={`d-${m.id}`} className="hidden md:flex grid-cols-12 gap-2 items-center px-4 py-3 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/60 transition-colors text-sm">
+                    <div className="col-span-1">
+                      <Badge variant="outline" className="text-xs border-zinc-700 text-zinc-400">
+                        {m.contentType}
+                      </Badge>
+                    </div>
+                    <div className="col-span-2 text-white truncate" title={m.title}>{m.title}</div>
+                    <div className="col-span-2">
+                      <Badge variant="outline" className={`text-xs ${
+                        m.resolution === '1080P' ? 'border-blue-500 text-blue-400' :
+                        m.resolution === '4K' ? 'border-purple-500 text-purple-400' :
+                        'border-zinc-700 text-zinc-400'
+                      }`}>
+                        {m.resolution}
+                      </Badge>
+                    </div>
+                    <div className="col-span-2 text-zinc-400 text-xs">
+                      {m.hasSubtitle ? '✅ 有字幕' : '—'}
+                    </div>
+                    <div className="col-span-4 text-zinc-500 text-xs truncate" title={m.magnetUrl}>
+                      {m.magnetUrl ? m.magnetUrl.slice(0, 60) + '...' : '-'}
+                    </div>
+                    <div className="col-span-1 text-zinc-500 text-xs">
+                      {formatDate(m.createdAt)}
+                    </div>
                   </div>
-                  <div className="col-span-2 text-white truncate" title={m.title}>{m.title}</div>
-                  <div className="col-span-2">
-                    <Badge variant="outline" className={`text-xs ${
-                      m.resolution === '1080P' ? 'border-blue-500 text-blue-400' :
-                      m.resolution === '4K' ? 'border-purple-500 text-purple-400' :
-                      'border-zinc-700 text-zinc-400'
-                    }`}>
-                      {m.resolution}
-                    </Badge>
+                  {/* Mobile card */}
+                  <div key={`m-${m.id}`} className="md:hidden flex flex-col gap-2 px-4 py-3 rounded-lg bg-zinc-800/30 hover:bg-zinc-800/60 transition-colors text-sm mb-2">
+                    <div className="flex items-center gap-2 justify-between">
+                      <Badge variant="outline" className="text-xs border-zinc-700 text-zinc-400">
+                        {m.contentType}
+                      </Badge>
+                      <span className="text-zinc-500 text-xs">{formatDate(m.createdAt)}</span>
+                    </div>
+                    <p className="text-white text-sm font-medium truncate">{m.title}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className={`text-xs ${
+                        m.resolution === '1080P' ? 'border-blue-500 text-blue-400' :
+                        m.resolution === '4K' ? 'border-purple-500 text-purple-400' :
+                        'border-zinc-700 text-zinc-400'
+                      }`}>
+                        {m.resolution}
+                      </Badge>
+                      <span className="text-zinc-400 text-xs">{m.hasSubtitle ? '✅ 有字幕' : '—'}</span>
+                    </div>
+                    <p className="text-zinc-500 text-xs truncate">{m.magnetUrl ? m.magnetUrl.slice(0, 80) + '...' : '-'}</p>
                   </div>
-                  <div className="col-span-2 text-zinc-400 text-xs">
-                    {m.hasSubtitle ? '✅ 有字幕' : '—'}
-                  </div>
-                  <div className="col-span-4 text-zinc-500 text-xs truncate" title={m.magnetUrl}>
-                    {m.magnetUrl ? m.magnetUrl.slice(0, 60) + '...' : '-'}
-                  </div>
-                  <div className="col-span-1 text-zinc-500 text-xs">
-                    {formatDate(m.createdAt)}
-                  </div>
-                </div>
+                </>
               ))}
+            </div>
             </div>
           )}
         </CardContent>

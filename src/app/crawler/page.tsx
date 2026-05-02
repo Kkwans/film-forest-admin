@@ -99,32 +99,33 @@ export default function CrawlerPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <div className="flex items-center gap-3 p-4 rounded-lg border bg-card">
-          <Database className="w-8 h-8 text-emerald-500 opacity-60" />
+          <Database className="w-8 h-8 text-emerald-500 opacity-60 shrink-0" />
           <div>
-            <p className="text-sm text-muted-foreground">配置总数</p>
-            <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">配置总数</p>
+            <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.total}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 p-4 rounded-lg border bg-card">
-          <Activity className="w-8 h-8 text-amber-500 opacity-60" />
+          <Activity className="w-8 h-8 text-amber-500 opacity-60 shrink-0" />
           <div>
-            <p className="text-sm text-muted-foreground">运行中</p>
-            <p className="text-2xl font-bold text-foreground">{stats.running}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">运行中</p>
+            <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.running}</p>
           </div>
         </div>
         <div className="flex items-center gap-3 p-4 rounded-lg border bg-card">
-          <Clock className="w-8 h-8 text-zinc-500 opacity-60" />
+          <Clock className="w-8 h-8 text-zinc-500 opacity-60 shrink-0" />
           <div>
-            <p className="text-sm text-muted-foreground">空闲</p>
-            <p className="text-2xl font-bold text-foreground">{stats.idle}</p>
+            <p className="text-xs sm:text-sm text-muted-foreground">空闲</p>
+            <p className="text-xl sm:text-2xl font-bold text-foreground">{stats.idle}</p>
           </div>
         </div>
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border bg-card overflow-hidden">
+      <div className="rounded-lg border bg-card overflow-x-auto -webkit-overflow-scrolling-touch">
+        <div className="min-w-[700px]">
         <table className="w-full text-sm">
           <thead className="bg-muted/50">
             <tr className="border-b">
@@ -201,6 +202,7 @@ export default function CrawlerPage() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );
