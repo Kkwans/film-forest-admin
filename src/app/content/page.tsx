@@ -68,7 +68,7 @@ export default function ContentPage() {
 
       let idx = 0;
       for (const result of results) {
-        if (result.status === 'fulfilled') {
+        if (result.status === 'fulfilled' && result.value) {
           const res = result.value;
           if (res.data?.code === 200) {
             const recs: ContentRecord[] = (res.data.data.records || []).map((r: any) => ({
