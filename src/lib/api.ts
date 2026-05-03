@@ -18,33 +18,33 @@ const adminClient = axios.create({
 
 export const crawlerApi = {
   /** 获取所有定时配置 */
-  listSchedules: () => client.get('/api/crawler/schedules'),
+  listSchedules: () => adminClient.get('/api/crawler/schedules'),
 
   /** 获取单个配置 */
-  getSchedule: (id: number) => client.get(`/api/crawler/schedule/${id}`),
+  getSchedule: (id: number) => adminClient.get(`/api/crawler/schedule/${id}`),
 
   /** 保存/更新配置 */
-  saveSchedule: (data: any) => client.post('/api/crawler/schedule', data),
+  saveSchedule: (data: any) => adminClient.post('/api/crawler/schedule', data),
 
   /** 删除配置 */
-  deleteSchedule: (id: number) => client.delete(`/api/crawler/schedule/${id}`),
+  deleteSchedule: (id: number) => adminClient.delete(`/api/crawler/schedule/${id}`),
 
   /** 启动爬虫 */
-  start: (id: number) => client.post(`/api/crawler/start/${id}`),
+  start: (id: number) => adminClient.post(`/api/crawler/start/${id}`),
 
   /** 停止爬虫 */
-  stop: (id: number) => client.post(`/api/crawler/stop/${id}`),
+  stop: (id: number) => adminClient.post(`/api/crawler/stop/${id}`),
 
   /** 切换启用状态 */
   toggleEnabled: (id: number, enabled: boolean) =>
-    client.post(`/api/crawler/toggle/${id}?enabled=${enabled}`),
+    adminClient.post(`/api/crawler/toggle/${id}?enabled=${enabled}`),
 
   /** 获取任务日志 */
   listLogs: (scheduleId?: number) =>
-    client.get('/api/crawler/logs', { params: scheduleId ? { scheduleId } : {} }),
+    adminClient.get('/api/crawler/logs', { params: scheduleId ? { scheduleId } : {} }),
 
   /** 获取状态概览 */
-  getStatus: () => client.get('/api/crawler/status'),
+  getStatus: () => adminClient.get('/api/crawler/status'),
 };
 
 export interface CrawlerSchedule {
