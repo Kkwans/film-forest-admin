@@ -1,25 +1,25 @@
 'use client';
 
 import { Bell, User } from 'lucide-react';
-import AdminSidebar from './AdminSidebar';
+import ThemeToggle from './ThemeToggle';
 
 export default function AdminHeader() {
   return (
-    <header className="h-16 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between px-4 md:px-6">
-      {/* Mobile placeholder for sidebar toggle - sidebar has its own toggle */}
+    <header className="h-16 bg-background border-b border-border flex items-center justify-between px-4 md:px-6">
       <div className="w-8 md:hidden" />
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
+        <ThemeToggle />
         <button
           type="button"
-          className="size-8 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors flex items-center justify-center"
+          className="size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex items-center justify-center"
           aria-label="通知"
         >
           <Bell className="w-5 h-5" />
         </button>
         <button
           type="button"
-          className="size-8 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors flex items-center justify-center"
+          className="size-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex items-center justify-center"
           aria-label="用户"
         >
           <User className="w-5 h-5" />

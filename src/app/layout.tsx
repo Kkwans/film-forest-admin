@@ -17,8 +17,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className="h-full dark">
-      <body className={`${inter.className} min-h-full bg-zinc-950 text-zinc-100`}>
+    <html lang="zh-CN" className="h-full">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark')}else if(!t||t==='light'){document.documentElement.classList.remove('dark')}else if(t==='system'){if(window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}})()`,
+          }}
+        />
+      </head>
+      <body className={`${inter.className} min-h-full bg-background text-foreground`}>
         <div className="flex h-screen overflow-hidden">
           <AdminSidebar />
           <div className="flex flex-col flex-1 overflow-hidden">
