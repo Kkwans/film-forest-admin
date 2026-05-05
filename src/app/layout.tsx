@@ -21,7 +21,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('theme');if(t==='dark'){document.documentElement.classList.add('dark')}else if(!t||t==='light'){document.documentElement.classList.remove('dark')}else if(t==='system'){if(window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.classList.add('dark')}else{document.documentElement.classList.remove('dark')}}})()`,
+            __html: `(function(){var root=document.documentElement;function apply(t){if(t==='dark'){root.classList.add('dark')}else if(t==='light'){root.classList.remove('dark')}else{var mq=window.matchMedia('(prefers-color-scheme: dark)');if(mq.matches){root.classList.add('dark')}else{root.classList.remove('dark')}mq.addEventListener('change',function(e){var cur=localStorage.getItem('theme');if(cur==='system'){if(e.matches){root.classList.add('dark')}else{root.classList.remove('dark')}}})}}var t=localStorage.getItem('theme');apply(t||'dark');window.__applyTheme=apply})()`,
           }}
         />
       </head>

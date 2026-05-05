@@ -169,8 +169,8 @@ export default function ContentPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">内容管理</h1>
-          <p className="text-sm text-zinc-500 mt-1">管理影视资源内容，审核状态</p>
+          <h1 className="text-2xl font-bold text-foreground">内容管理</h1>
+          <p className="text-sm text-muted-foreground mt-1">管理影视资源内容，审核状态</p>
         </div>
         <Button className="bg-emerald-600 hover:bg-emerald-500">
           <Plus className="w-4 h-4 mr-2" /> 新增内容
@@ -185,9 +185,9 @@ export default function ContentPage() {
           { label: '综艺', key: 'variety', color: 'text-amber-400' },
           { label: '动漫/短剧', key: 'anime', color: 'text-red-400' },
         ].map((stat) => (
-          <Card key={stat.key} className="bg-zinc-900/50 border-zinc-800">
+          <Card key={stat.key} className="bg-card border-border">
             <CardContent className="p-4 flex items-center justify-between">
-              <span className="text-sm text-zinc-500">{stat.label}</span>
+              <span className="text-sm text-muted-foreground">{stat.label}</span>
               <span className={`text-xl font-bold ${stat.color}`}>{typeCountMap[stat.key] ?? '-'}</span>
             </CardContent>
           </Card>
@@ -195,22 +195,22 @@ export default function ContentPage() {
       </div>
 
       {/* Filters */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardContent className="p-4">
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-48">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="搜索标题..."
                 value={keyword}
                 onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
-                className="pl-9 bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500"
+                className="pl-9 bg-muted border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
             <select
               value={typeFilter}
               onChange={(e) => { setTypeFilter(e.target.value as FilterType); setPage(1); }}
-              className="px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm"
+              className="px-3 py-2 rounded-lg bg-muted border border-border text-foreground text-sm"
             >
               <option value="all">全部分类</option>
               <option value="movie">电影</option>
@@ -222,13 +222,13 @@ export default function ContentPage() {
             <select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value as StatusFilter); setPage(1); }}
-              className="px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-white text-sm"
+              className="px-3 py-2 rounded-lg bg-muted border border-border text-foreground text-sm"
             >
               <option value="all">全部状态</option>
               <option value="1">已上线</option>
               <option value="0">已下线</option>
             </select>
-            <Button variant="outline" size="sm" onClick={fetchItems} className="border-zinc-700 text-zinc-400 hover:text-white">
+            <Button variant="outline" size="sm" onClick={fetchItems} className="border-border text-muted-foreground hover:text-foreground">
               刷新
             </Button>
           </div>
@@ -236,48 +236,48 @@ export default function ContentPage() {
       </Card>
 
       {/* Table */}
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      <Card className="bg-card border-border">
         <CardHeader className="pb-3">
-          <CardTitle className="text-white text-base">
+          <CardTitle className="text-foreground text-base">
             内容列表 ({loading ? '...' : filtered.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {error && (
-            <div className="flex items-center gap-2 px-4 py-3 text-red-400 text-sm bg-red-900/20 border-b border-zinc-800">
+            <div className="flex items-center gap-2 px-4 py-3 text-red-400 text-sm bg-red-900/20 border-b border-border">
               <AlertCircle className="w-4 h-4" /> {error}
             </div>
           )}
           <div className="overflow-x-auto -webkit-overflow-scrolling-touch">
             <table className="w-full min-w-[600px]">
               <thead>
-                <tr className="border-b border-zinc-800">
-                  <th className="text-left px-4 py-3 text-sm font-medium text-zinc-500">内容</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-zinc-500">分类</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-zinc-500">年份</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-zinc-500">评分</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-zinc-500">上线状态</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-zinc-500">操作</th>
+                <tr className="border-b border-border">
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">内容</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">分类</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">年份</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">评分</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">上线状态</th>
+                  <th className="text-left px-4 py-3 text-sm font-medium text-muted-foreground">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-zinc-500">
+                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                       <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
                       加载中...
                     </td>
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-zinc-500">
+                    <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
                       <Film className="w-12 h-12 mx-auto mb-3 opacity-50" />
                       <p>暂无内容</p>
                     </td>
                   </tr>
                 ) : (
                   filtered.map((item) => (
-                    <tr key={`${item.type}-${item.id}`} className="border-b border-zinc-800/50 hover:bg-zinc-800/30">
+                    <tr key={`${item.type}-${item.id}`} className="border-b border-border/50 hover:bg-muted/30">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <img
@@ -287,17 +287,17 @@ export default function ContentPage() {
                             onError={(e) => { (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${item.type}${item.id}/100/150`; }}
                           />
                           <div>
-                            <p className="text-sm font-medium text-white max-w-48 truncate">{item.title}</p>
-                            <p className="text-xs text-zinc-500">{item.createdAt?.slice(0, 10)}</p>
+                            <p className="text-sm font-medium text-foreground max-w-48 truncate">{item.title}</p>
+                            <p className="text-xs text-muted-foreground">{item.createdAt?.slice(0, 10)}</p>
                           </div>
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`text-sm font-medium ${TYPE_COLORS[item.type] || 'text-zinc-400'}`}>
+                        <span className={`text-sm font-medium ${TYPE_COLORS[item.type] || 'text-muted-foreground'}`}>
                           {TYPE_LABELS[item.type] || item.type}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-zinc-400">
+                      <td className="px-4 py-3 text-sm text-muted-foreground">
                         {item.year || '-'}
                       </td>
                       <td className="px-4 py-3">
@@ -322,15 +322,15 @@ export default function ContentPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <button className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors" title="预览">
+                          <button className="p-1.5 rounded hover:bg-zinc-700 text-muted-foreground hover:text-foreground transition-colors" title="预览">
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors" title="编辑">
+                          <button className="p-1.5 rounded hover:bg-zinc-700 text-muted-foreground hover:text-foreground transition-colors" title="编辑">
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(item.id, item.type)}
-                            className="p-1.5 rounded hover:bg-zinc-700 text-zinc-400 hover:text-red-400 transition-colors"
+                            className="p-1.5 rounded hover:bg-zinc-700 text-muted-foreground hover:text-red-400 transition-colors"
                             title="删除"
                           >
                             <Trash2 className="w-4 h-4" />

@@ -49,7 +49,7 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: oklch(0.985 0.002 80);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -127,4 +127,15 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Light mode card improvements */
+:root .bg-card,
+:root [class*="bg-card"] {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+}
+
+.dark .bg-card,
+.dark [class*="bg-card"] {
+  box-shadow: none;
 }

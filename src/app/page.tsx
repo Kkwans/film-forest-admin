@@ -84,51 +84,51 @@ export default function AdminDashboard() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold text-white mb-1">仪表盘</h1>
-        <p className="text-sm text-zinc-500">欢迎回来，管理员</p>
+        <h1 className="text-2xl font-bold text-foreground mb-1">仪表盘</h1>
+        <p className="text-sm text-muted-foreground">欢迎回来，管理员</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-zinc-500">电影总数</p>
-                <p className="text-2xl font-bold text-white mt-1">{loading ? '-' : stats.movies.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">电影总数</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{loading ? '-' : stats.movies.toLocaleString()}</p>
               </div>
               <Film className="w-8 h-8 text-emerald-400 opacity-60" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-zinc-500">剧集总数</p>
-                <p className="text-2xl font-bold text-white mt-1">{loading ? '-' : stats.dramas.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">剧集总数</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{loading ? '-' : stats.dramas.toLocaleString()}</p>
               </div>
               <Film className="w-8 h-8 text-blue-400 opacity-60" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-zinc-500">综艺/动漫/短剧</p>
-                <p className="text-2xl font-bold text-white mt-1">{loading ? '-' : (stats.varieties + stats.animes + stats.shortDramas).toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">综艺/动漫/短剧</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{loading ? '-' : (stats.varieties + stats.animes + stats.shortDramas).toLocaleString()}</p>
               </div>
               <Upload className="w-8 h-8 text-amber-400 opacity-60" />
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardContent className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-zinc-500">内容总量</p>
-                <p className="text-2xl font-bold text-white mt-1">{loading ? '-' : totalContent.toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">内容总量</p>
+                <p className="text-2xl font-bold text-foreground mt-1">{loading ? '-' : totalContent.toLocaleString()}</p>
               </div>
               <Eye className="w-8 h-8 text-purple-400 opacity-60" />
             </div>
@@ -138,29 +138,29 @@ export default function AdminDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Recent Content */}
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white">最近内容</CardTitle>
+            <CardTitle className="text-foreground">最近内容</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-8 text-zinc-500">加载中...</div>
+              <div className="text-center py-8 text-muted-foreground">加载中...</div>
             ) : recentItems.length === 0 ? (
-              <div className="text-center py-8 text-zinc-500">暂无内容</div>
+              <div className="text-center py-8 text-muted-foreground">暂无内容</div>
             ) : (
               <div className="space-y-3">
                 {recentItems.map((item, i) => (
-                  <div key={i} className="flex items-center justify-between py-2 border-b border-zinc-800 last:border-0">
+                  <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center">
-                        <Film className="w-4 h-4 text-zinc-400" />
+                      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
+                        <Film className="w-4 h-4 text-muted-foreground" />
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-white">{item.title}</p>
-                        <p className="text-xs text-zinc-500">{TYPE_LABELS[item.type] || item.type} · {getRelativeTime(item.createdAt)}</p>
+                        <p className="text-sm font-medium text-foreground">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">{TYPE_LABELS[item.type] || item.type} · {getRelativeTime(item.createdAt)}</p>
                       </div>
                     </div>
-                    <Badge className={item.status === 1 ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30' : 'bg-zinc-700/50 text-zinc-400 border-zinc-600/30'}>
+                    <Badge className={item.status === 1 ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30' : 'bg-zinc-700/50 text-muted-foreground border-zinc-600/30'}>
                       {item.status === 1 ? '已上线' : '已下线'}
                     </Badge>
                   </div>
@@ -171,31 +171,31 @@ export default function AdminDashboard() {
         </Card>
 
         {/* Crawler Status */}
-        <Card className="bg-zinc-900/50 border-zinc-800">
+        <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-white">爬虫状态</CardTitle>
+            <CardTitle className="text-foreground">爬虫状态</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="text-center py-8 text-zinc-500">加载中...</div>
+              <div className="text-center py-8 text-muted-foreground">加载中...</div>
             ) : crawlerStatus.length === 0 ? (
-              <div className="text-center py-8 text-zinc-500">暂无爬虫配置</div>
+              <div className="text-center py-8 text-muted-foreground">暂无爬虫配置</div>
             ) : (
               <div className="space-y-4">
                 {crawlerStatus.slice(0, 5).map((task) => (
-                  <div key={task.id} className="flex items-center justify-between py-2 border-b border-zinc-800 last:border-0">
+                  <div key={task.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                     <div>
-                      <p className="text-sm font-medium text-white">{task.name || task.sourceSite + ' - ' + task.contentType}</p>
+                      <p className="text-sm font-medium text-foreground">{task.name || task.sourceSite + ' - ' + task.contentType}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <Clock className="w-3 h-3 text-zinc-500" />
-                        <span className="text-xs text-zinc-500">上次: {task.lastRunTime ? getRelativeTime(task.lastRunTime) : '从未运行'}</span>
+                        <Clock className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">上次: {task.lastRunTime ? getRelativeTime(task.lastRunTime) : '从未运行'}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Badge className={task.status === 'running' ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30' : 'bg-zinc-700/50 text-zinc-400 border-zinc-600/30'}>
+                      <Badge className={task.status === 'running' ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/30' : 'bg-zinc-700/50 text-muted-foreground border-zinc-600/30'}>
                         {task.status === 'running' ? '运行中' : task.status === 'idle' ? '空闲' : task.status}
                       </Badge>
-                      <span className="text-xs text-zinc-500">{task.totalItems || 0} 条</span>
+                      <span className="text-xs text-muted-foreground">{task.totalItems || 0} 条</span>
                     </div>
                   </div>
                 ))}

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://100.106.29.60:8080';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 const client = axios.create({
   baseURL: API_BASE,
@@ -8,7 +8,7 @@ const client = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-const ADMIN_BASE = process.env.NEXT_PUBLIC_ADMIN_API_URL || 'http://100.106.29.60:8081';
+const ADMIN_BASE = process.env.NEXT_PUBLIC_ADMIN_API_URL || '';
 
 const adminClient = axios.create({
   baseURL: ADMIN_BASE,
