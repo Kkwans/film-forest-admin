@@ -124,9 +124,18 @@ export const crawlerApi = {
   toggleEnabled: (id: number, enabled: boolean) =>
     adminClient.post(`/api/crawler/toggle/${id}?enabled=${enabled}`),
 
-  /** 获取任务日志（支持状态筛选） */
-  listLogs: (params?: { scheduleId?: number; status?: string }) =>
+  /** 获取权威 Job/日志真分页 */
+  listLogs: (params?: CrawlerLogQuery) =>
     adminClient.get('/api/crawler/logs', { params: params || {} }),
+
+  /** 获取活动 Job */
+  listActiveJobs: () => adminClient.get('/api/crawler/jobs/active'),
+
+  /** 获取单个 Job 详情 */
+  getJob: (jobId: number) => adminClient.get(`/api/crawler/jobs/${jobId}`),
+
+  /** 请求取消 Job */
+  cancelJob: (jobId: number) => adminClient.post(`/api/crawler/jobs/${jobId}/cancel`),
 
   /** 获取日志统计 */
   getLogStats: () => adminClient.get('/api/crawler/logs/stats'),
@@ -143,6 +152,10 @@ export const crawlerApi = {
   /** 获取爬虫每日运行趋势（近7天） */
   getDailyStats: () => adminClient.get('/api/crawler/daily-stats'),
 
+  /** 获取 7/30 天 SQL 聚合运行统计 */
+  getOperationsStats: (days: 7 | 30) =>
+    adminClient.get('/api/crawler/operations-stats', { params: { days } }),
+
   /** 获取资源来源列表 */
   listSources: () => adminClient.get('/api/crawler/sources'),
 };
@@ -151,6 +164,7 @@ export interface CrawlerSchedule {
   id: number;
   name: string;
   contentType: string;
+  crawlMode: 'latest' | 'full';
   sourceSite: string;
   enabled: number;
   cronExpression: string;
@@ -172,6 +186,8 @@ export interface CrawlerTaskLog {
   scheduleId: number;
   scheduleName: string;
   contentType: string;
+  sourceCode?: string | null;
+  crawlMode?: 'latest' | 'full';
   status: string;
   triggerType?: string;
   retryOfJobId?: number | null;
@@ -198,6 +214,61 @@ export interface CrawlerTaskLog {
   durationMs: number | null;
   startedAt: string | null;
   finishedAt: string | null;
+}
+
+export interface PageData<T> {
+  records: T[];
+  total: number;
+  size: number;
+  current: number;
+  pages: number;
+}
+
+export interface CrawlerLogQuery {
+  scheduleId?: number;
+  status?: string;
+  source?: string;
+  type?: string;
+  triggerType?: string;
+  from?: string;
+  to?: string;
+  keyword?: string;
+  page?: number;
+  size?: number;
+}
+
+export interface CrawlerOperationsStats {
+  days: 7 | 30;
+  jobs: number;
+  success: number;
+  partial: number;
+  failed: number;
+  cancelled: number;
+  avgDurationMs: number;
+  added: number;
+  updated: number;
+  failedItems: number;
+  daily: Array<{
+    date: string;
+    jobs: number;
+    success: number;
+    partial: number;
+    failed: number;
+    cancelled: number;
+    added: number;
+    updated: number;
+    failedItems: number;
+  }>;
+  sourceHealth: Array<{
+    source: string;
+    jobs: number;
+    success: number;
+    partial: number;
+    failed: number;
+    cancelled: number;
+    avgDurationMs: number;
+    lastRunAt: string | null;
+  }>;
 }
 
 export const resourceApi = {
