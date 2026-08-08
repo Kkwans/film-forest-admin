@@ -173,12 +173,19 @@ export interface CrawlerSchedule {
   priority: string;
   genreFilter: string | null;
   status: string;
+  latestJobId?: number | null;
+  latestResult?: string | null;
   lastRunTime: string | null;
   nextRunTime: string | null;
   totalRuns: number;
   totalItems: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface CrawlerSourceDescriptor {
+  code: string;
+  name: string;
 }
 
 export interface CrawlerTaskLog {

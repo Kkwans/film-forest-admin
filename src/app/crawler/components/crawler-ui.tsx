@@ -1,0 +1,83 @@
+import type { ReactNode } from 'react';
+import { AlertTriangle, CheckCircle2, Clock3, Loader2, StopCircle, XCircle } from 'lucide-react';
+
+const STATUS: Record<string, { label: string; icon: ReactNode; className: string }> = {
+  queued: { label: '排队中', icon: <Clock3 className="size-3" />, className: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },
+  running: { label: '运行中', icon: <Loader2 className="size-3 animate-spin" />, className: 'bg-blue-500/15 text-blue-600 dark:text-blue-300' },
+  cancel_requested: { label: '正在取消', icon: <Loader2 className="size-3 animate-spin" />, className: 'bg-orange-500/15 text-orange-600 dark:text-orange-300' },
+  success: { label: '成功', icon: <CheckCircle2 className="size-3" />, className: 'bg-primary/15 text-primary' },
+  partial_success: { label: '部分成功', icon: <AlertTriangle className="size-3" />, className: 'bg-amber-500/15 text-amber-700 dark:text-amber-300' },
+  failed: { label: '失败', icon: <XCircle className="size-3" />, className: 'bg-destructive/15 text-destructive' },
+  cancelled: { label: '已取消', icon: <StopCircle className="size-3" />, className: 'bg-orange-500/15 text-orange-700 dark:text-orange-300' },
+  interrupted: { label: '已中断', icon: <AlertTriangle className="size-3" />, className: 'bg-violet-500/15 text-violet-700 dark:text-violet-300' },
+};
+
+export const CONTENT_TYPES = [
+  { label: '电影', value: 'movie' },
+  { label: '剧集', value: 'drama' },
+  { label: '综艺', value: 'variety' },
+  { label: '动漫', value: 'anime' },
+  { label: '短剧', value: 'short_drama' },
+];
+
+export const JOB_STATUSES = [
+  { label: '全部状态', value: 'all' },
+  { label: '排队中', value: 'queued' },
+  { label: '运行中', value: 'running' },
+  { label: '正在取消', value: 'cancel_requested' },
+  { label: '成功', value: 'success' },
+  { label: '部分成功', value: 'partial_success' },
+  { label: '失败', value: 'failed' },
+  { label: '已取消', value: 'cancelled' },
+  { label: '已中断', value: 'interrupted' },
+];
+
+export function StatusBadge({ status }: { status?: string | null }) {
+  if (!status) return <span className="text-xs text-muted-foreground">尚未运行</span>;
+  const config = STATUS[status] ?? { label: status, icon: null, className: 'bg-muted text-muted-foreground' };
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${config.className}`}>
+      {config.icon}{config.label}
+    </span>
+  );
+}
+
+export function contentTypeLabel(value?: string | null) {
+  return CONTENT_TYPES.find(item => item.value === value)?.label ?? value ?? '-';
+}
+
+export function parseCrawlerTime(value: string) {
+  return new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`);
+}
+
+export function formatCrawlerTime(value?: string | null) {
+  if (!value) return '-';
+  return new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).format(parseCrawlerTime(value));
+}
+
+export function formatDuration(value?: number | null) {
+  if (value == null) return '-';
+  if (value < 1000) return `${Math.round(value)} ms`;
+  if (value < 60_000) return `${(value / 1000).toFixed(1)} 秒`;
+  return `${Math.floor(value / 60_000)} 分 ${Math.round((value % 60_000) / 1000)} 秒`;
+}
+
+export function elapsedFor(startedAt?: string | null, queuedAt?: string | null, durationMs?: number | null) {
+  if (durationMs != null) return formatDuration(durationMs);
+  const start = startedAt || queuedAt;
+  return start ? formatDuration(Math.max(0, Date.now() - parseCrawlerTime(start).getTime())) : '-';
+}
+
+export function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+export const inputClass = 'h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20';
