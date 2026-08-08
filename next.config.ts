@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
 
   experimental: {
+    useTypeScriptCli: false,
     optimizePackageImports: [
       "lucide-react",
       "@base-ui/react",
