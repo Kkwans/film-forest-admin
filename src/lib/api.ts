@@ -173,12 +173,30 @@ export interface CrawlerTaskLog {
   scheduleName: string;
   contentType: string;
   status: string;
+  triggerType?: string;
+  retryOfJobId?: number | null;
+  cancelRequested?: boolean;
+  currentPage?: number | null;
+  currentItem?: string | null;
+  discoveredCount?: number;
+  fetchSucceededCount?: number;
+  parseSucceededCount?: number;
+  addedCount?: number;
+  updatedCount?: number;
+  unchangedCount?: number;
+  filteredCount?: number;
+  failedCount?: number;
+  checkpoint?: string | null;
+  heartbeatAt?: string | null;
+  progressUpdatedAt?: string | null;
+  errorSummary?: string | null;
+  queuedAt?: string | null;
   itemsCrawled: number;
   itemsAdded: number;
   itemsUpdated: number;
   errorMessage: string | null;
   durationMs: number | null;
-  startedAt: string;
+  startedAt: string | null;
   finishedAt: string | null;
 }
 

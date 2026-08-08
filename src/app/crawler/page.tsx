@@ -236,18 +236,24 @@ function CronBuilder({ value, onChange }: { value: string; onChange: (v: string)
 
 function formatTime(iso: string | null): string {
   if (!iso) return '-';
-  return new Date(iso).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return parseCrawlerTime(iso).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 function timeAgo(iso: string | null): string {
   if (!iso) return '-';
-  const diff = Date.now() - new Date(iso).getTime();
+  const diff = Date.now() - parseCrawlerTime(iso).getTime();
   const m = Math.floor(diff / 60000);
   if (m < 1) return '刚刚';
   if (m < 60) return `${m}分钟前`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}小时前`;
   return `${Math.floor(h / 24)}天前`;
+}
+
+/** 后端爬虫 datetime 统一按 UTC 存储；已有显式偏移时保持原值。 */
+function parseCrawlerTime(iso: string): Date {
+  const hasTimeZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso);
+  return new Date(hasTimeZone ? iso : `${iso}Z`);
 }
 
 // ========== 常量（模块级，避免组件重渲染时重复创建）==========
@@ -286,12 +292,29 @@ const PRIORITY_OPTIONS = [
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+  queued: { label: '排队中', icon: <Clock className="w-3 h-3" />, className: 'bg-slate-500/20 text-slate-600 dark:text-slate-300' },
   success: { label: '成功', icon: <CheckCircle className="w-3 h-3" />, className: 'bg-primary/20 text-primary dark:text-primary' },
+  partial_success: { label: '部分成功', icon: <AlertTriangle className="w-3 h-3" />, className: 'bg-amber-500/20 text-amber-600 dark:text-amber-400' },
   failed: { label: '失败', icon: <XCircle className="w-3 h-3" />, className: 'bg-destructive/20 text-destructive' },
   running: { label: '运行中', icon: <Loader2 className="w-3 h-3 animate-spin" />, className: 'bg-blue-500/20 text-blue-500' },
+  cancel_requested: { label: '正在取消', icon: <Loader2 className="w-3 h-3 animate-spin" />, className: 'bg-orange-500/20 text-orange-600 dark:text-orange-400' },
+  cancelled: { label: '已取消', icon: <StopCircle className="w-3 h-3" />, className: 'bg-orange-500/20 text-orange-600 dark:text-orange-400' },
+  interrupted: { label: '已中断', icon: <AlertTriangle className="w-3 h-3" />, className: 'bg-violet-500/20 text-violet-600 dark:text-violet-400' },
   stopped: { label: '已停止', icon: <StopCircle className="w-3 h-3" />, className: 'bg-orange-500/20 text-orange-500' },
   pending_retry: { label: '等待重试', icon: <RotateCcw className="w-3 h-3" />, className: 'bg-yellow-500/20 text-yellow-600' },
 };
+
+const RETRYABLE_JOB_STATUSES = new Set(['failed', 'partial_success', 'cancelled', 'interrupted']);
+
+function isRetryableJobStatus(status: string): boolean {
+  return RETRYABLE_JOB_STATUSES.has(status);
+}
+
+function countRetryableJobs(byStatus: Record<string, number> | undefined): number {
+  if (!byStatus) return 0;
+  return Array.from(RETRYABLE_JOB_STATUSES)
+    .reduce((total, status) => total + (byStatus[status] || 0), 0);
+}
 
 interface ScheduleForm {
   id?: number;
@@ -335,6 +358,7 @@ export default function CrawlerPage() {
   const [logsLoaded, setLogsLoaded] = useState(false);
   const [logStatusFilter, setLogStatusFilter] = useState<string>('all');
   const [logStats, setLogStats] = useState<{ total: number; byStatus: Record<string, number>; recentFailed: CrawlerTaskLog[] } | null>(null);
+  const retryableLogCount = countRetryableJobs(logStats?.byStatus);
   const [retryingId, setRetryingId] = useState<number | null>(null);
   const [retryAllLoading, setRetryAllLoading] = useState(false);
   const [genres, setGenres] = useState<string[]>([]);
@@ -583,7 +607,7 @@ export default function CrawlerPage() {
   const handleRetryAll = async () => {
     const ok = await dialog.confirm({
       title: '批量重试',
-      content: '将重新启动所有失败/停止的爬虫配置，确定继续？',
+      content: '将按每个配置最新的失败、部分成功、已取消或已中断 Job 创建重试任务，确定继续？',
       confirmText: '全部重试',
       cancelText: '取消',
     });
@@ -933,9 +957,9 @@ export default function CrawlerPage() {
             <FileText className="w-5 h-5 text-muted-foreground" />
             <span className="font-medium text-foreground">任务日志</span>
             <span className="text-xs text-muted-foreground">({logStats?.total ?? logs.length} 条)</span>
-            {logStats?.byStatus?.failed ? (
+            {retryableLogCount > 0 ? (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-destructive/20 text-destructive">
-                {logStats.byStatus.failed} 失败
+                {retryableLogCount} 可重试
               </span>
             ) : null}
           </div>
@@ -951,9 +975,13 @@ export default function CrawlerPage() {
                     {[
                       { key: 'all', label: '全部', count: logStats.total },
                       { key: 'success', label: '成功', count: logStats.byStatus?.success || 0 },
+                      { key: 'partial_success', label: '部分成功', count: logStats.byStatus?.partial_success || 0 },
                       { key: 'failed', label: '失败', count: logStats.byStatus?.failed || 0 },
+                      { key: 'queued', label: '排队中', count: logStats.byStatus?.queued || 0 },
                       { key: 'running', label: '运行中', count: logStats.byStatus?.running || 0 },
-                      { key: 'stopped', label: '已停止', count: logStats.byStatus?.stopped || 0 },
+                      { key: 'cancel_requested', label: '正在取消', count: logStats.byStatus?.cancel_requested || 0 },
+                      { key: 'cancelled', label: '已取消', count: logStats.byStatus?.cancelled || 0 },
+                      { key: 'interrupted', label: '已中断', count: logStats.byStatus?.interrupted || 0 },
                     ].map(tab => (
                       <button
                         key={tab.key}
@@ -975,14 +1003,14 @@ export default function CrawlerPage() {
                       </button>
                     ))}
                   </div>
-                  {logStats.byStatus?.failed ? (
+                  {retryableLogCount > 0 ? (
                     <button
                       onClick={handleRetryAll}
                       disabled={retryAllLoading}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
                     >
                       <RotateCcw className={`w-3 h-3 ${retryAllLoading ? 'animate-spin' : ''}`} />
-                      重试全部失败
+                      重试可恢复任务
                     </button>
                   ) : null}
                 </div>
@@ -1003,6 +1031,20 @@ export default function CrawlerPage() {
                         title={`失败 ${logStats.byStatus.failed}`}
                       />
                     ) : null}
+                    {logStats.byStatus?.partial_success ? (
+                      <div
+                        className="bg-amber-500 transition-all"
+                        style={{ width: `${(logStats.byStatus.partial_success / logStats.total) * 100}%` }}
+                        title={`部分成功 ${logStats.byStatus.partial_success}`}
+                      />
+                    ) : null}
+                    {logStats.byStatus?.queued ? (
+                      <div
+                        className="bg-slate-500 transition-all"
+                        style={{ width: `${(logStats.byStatus.queued / logStats.total) * 100}%` }}
+                        title={`排队中 ${logStats.byStatus.queued}`}
+                      />
+                    ) : null}
                     {logStats.byStatus?.running ? (
                       <div
                         className="bg-blue-500 transition-all"
@@ -1010,11 +1052,25 @@ export default function CrawlerPage() {
                         title={`运行中 ${logStats.byStatus.running}`}
                       />
                     ) : null}
-                    {logStats.byStatus?.stopped ? (
+                    {logStats.byStatus?.cancel_requested ? (
                       <div
                         className="bg-orange-500 transition-all"
-                        style={{ width: `${(logStats.byStatus.stopped / logStats.total) * 100}%` }}
-                        title={`已停止 ${logStats.byStatus.stopped}`}
+                        style={{ width: `${(logStats.byStatus.cancel_requested / logStats.total) * 100}%` }}
+                        title={`正在取消 ${logStats.byStatus.cancel_requested}`}
+                      />
+                    ) : null}
+                    {logStats.byStatus?.cancelled ? (
+                      <div
+                        className="bg-orange-600 transition-all"
+                        style={{ width: `${(logStats.byStatus.cancelled / logStats.total) * 100}%` }}
+                        title={`已取消 ${logStats.byStatus.cancelled}`}
+                      />
+                    ) : null}
+                    {logStats.byStatus?.interrupted ? (
+                      <div
+                        className="bg-violet-500 transition-all"
+                        style={{ width: `${(logStats.byStatus.interrupted / logStats.total) * 100}%` }}
+                        title={`已中断 ${logStats.byStatus.interrupted}`}
                       />
                     ) : null}
                   </div>
@@ -1065,9 +1121,9 @@ export default function CrawlerPage() {
                           <td className="p-3 text-primary">+{log.itemsAdded || 0}</td>
                           <td className="p-3 text-primary hidden lg:table-cell">{log.itemsUpdated || 0}</td>
                           <td className="p-3 text-muted-foreground hidden lg:table-cell text-xs">{log.durationMs ? `${(log.durationMs / 1000).toFixed(1)}s` : '-'}</td>
-                          <td className="p-3 text-muted-foreground text-xs">{formatTime(log.startedAt)}</td>
+                          <td className="p-3 text-muted-foreground text-xs">{formatTime(log.startedAt || log.queuedAt || null)}</td>
                           <td className="p-3 text-right">
-                            {(log.status === 'failed' || log.status === 'stopped') && (
+                            {isRetryableJobStatus(log.status) && (
                               <button
                                 onClick={() => handleRetry(log.id)}
                                 disabled={retryingId === log.id}
@@ -1099,7 +1155,7 @@ export default function CrawlerPage() {
                         <p className="text-sm font-medium text-foreground truncate">{log.scheduleName || '-'}</p>
                         <div className="flex items-center gap-2">
                           {renderStatusBadge(log.status)}
-                          {(log.status === 'failed' || log.status === 'stopped') && (
+                          {isRetryableJobStatus(log.status) && (
                             <button
                               onClick={() => handleRetry(log.id)}
                               disabled={retryingId === log.id}
@@ -1116,7 +1172,7 @@ export default function CrawlerPage() {
                         <span className="text-primary">新增: +{log.itemsAdded || 0}</span>
                         <span className="text-primary">更新: {log.itemsUpdated || 0}</span>
                         {log.durationMs && <span>耗时: {(log.durationMs / 1000).toFixed(1)}s</span>}
-                        <span>{formatTime(log.startedAt)}</span>
+                        <span>{formatTime(log.startedAt || log.queuedAt || null)}</span>
                       </div>
                       {log.errorMessage && (
                         <p className="text-xs text-destructive bg-destructive/10 rounded px-2 py-1">{log.errorMessage}</p>
@@ -1138,7 +1194,7 @@ export default function CrawlerPage() {
               <div className="p-4 border-t">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm font-medium text-foreground">错误详情</p>
-                  {logStats?.byStatus?.failed ? (
+                  {retryableLogCount > 0 ? (
                     <button
                       onClick={handleRetryAll}
                       disabled={retryAllLoading}
@@ -1152,17 +1208,19 @@ export default function CrawlerPage() {
                 {logs.filter(l => l.errorMessage).map((log) => (
                   <div key={log.id} className="mb-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs text-muted-foreground mb-1">{log.scheduleName} — {formatTime(log.startedAt)}</p>
+                      <p className="text-xs text-muted-foreground mb-1">{log.scheduleName} — {formatTime(log.startedAt || log.queuedAt || null)}</p>
                       <p className="text-sm text-destructive break-all">{log.errorMessage}</p>
                     </div>
-                    <button
-                      onClick={() => handleRetry(log.id)}
-                      disabled={retryingId === log.id}
-                      className="p-1.5 rounded hover:bg-destructive/20 text-destructive disabled:opacity-50 shrink-0"
-                      title="重试"
-                    >
-                      <RotateCcw className={`w-4 h-4 ${retryingId === log.id ? 'animate-spin' : ''}`} />
-                    </button>
+                    {isRetryableJobStatus(log.status) && (
+                      <button
+                        onClick={() => handleRetry(log.id)}
+                        disabled={retryingId === log.id}
+                        className="p-1.5 rounded hover:bg-destructive/20 text-destructive disabled:opacity-50 shrink-0"
+                        title="重试"
+                      >
+                        <RotateCcw className={`w-4 h-4 ${retryingId === log.id ? 'animate-spin' : ''}`} />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
