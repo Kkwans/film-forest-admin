@@ -16,10 +16,11 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
+    const backendUrl = process.env.INTERNAL_ADMIN_API_URL || "http://localhost:8081";
     return [
       {
         source: "/api/:path*",
-        destination: "http://192.168.5.110:8081/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
       },
     ];
   },
