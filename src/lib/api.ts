@@ -274,7 +274,15 @@ export const contentApi = {
     adminClient.patch(`/api/content/${type}/${id}/status?status=${status}`),
 
   // 合并列表
-  listAll: (params: { type?: string; page?: number; size?: number }) =>
+  listAll: (params: {
+    type?: string;
+    status?: number;
+    keyword?: string;
+    sort?: 'createdAt' | 'updatedAt' | 'year' | 'title' | 'score' | 'status';
+    sortDir?: 'asc' | 'desc';
+    page?: number;
+    size?: number;
+  }) =>
     adminClient.get('/api/content/all', { params }),
 
   // 统计

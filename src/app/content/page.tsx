@@ -10,7 +10,6 @@ import { useToast } from '@/components/ui/toast';
 import { useDialog } from '@/components/ui/dialog';
 import { Search, Plus, Edit, Trash2, Eye, Inbox, X, Loader2 } from 'lucide-react';
 import { contentApi, tagApi, type TagItem } from '@/lib/api';
-import type { AxiosResponse } from 'axios';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import Pagination from '@/components/Pagination';
@@ -68,12 +67,10 @@ interface ContentRecord {
   createdAt: string;
   updatedAt: string;
 }
-interface ContentListParams { page: number; size: number; keyword?: string; }
-interface ContentListResponse { code: number; data: { records: ContentRecord[]; total: number }; }
-interface ContentResult { code: number; data: { records: ContentRecord[]; total: number } | ContentRecord[]; }
-
 type FilterType = 'all' | ContentType;
 type StatusFilter = 'all' | '1' | '0';
+type SortField = 'createdAt' | 'updatedAt' | 'year' | 'title' | 'score' | 'status';
+type SortDirection = 'asc' | 'desc';
 
 /** 渲染内容的标签 */
 function ContentTags({ item, allTags, contentTagMap }: { item: ContentRecord; allTags: TagItem[]; contentTagMap: Record<string, number[]> }) {
@@ -139,10 +136,12 @@ export default function ContentPage() {
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sortField, setSortField] = useState<SortField>('updatedAt');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const pageSize = 20;
-  const [allItems, setAllItems] = useState<ContentRecord[]>([]); // typeFilter='all' 时的全量数据
+  const fetchRequestRef = useRef(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [savingNew, setSavingNew] = useState(false);
@@ -180,82 +179,38 @@ export default function ContentPage() {
   }, []);
 
   const fetchItems = useCallback(async () => {
+    const requestId = ++fetchRequestRef.current;
     setLoading(true);
     try {
-      const types: FilterType[] = typeFilter === 'all'
-        ? ['movie', 'drama', 'variety', 'anime', 'short_drama']
-        : [typeFilter];
-
-      const isAllTypes = typeFilter === 'all';
-      // typeFilter='all' 时拉取全量数据做客户端分页，避免各类型各取一页导致数据错乱
-      const fetchSize = isAllTypes ? 50 : pageSize;
-      const fetchPage = isAllTypes ? 1 : page;
-
-      const results = await Promise.allSettled(
-        types.map(t => {
-          const params: ContentListParams = { page: fetchPage, size: fetchSize };
-          if (debouncedKeyword) params.keyword = debouncedKeyword;
-          switch (t) {
-            case 'movie': return contentApi.listMovies(params);
-            case 'drama': return contentApi.listDramas(params);
-            case 'variety': return contentApi.listVarieties(params);
-            case 'anime': return contentApi.listAnimes(params);
-            case 'short_drama': return contentApi.listShortDramas(params);
-          }
-        })
-      );
-
-      let records: ContentRecord[] = [];
-      let totalCount = 0;
-      let idx = 0;
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value) {
-          const res = result.value;
-          if (res.data?.code === 200) {
-            const recs: ContentRecord[] = (res.data.data.records || []).map((r: ContentRecord) => ({
-              ...r,
-              type: types[idx],
-            }));
-            records.push(...recs);
-            totalCount += res.data.data.total || 0;
-          }
-        }
-        idx++;
+      const response = await contentApi.listAll({
+        type: typeFilter === 'all' ? undefined : typeFilter,
+        status: statusFilter === 'all' ? undefined : Number(statusFilter),
+        keyword: debouncedKeyword || undefined,
+        sort: sortField,
+        sortDir: sortDirection,
+        page,
+        size: pageSize,
+      });
+      if (requestId !== fetchRequestRef.current) return;
+      if (response.data?.code !== 200) {
+        throw new Error(response.data?.message || '数据加载失败');
       }
-
-      // Filter by status
-      if (statusFilter !== 'all') {
-        records = records.filter(i => String(i.status) === statusFilter);
-        if (isAllTypes) totalCount = records.length;
-      }
-
-      // Sort by createdAt desc
-      records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-      if (isAllTypes) {
-        // 全量数据存入 allItems，客户端分页
-        setAllItems(records);
-        setTotal(records.length);
-        setItems(records.slice(0, pageSize));
-      } else {
-        setAllItems([]);
-        setItems(records);
-        setTotal(totalCount);
-      }
+      const result = response.data.data as {
+        records?: ContentRecord[];
+        total?: number;
+      };
+      setItems(Array.isArray(result.records) ? result.records : []);
+      setTotal(Number(result.total) || 0);
     } catch (e: unknown) {
-      toast.error(extractErrorMessage(e, '数据加载失败'));
+      if (requestId === fetchRequestRef.current) {
+        toast.error(extractErrorMessage(e, '数据加载失败'));
+      }
     } finally {
-      setLoading(false);
+      if (requestId === fetchRequestRef.current) {
+        setLoading(false);
+      }
     }
-  }, [typeFilter, statusFilter, debouncedKeyword, page]);
-
-  // typeFilter='all' 时的客户端分页
-  useEffect(() => {
-    if (typeFilter === 'all' && allItems.length > 0) {
-      const start = (page - 1) * pageSize;
-      setItems(allItems.slice(start, start + pageSize));
-    }
-  }, [page, typeFilter, allItems, pageSize]);
+  }, [typeFilter, statusFilter, debouncedKeyword, sortField, sortDirection, page]);
 
   useEffect(() => {
     fetchItems();
@@ -405,12 +360,41 @@ export default function ContentPage() {
   };
   handleSaveNewRef.current = handleSaveNew;
 
+  const loadFullContent = async (item: ContentRecord): Promise<ContentRecord> => {
+    const response = await dispatchByType(item.type, {
+      movie: () => contentApi.getMovie(item.id),
+      drama: () => contentApi.getDrama(item.id),
+      variety: () => contentApi.getVariety(item.id),
+      anime: () => contentApi.getAnime(item.id),
+      short_drama: () => contentApi.getShortDrama(item.id),
+    });
+    if (response.data?.code !== 200 || !response.data.data) {
+      throw new Error(response.data?.message || '内容详情加载失败');
+    }
+    return { ...(response.data.data as ContentRecord), type: item.type };
+  };
+
+  const handleDetailClick = async (item: ContentRecord) => {
+    try {
+      setDetailItem(await loadFullContent(item));
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, '内容详情加载失败'));
+    }
+  };
+
   const handleEditClick = async (item: ContentRecord) => {
-    setEditingItem(item);
+    let fullItem: ContentRecord;
+    try {
+      fullItem = await loadFullContent(item);
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, '内容详情加载失败'));
+      return;
+    }
+    setEditingItem(fullItem);
     setFormErrors({});
     // Load tags for this content
     try {
-      const tagRes = await tagApi.getContentTags(item.type, item.id);
+      const tagRes = await tagApi.getContentTags(fullItem.type, fullItem.id);
       if (tagRes.data?.code === 200 && Array.isArray(tagRes.data.data)) {
         setSelectedTagIds(tagRes.data.data.map((t: TagItem) => t.id));
       } else {
@@ -418,24 +402,24 @@ export default function ContentPage() {
       }
     } catch (e: unknown) { setSelectedTagIds([]); }
     setEditForm({
-      title: item.title || '',
-      posterUrl: item.posterUrl || '',
-      year: String(item.year || ''),
-      scoreDouban: String(item.scoreDouban || ''),
-      scoreImdb: String(item.scoreImdb || ''),
-      scoreRt: String(item.scoreRt || ''),
-      genre: parseJsonArray(item.genre),
-      region: parseJsonArray(item.region),
-      language: parseJsonArray(item.language),
-      director: parseJsonArray(item.director),
-      writer: parseJsonArray(item.writer),
-      actor: parseJsonArray(item.actor),
-      storyline: item.storyline || '',
-      duration: String(item.duration || ''),
-      releaseDate: item.releaseDate || '',
-      alias: parseJsonArray(item.alias),
-      status: item.status,
-      type: item.type,
+      title: fullItem.title || '',
+      posterUrl: fullItem.posterUrl || '',
+      year: String(fullItem.year || ''),
+      scoreDouban: String(fullItem.scoreDouban || ''),
+      scoreImdb: String(fullItem.scoreImdb || ''),
+      scoreRt: String(fullItem.scoreRt || ''),
+      genre: parseJsonArray(fullItem.genre),
+      region: parseJsonArray(fullItem.region),
+      language: parseJsonArray(fullItem.language),
+      director: parseJsonArray(fullItem.director),
+      writer: parseJsonArray(fullItem.writer),
+      actor: parseJsonArray(fullItem.actor),
+      storyline: fullItem.storyline || '',
+      duration: String(fullItem.duration || ''),
+      releaseDate: fullItem.releaseDate || '',
+      alias: parseJsonArray(fullItem.alias),
+      status: fullItem.status,
+      type: fullItem.type,
     });
   };
 
@@ -510,11 +494,13 @@ export default function ContentPage() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedKeys.size === filtered.length) {
-      setSelectedKeys(new Set());
-    } else {
-      setSelectedKeys(new Set(filtered.map(i => `${i.type}-${i.id}`)));
-    }
+    const visibleKeys = filtered.map(i => `${i.type}-${i.id}`);
+    setSelectedKeys(previous => {
+      const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every(key => previous.has(key));
+      const next = new Set(previous);
+      visibleKeys.forEach(key => allVisibleSelected ? next.delete(key) : next.add(key));
+      return next;
+    });
   };
 
   const handleBatchDelete = async () => {
@@ -546,11 +532,6 @@ export default function ContentPage() {
       if (r.status === 'fulfilled' && (r.value?.data?.code === 200 || r.value?.data?.code === 0)) return acc + 1;
       return acc;
     }, 0);
-    // 同步 allItems（typeFilter='all' 时使用客户端数据）
-    if (typeFilter === 'all') {
-      const deleteKeys = new Set(entries.map(e => `${e.type}-${e.id}`));
-      setAllItems(prev => prev.filter(i => !deleteKeys.has(`${i.type}-${i.id}`)));
-    }
     setTotal(t => Math.max(0, t - successCount));
     toast.success(`成功删除 ${successCount} 条内容`);
     // 清理已删除条目的标签缓存
@@ -583,11 +564,6 @@ export default function ContentPage() {
       if (r.status === 'fulfilled' && (r.value?.data?.code === 200 || r.value?.data?.code === 0)) return acc + 1;
       return acc;
     }, 0);
-    // 同步 allItems（typeFilter='all' 时使用客户端数据）
-    if (typeFilter === 'all') {
-      const updateKeys = new Set(entries.map(e => `${e.type}-${e.id}`));
-      setAllItems(prev => prev.map(i => updateKeys.has(`${i.type}-${i.id}`) ? { ...i, status: newStatus } : i));
-    }
     toast.success(`成功${newStatus === 1 ? '上线' : '下线'} ${successCount} 条内容`);
     // 清理已操作条目的标签缓存，确保刷新后标签一致
     setContentTagMap(prev => {
@@ -729,6 +705,25 @@ export default function ContentPage() {
               options={[{ label: '全部状态', value: 'all' }, { label: '已上线', value: '1' }, { label: '已下线', value: '0' }]}
               className="w-36"
             />
+            <Select
+              value={sortField}
+              onChange={(v) => { setSortField(v as SortField); setPage(1); }}
+              options={[
+                { label: '最近更新', value: 'updatedAt' },
+                { label: '创建时间', value: 'createdAt' },
+                { label: '年份', value: 'year' },
+                { label: '标题', value: 'title' },
+                { label: '评分', value: 'score' },
+                { label: '状态', value: 'status' },
+              ]}
+              className="w-36"
+            />
+            <Select
+              value={sortDirection}
+              onChange={(v) => { setSortDirection(v as SortDirection); setPage(1); }}
+              options={[{ label: '降序', value: 'desc' }, { label: '升序', value: 'asc' }]}
+              className="w-28"
+            />
             <Button variant="outline" size="sm" onClick={fetchItems} disabled={loading} className="border-border text-muted-foreground hover:text-foreground">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : '刷新'}
             </Button>
@@ -756,7 +751,7 @@ export default function ContentPage() {
                   <th className="text-center px-3 py-3 w-10">
                     <input
                       type="checkbox"
-                      checked={filtered.length > 0 && selectedKeys.size === filtered.length}
+                      checked={filtered.length > 0 && filtered.every(item => selectedKeys.has(`${item.type}-${item.id}`))}
                       onChange={toggleSelectAll}
                       className="rounded border-border"
                     />
@@ -854,7 +849,7 @@ export default function ContentPage() {
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-1">
-                          <button onClick={() => setDetailItem(item)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="详情">
+                          <button onClick={() => handleDetailClick(item)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors" title="详情">
                             <Eye className="w-4 h-4" />
                           </button>
                           <button onClick={() => handleEditClick(item)} className="p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors" title="编辑">
@@ -929,7 +924,7 @@ export default function ContentPage() {
                       <p className="text-xs text-muted-foreground mt-1.5">{item.createdAt?.slice(0, 10)}</p>
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
-                      <button onClick={() => setDetailItem(item)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="详情">
+                      <button onClick={() => handleDetailClick(item)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground" title="详情">
                         <Eye className="w-4 h-4" />
                       </button>
                       <button onClick={() => handleEditClick(item)} className="p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary" title="编辑">
