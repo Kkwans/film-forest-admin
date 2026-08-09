@@ -1,3 +1,5 @@
+'use client';
+
 import {
   CalendarClock,
   FileText,
@@ -7,6 +9,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
+import { useState } from 'react';
 import { MultiSelect, Select } from '@/components/ui/select';
 import type { TagItem } from '@/lib/api';
 
@@ -171,6 +174,19 @@ function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: Re
   );
 }
 
+function PosterPreview({ url }: { url: string }) {
+  const [failedUrl, setFailedUrl] = useState('');
+  const canShow = Boolean(url) && failedUrl !== url;
+  return canShow ? (
+    <img src={url} alt="海报预览" className="size-full object-cover" onError={() => setFailedUrl(url)} />
+  ) : (
+    <div className="grid size-full place-items-center gap-1 p-2 text-center text-muted-foreground">
+      <ImageIcon className="size-6" />
+      <span className="text-[10px] leading-tight">{url ? '海报无法加载' : '海报预览'}</span>
+    </div>
+  );
+}
+
 export function ContentFormFields({
   form,
   onChange,
@@ -214,7 +230,7 @@ export function ContentFormFields({
             <FormInput type="url" value={form.posterUrl} onChange={event => onChange({ ...form, posterUrl: event.target.value })} placeholder="https://example.com/poster.jpg" />
           </Field>
           <div className="aspect-[2/3] overflow-hidden rounded-xl border border-border bg-muted/40">
-            {form.posterUrl ? <img src={form.posterUrl} alt="海报预览" className="size-full object-cover" /> : <div className="grid size-full place-items-center text-muted-foreground"><ImageIcon className="size-6" /></div>}
+            <PosterPreview url={form.posterUrl} />
           </div>
         </div>
       </section>

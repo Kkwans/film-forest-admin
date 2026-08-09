@@ -8,7 +8,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
 import { useToast } from '@/components/ui/toast';
 import { useDialog } from '@/components/ui/dialog';
-import { Search, Plus, Edit, Trash2, Eye, Inbox, X, Loader2 } from 'lucide-react';
+import {
+  CirclePlay,
+  Edit,
+  Eye,
+  Film,
+  ImageOff,
+  Inbox,
+  Loader2,
+  Plus,
+  Radio,
+  Search,
+  Smartphone,
+  Sparkles,
+  Star,
+  Trash2,
+  Tv,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { contentApi, tagApi, type TagItem } from '@/lib/api';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -75,6 +93,47 @@ type FilterType = 'all' | ContentType;
 type StatusFilter = 'all' | '0' | '1' | '2';
 type SortField = 'createdAt' | 'updatedAt' | 'year' | 'title' | 'score' | 'status';
 type SortDirection = 'asc' | 'desc';
+
+const TYPE_PRESENTATION: Record<ContentType, { icon: LucideIcon; color: string; background: string }> = {
+  movie: { icon: Film, color: 'text-sky-700 dark:text-sky-300', background: 'bg-sky-500/10' },
+  drama: { icon: Tv, color: 'text-violet-700 dark:text-violet-300', background: 'bg-violet-500/10' },
+  variety: { icon: Radio, color: 'text-amber-700 dark:text-amber-300', background: 'bg-amber-500/10' },
+  anime: { icon: Sparkles, color: 'text-emerald-700 dark:text-emerald-300', background: 'bg-emerald-500/10' },
+  short_drama: { icon: Smartphone, color: 'text-rose-700 dark:text-rose-300', background: 'bg-rose-500/10' },
+};
+
+function ContentPoster({ url, title, className }: { url?: string; title: string; className: string }) {
+  const [failedUrl, setFailedUrl] = useState('');
+  const canShowImage = Boolean(url) && failedUrl !== url;
+  return (
+    <div className={`overflow-hidden border border-border bg-muted/45 ${className}`}>
+      {canShowImage ? (
+        <img
+          src={url}
+          alt={`${title}海报`}
+          className="size-full object-cover"
+          loading="lazy"
+          onError={() => setFailedUrl(url || '')}
+        />
+      ) : (
+        <div className="grid size-full place-items-center gap-1 p-2 text-center text-muted-foreground">
+          <ImageOff className="size-5" />
+          <span className="text-[10px] leading-tight">暂无海报</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TypeLabel({ type }: { type: ContentType }) {
+  const meta = TYPE_PRESENTATION[type];
+  const Icon = meta.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium ${meta.background} ${meta.color}`}>
+      <Icon className="size-3.5" />{TYPE_LABELS[type]}
+    </span>
+  );
+}
 
 /** 渲染内容的标签 */
 function ContentTags({ item, allTags, contentTagMap }: { item: ContentRecord; allTags: TagItem[]; contentTagMap: Record<string, number[]> }) {
@@ -624,23 +683,19 @@ export default function ContentPage() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {[
-          { label: '电影', key: 'movie', icon: '🎬', color: 'text-blue-500', bg: 'bg-blue-500/10' },
-          { label: '剧集', key: 'drama', icon: '📺', color: 'text-violet-500', bg: 'bg-violet-500/10' },
-          { label: '综艺', key: 'variety', icon: '🎤', color: 'text-amber-500', bg: 'bg-amber-500/10' },
-          { label: '动漫', key: 'anime', icon: '🎯', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-          { label: '短剧', key: 'short_drama', icon: '⚡', color: 'text-rose-500', bg: 'bg-rose-500/10' },
-        ].map((stat) => (
-          <Card key={stat.key} className="bg-card border-border hover:border-foreground/10 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200 group">
+        {(Object.keys(TYPE_PRESENTATION) as ContentType[]).map(type => {
+          const meta = TYPE_PRESENTATION[type];
+          const Icon = meta.icon;
+          return <Card key={type} className="border-border bg-card transition-[border-color,box-shadow] hover:border-primary/25 hover:shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
-                <div className={`w-9 h-9 rounded-lg ${stat.bg} flex items-center justify-center text-base`}>{stat.icon}</div>
-                <span className={`text-2xl font-bold ${stat.color} tabular-nums`}>{typeCountMap[stat.key] ?? '-'}</span>
+                <div className={`grid size-9 place-items-center rounded-xl ${meta.background} ${meta.color}`}><Icon className="size-4" /></div>
+                <span className={`text-2xl font-bold tabular-nums ${meta.color}`}>{typeCountMap[type] ?? '-'}</span>
               </div>
-              <span className="text-xs text-muted-foreground font-medium">{stat.label}</span>
+              <span className="text-xs font-medium text-muted-foreground">{TYPE_LABELS[type]}</span>
             </CardContent>
-          </Card>
-        ))}
+          </Card>;
+        })}
       </div>
 
       {/* Batch Action Bar */}
@@ -817,13 +872,7 @@ export default function ContentPage() {
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-3">
-                          <img
-                            src={item.posterUrl || `https://picsum.photos/seed/${item.type}${item.id}/100/150`}
-                            alt={item.title}
-                            className="w-11 h-[60px] object-cover rounded-md ring-1 ring-black/5 shadow-sm"
-                            loading="lazy"
-                            onError={(e) => { (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${item.type}${item.id}/100/150`; }}
-                          />
+                          <ContentPoster url={item.posterUrl} title={item.title} className="h-[60px] w-11 shrink-0 rounded-lg" />
                           <div className="min-w-0">
                             <p className="text-sm font-semibold text-foreground max-w-48 truncate group-hover:text-primary transition-colors">{item.title}</p>
                             <ContentTags item={item} allTags={allTags} contentTagMap={contentTagMap} />
@@ -832,17 +881,15 @@ export default function ContentPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3.5">
-                        <span className="text-sm text-foreground">
-                          {TYPE_LABELS[item.type] || item.type}
-                        </span>
+                        <TypeLabel type={item.type} />
                       </td>
                       <td className="px-4 py-3.5 text-sm text-muted-foreground">
                         {item.year || '-'}
                       </td>
                       <td className="px-4 py-3.5">
                         {item.scoreDouban ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                            ⭐ {item.scoreDouban}
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                            <Star className="size-3 fill-current" /> {item.scoreDouban}
                           </span>
                         ) : (
                           <span className="text-muted-foreground/40 text-xs">-</span>
@@ -907,21 +954,15 @@ export default function ContentPage() {
               filtered.map((item) => (
                 <div key={`${item.type}-${item.id}`} className="p-4 hover:bg-muted/30 transition-[background-color] duration-150 active:bg-muted/50">
                   <div className="flex items-start gap-3">
-                    <img
-                      src={item.posterUrl || `https://picsum.photos/seed/${item.type}${item.id}/100/150`}
-                      alt={item.title}
-                      className="w-12 h-[66px] object-cover rounded-md ring-1 ring-black/5 shadow-sm shrink-0"
-                      loading="lazy"
-                      onError={(e) => { (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${item.type}${item.id}/100/150`; }}
-                    />
+                    <ContentPoster url={item.posterUrl} title={item.title} className="h-[66px] w-12 shrink-0 rounded-lg" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{item.title}</p>
                       <ContentTags item={item} allTags={allTags} contentTagMap={contentTagMap} />
                       <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">{TYPE_LABELS[item.type]}</span>
+                        <TypeLabel type={item.type} />
                         {item.year && <span className="text-xs text-muted-foreground">{item.year}</span>}
                         {item.scoreDouban && (
-                          <span className="inline-flex items-center text-xs font-bold text-amber-600 dark:text-amber-400">⭐ {item.scoreDouban}</span>
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 dark:text-amber-300"><Star className="size-3 fill-current" />{item.scoreDouban}</span>
                         )}
                         <Select
                           value={String(item.status)}
@@ -968,67 +1009,53 @@ export default function ContentPage() {
       )}
 
       {/* Detail Modal */}
-      <Modal open={!!detailItem} onClose={() => setDetailItem(null)} title="内容详情" width="lg">
+      <Modal open={!!detailItem} onClose={() => setDetailItem(null)} title="内容详情" width="xl">
         {detailItem && (
-          <div className="space-y-4 py-2">
-            <div className="flex gap-4">
-              <img
-                src={detailItem.posterUrl || `https://picsum.photos/seed/${detailItem.type}${detailItem.id}/200/300`}
-                alt={detailItem.title}
-                className="w-32 h-44 object-cover rounded-lg"
-                loading="lazy"
-                onError={(e) => { (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${detailItem.type}${detailItem.id}/200/300`; }}
-              />
-              <div className="flex-1 space-y-2">
-                <h3 className="text-lg font-bold text-foreground">{detailItem.title}</h3>
-                <div className="flex flex-wrap gap-2">
-                  <Badge className="bg-muted text-muted-foreground">{TYPE_LABELS[detailItem.type]}</Badge>
+          <div className="space-y-6 py-1">
+            <div className="flex flex-col gap-5 sm:flex-row">
+              <ContentPoster url={detailItem.posterUrl} title={detailItem.title} className="aspect-[2/3] w-28 shrink-0 self-center rounded-xl sm:w-32 sm:self-start" />
+              <div className="min-w-0 flex-1 space-y-3">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">{TYPE_LABELS[detailItem.type]} #{detailItem.id}</p>
+                  <h3 className="mt-1 break-words text-xl font-bold text-foreground">{detailItem.title}</h3>
+                  {detailItem.alias && <p className="mt-1 text-sm text-muted-foreground">{parseJsonArray(detailItem.alias)}</p>}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <TypeLabel type={detailItem.type} />
                   {detailItem.year && <Badge className="bg-muted text-muted-foreground">{detailItem.year}</Badge>}
-                  {detailItem.scoreDouban && <Badge className="bg-primary/20 text-primary">豆瓣 {detailItem.scoreDouban}</Badge>}
-                  {detailItem.scoreImdb && <Badge className="bg-muted text-muted-foreground">IMDb {detailItem.scoreImdb}</Badge>}
-                  {detailItem.scoreRt && <Badge className="bg-destructive/20 text-destructive">RT {detailItem.scoreRt}%</Badge>}
-                  <Badge className={detailItem.status === 1 ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}>
-                    {detailItem.status === 1 ? '已上线' : '已下线'}
+                  <Badge className={detailItem.status === 1 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : detailItem.status === 2 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-muted text-muted-foreground'}>
+                    <CirclePlay className="mr-1 size-3" />{STATUS_LABELS[detailItem.status] || '未知状态'}
                   </Badge>
                 </div>
-                {/* Tags in detail */}
-                {(() => {
-                  const tagIds = contentTagMap[`${detailItem.type}-${detailItem.id}`];
-                  if (!tagIds || tagIds.length === 0) return null;
-                  const tags = tagIds.map(id => allTags.find(t => t.id === id)).filter(Boolean) as TagItem[];
-                  if (tags.length === 0) return null;
-                  return (
-                    <div className="flex flex-wrap gap-1.5 mt-1">
-                      {tags.map(tag => (
-                        <span key={tag.id} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white" style={{ backgroundColor: tag.color || '#6B7280' }}>
-                          {tag.name}
-                        </span>
-                      ))}
-                    </div>
-                  );
-                })()}
+                <div className="flex flex-wrap gap-2">
+                  {detailItem.scoreDouban != null && <Badge className="bg-primary/10 text-primary">豆瓣 {detailItem.scoreDouban}</Badge>}
+                  {detailItem.scoreImdb != null && <Badge className="bg-muted text-muted-foreground">IMDb {detailItem.scoreImdb}</Badge>}
+                  {detailItem.scoreRt != null && <Badge className="bg-rose-500/10 text-rose-700 dark:text-rose-300">RT {detailItem.scoreRt}%</Badge>}
+                </div>
+                <ContentTags item={detailItem} allTags={allTags} contentTagMap={contentTagMap} />
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              {detailItem.genre && <div><span className="text-muted-foreground">类型: </span><span className="text-foreground">{parseJsonArray(detailItem.genre)}</span></div>}
-              {detailItem.region && <div><span className="text-muted-foreground">地区: </span><span className="text-foreground">{parseJsonArray(detailItem.region)}</span></div>}
-              {detailItem.language && <div><span className="text-muted-foreground">语言: </span><span className="text-foreground">{parseJsonArray(detailItem.language)}</span></div>}
-              {detailItem.director && <div><span className="text-muted-foreground">导演: </span><span className="text-foreground">{parseJsonArray(detailItem.director)}</span></div>}
-              {detailItem.writer && <div><span className="text-muted-foreground">编剧: </span><span className="text-foreground">{parseJsonArray(detailItem.writer)}</span></div>}
-              {detailItem.actor && <div className="col-span-2"><span className="text-muted-foreground">演员: </span><span className="text-foreground">{parseJsonArray(detailItem.actor)}</span></div>}
-              {detailItem.duration && <div><span className="text-muted-foreground">时长: </span><span className="text-foreground">{detailItem.duration}分钟</span></div>}
-              {detailItem.releaseDate && <div><span className="text-muted-foreground">上映: </span><span className="text-foreground">{detailItem.releaseDate}</span></div>}
-              {detailItem.alias && <div className="col-span-2"><span className="text-muted-foreground">又名: </span><span className="text-foreground">{parseJsonArray(detailItem.alias)}</span></div>}
-            </div>
-            {detailItem.storyline && (
-              <div className="text-sm">
-                <p className="text-muted-foreground mb-1">剧情简介:</p>
-                <p className="text-foreground leading-relaxed">{detailItem.storyline}</p>
-              </div>
-            )}
-            <div className="text-xs text-muted-foreground">
-              <p>ID: {detailItem.id} | 创建: {detailItem.createdAt?.slice(0, 19)} | 更新: {detailItem.updatedAt?.slice(0, 19)}</p>
-            </div>
+
+            <dl className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4 text-sm sm:grid-cols-2">
+              {detailItem.genre && <div><dt className="text-xs text-muted-foreground">题材</dt><dd className="mt-1 text-foreground">{parseJsonArray(detailItem.genre)}</dd></div>}
+              {detailItem.region && <div><dt className="text-xs text-muted-foreground">地区</dt><dd className="mt-1 text-foreground">{parseJsonArray(detailItem.region)}</dd></div>}
+              {detailItem.language && <div><dt className="text-xs text-muted-foreground">语言</dt><dd className="mt-1 text-foreground">{parseJsonArray(detailItem.language)}</dd></div>}
+              {detailItem.director && <div><dt className="text-xs text-muted-foreground">导演</dt><dd className="mt-1 text-foreground">{parseJsonArray(detailItem.director)}</dd></div>}
+              {detailItem.writer && <div><dt className="text-xs text-muted-foreground">编剧</dt><dd className="mt-1 text-foreground">{parseJsonArray(detailItem.writer)}</dd></div>}
+              {detailItem.actor && <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">演员</dt><dd className="mt-1 text-foreground">{parseJsonArray(detailItem.actor)}</dd></div>}
+              {detailItem.duration != null && <div><dt className="text-xs text-muted-foreground">时长</dt><dd className="mt-1 text-foreground">{detailItem.duration} 分钟</dd></div>}
+              {detailItem.totalEpisode != null && <div><dt className="text-xs text-muted-foreground">总集数 / 期数</dt><dd className="mt-1 text-foreground">{detailItem.totalEpisode}</dd></div>}
+              {detailItem.releaseDate && <div><dt className="text-xs text-muted-foreground">上映 / 首播</dt><dd className="mt-1 text-foreground">{detailItem.releaseDate}</dd></div>}
+              {detailItem.seriesName && <div><dt className="text-xs text-muted-foreground">系列</dt><dd className="mt-1 text-foreground">{detailItem.seriesName}{detailItem.seriesOrder ? ` · 第 ${detailItem.seriesOrder} 部` : ''}</dd></div>}
+              <div><dt className="text-xs text-muted-foreground">海报状态</dt><dd className="mt-1 text-foreground">{detailItem.posterUrl ? '已配置来源海报' : '尚未配置'}</dd></div>
+            </dl>
+
+            <section className="rounded-xl border border-border p-4">
+              <h4 className="text-sm font-semibold text-foreground">剧情简介</h4>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-foreground/90">{detailItem.storyline || '暂无简介'}</p>
+            </section>
+
+            <p className="text-xs text-muted-foreground">创建于 {detailItem.createdAt?.slice(0, 19) || '-'} · 更新于 {detailItem.updatedAt?.slice(0, 19) || '-'}</p>
           </div>
         )}
       </Modal>
