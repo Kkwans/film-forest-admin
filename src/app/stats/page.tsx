@@ -1,559 +1,236 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { BarChart3, Inbox, Download, FileText, Loader2 } from 'lucide-react';
-import { statsApi, contentApi, crawlerApi, type CrawlerSchedule } from '@/lib/api';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AxiosResponse } from 'axios';
-import { useToast } from '@/components/ui/toast';
-import { extractErrorMessage } from '@/lib/utils';
+import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  CheckCircle2,
+  Cloud,
+  Database,
+  Download,
+  FileText,
+  Film,
+  Inbox,
+  Link2,
+  Loader2,
+  RadioTower,
+  RefreshCw,
+  Search,
+  Timer,
+} from 'lucide-react';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line, Legend } from 'recharts';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { useToast } from '@/components/ui/toast';
+import { crawlerApi, statsApi } from '@/lib/api';
+import { extractErrorMessage } from '@/lib/utils';
 
-// ---- Types ----
-interface Stats { movies: number; dramas: number; varieties: number; animes: number; shortDramas: number; }
-interface DailyStatsItem { date: string; dateLabel: string; runs: number; items: number; added: number; updated: number; }
-interface CrawlerStats { total: number; running: number; idle: number; totalRuns: number; totalItems: number; schedules: CrawlerScheduleItem[]; }
-interface CrawlerScheduleItem { name: string; contentType: string; totalRuns: number; totalItems: number; status: string; }
-interface CrawlerStatusResult { code: number; data: CrawlerStatusResponse; }
-interface CrawlerStatusResponse { total: number; running: number; idle: number; schedules: CrawlerScheduleItem[]; }
-interface ApiResult<T> { code: number; data: T; }
-
+interface ApiEnvelope<T> { code: number; message?: string; data: T }
 interface OverviewData {
   typeCounts: Record<string, number>;
   totalContent: number;
   weekGrowth: Record<string, number>;
   totalWeekGrowth: number;
-  crawler: { totalRuns: number; successRuns: number; failedRuns: number; successRate: number; totalItemsCrawled: number; };
-  resources: { online: number; magnet: number; cloud: number; total: number; };
+  crawler: { totalRuns: number; successRuns: number; failedRuns: number; successRate: number; totalItemsCrawled: number };
+  resources: { online: number; magnet: number; cloud: number; total: number };
   totalUsers: number;
 }
-
-interface TrendData {
-  dates: string[];
-  series: Record<string, Record<string, number>>;
-  labels: Record<string, string>;
+interface TrendData { dates: string[]; series: Record<string, Record<string, number>> }
+interface DailyOperation { date: string; jobs: number; success: number; partial: number; failed: number; cancelled: number; added: number; updated: number; failedItems: number }
+interface SourceHealth { source: string; jobs: number; success: number; partial: number; failed: number; cancelled: number; avgDurationMs: number; lastRunAt?: string | null }
+interface OperationsData {
+  days: number; jobs: number; success: number; partial: number; failed: number; cancelled: number;
+  avgDurationMs: number; added: number; updated: number; failedItems: number;
+  daily: DailyOperation[]; sourceHealth: SourceHealth[];
 }
-
-interface HotSearchItem {
-  keyword: string;
-  count: number;
-  lastSearchAt: string;
-}
-
-const COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#EF4444', '#10B981'];
-const TYPE_LABELS: Record<string, string> = { movie: '电影', drama: '剧集', variety: '综艺', anime: '动漫', short_drama: '短剧', short: '短剧' };
-const TYPE_ICONS: Record<string, string> = { movie: '🎬', drama: '📺', variety: '🎤', anime: '🎯', short_drama: '⚡' };
-const TYPE_ORDER = ['movie', 'drama', 'variety', 'anime', 'short_drama'];
-
+interface HotSearchItem { keyword: string; count: number; lastSearchAt?: string | null }
 interface ReportData {
-  days: number;
-  startDate: string;
-  endDate: string;
-  typeGrowth: Array<{ type: string; label: string; count: number }>;
-  crawlerEfficiency: { totalRuns: number; successRuns: number; failedRuns: number; totalItems: number; totalAdded: number; totalUpdated: number; avgDurationMs: number; successRate: number; };
-  qualityStats: Array<{ type: string; label: string; total: number; highScore: number; midScore: number; lowScore: number; avgScore: number; }>;
-  dailyTrend: { dates: string[]; totals: number[]; };
+  qualityStats: Array<{ type: string; label: string; total: number; highScore: number; midScore: number; lowScore: number; avgScore: number }>;
 }
 
-/** 饼图 Tooltip — 提取到组件外部避免重渲染 */
-function PieTooltip({ active, payload, total }: { active?: boolean; payload?: Array<{ name: string; value: number }>; total: number }) {
-  if (active && payload?.length) {
-    const d = payload[0];
-    const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : '0';
-    return (<div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-lg"><p className="text-foreground text-sm font-medium">{d.name}</p><p className="text-muted-foreground text-xs">{d.value.toLocaleString()} 条 ({pct}%)</p></div>);
+const TYPE_ORDER = ['movie', 'drama', 'variety', 'anime', 'short_drama'] as const;
+const TYPE_LABELS: Record<string, string> = { movie: '电影', drama: '剧集', variety: '综艺', anime: '动漫', short_drama: '短剧' };
+const COLORS = ['#0f766e', '#7c3aed', '#d97706', '#e11d48', '#0284c7'];
+const CHART_STYLE = { backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--foreground)', boxShadow: '0 8px 24px rgba(0,0,0,.14)' };
+
+function unwrap<T>(response: AxiosResponse<ApiEnvelope<T>>, fallback: string): T {
+  if (response.data?.code !== 200) throw new Error(response.data?.message || fallback);
+  return response.data.data;
+}
+
+function fillDaily(days: 7 | 30, rows: DailyOperation[]): DailyOperation[] {
+  const byDate = new Map(rows.map(row => [row.date, row]));
+  const result: DailyOperation[] = [];
+  const today = new Date();
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - offset);
+    const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    result.push(byDate.get(key) || { date: key, jobs: 0, success: 0, partial: 0, failed: 0, cancelled: 0, added: 0, updated: 0, failedItems: 0 });
   }
-  return null;
+  return result;
+}
+
+function EmptyChart({ label }: { label: string }) {
+  return <div className="grid h-72 place-items-center text-center text-sm text-muted-foreground"><div><Inbox className="mx-auto size-10 opacity-40" /><p className="mt-2">{label}</p></div></div>;
+}
+
+function ChartCard({ title, note, children }: { title: string; note: string; children: React.ReactNode }) {
+  return <Card className="overflow-hidden border-border bg-card"><div className="border-b border-border px-5 py-4"><h2 className="font-semibold text-foreground">{title}</h2><p className="mt-0.5 text-xs text-muted-foreground">{note}</p></div><CardContent className="p-4 sm:p-5">{children}</CardContent></Card>;
 }
 
 export default function StatsPage() {
+  const toast = useToast();
+  const [days, setDays] = useState<7 | 30>(30);
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [trend, setTrend] = useState<TrendData | null>(null);
-  const [crawlerStats, setCrawlerStats] = useState<CrawlerStats>({ total: 0, running: 0, idle: 0, totalRuns: 0, totalItems: 0, schedules: [] });
-  const [dailyStats, setDailyStats] = useState<DailyStatsItem[]>([]);
-  const [hotSearch, setHotSearch] = useState<HotSearchItem[]>([]);
+  const [operations, setOperations] = useState<OperationsData | null>(null);
   const [report, setReport] = useState<ReportData | null>(null);
+  const [hotSearch, setHotSearch] = useState<HotSearchItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'charts' | 'report'>('charts');
-  const [exporting, setExporting] = useState<string | null>(null);
-  const [showExportMenu, setShowExportMenu] = useState(false);
-  const [reportDays, setReportDays] = useState(30);
-  const toast = useToast();
+  const [exporting, setExporting] = useState(false);
+  const [loadIssue, setLoadIssue] = useState('');
 
-  const downloadCsv = useCallback(async (fetchFn: () => Promise<AxiosResponse<Blob>>, filename: string, label: string) => {
-    setExporting(label);
-    try {
-      const res = await fetchFn();
-      const url = URL.createObjectURL(res.data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`${label}导出成功`);
-    } catch (e: unknown) {
-      toast.error(`${label}导出失败`);
-    } finally {
-      setExporting(null);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    const results = await Promise.allSettled([
+      statsApi.getOverview() as Promise<AxiosResponse<ApiEnvelope<OverviewData>>>,
+      statsApi.getTrend(days) as Promise<AxiosResponse<ApiEnvelope<TrendData>>>,
+      crawlerApi.getOperationsStats(days) as Promise<AxiosResponse<ApiEnvelope<OperationsData>>>,
+      statsApi.getReport(days) as Promise<AxiosResponse<ApiEnvelope<ReportData>>>,
+      statsApi.getHotSearch(30, 10) as Promise<AxiosResponse<ApiEnvelope<HotSearchItem[]>>>,
+    ]);
+    const issues: string[] = [];
+    const apply = <T,>(index: number, fallback: string, setter: (value: T) => void) => {
+      const result = results[index];
       try {
-        const [overviewRes, trendRes, crawlerRes, dailyRes, hotSearchRes] = await Promise.all([
-          statsApi.getOverview() as Promise<AxiosResponse<ApiResult<OverviewData>>>,
-          statsApi.getTrend(30) as Promise<AxiosResponse<ApiResult<TrendData>>>,
-          crawlerApi.getStatus() as Promise<AxiosResponse<CrawlerStatusResult>>,
-          crawlerApi.getDailyStats() as Promise<AxiosResponse<ApiResult<DailyStatsItem[]>>>,
-          statsApi.getHotSearch(30, 15) as Promise<AxiosResponse<ApiResult<HotSearchItem[]>>>,
-        ]);
-
-        if (overviewRes.data?.code === 200) setOverview(overviewRes.data.data);
-        if (trendRes.data?.code === 200) setTrend(trendRes.data.data);
-        if (crawlerRes.data?.code === 200) {
-          const d = crawlerRes.data.data;
-          const schedules = d.schedules || [];
-          setCrawlerStats({
-            total: d.total || 0, running: d.running || 0, idle: d.idle || 0,
-            totalRuns: schedules.reduce((s: number, x: CrawlerScheduleItem) => s + (x.totalRuns || 0), 0),
-            totalItems: schedules.reduce((s: number, x: CrawlerScheduleItem) => s + (x.totalItems || 0), 0),
-            schedules,
-          });
-        }
-        if (dailyRes.data?.code === 200) setDailyStats(dailyRes.data.data || []);
-        if (hotSearchRes.data?.code === 200) setHotSearch(hotSearchRes.data.data || []);
-      } catch (e: unknown) {
-        toast.error(extractErrorMessage(e, '统计数据加载失败'));
-      } finally { setLoading(false); }
+        if (result.status !== 'fulfilled') throw result.reason;
+        setter(unwrap(result.value as AxiosResponse<ApiEnvelope<T>>, fallback));
+      } catch (error: unknown) { issues.push(extractErrorMessage(error, fallback)); }
     };
-    fetchData();
-  }, []);
+    apply<OverviewData>(0, '概览加载失败', setOverview);
+    apply<TrendData>(1, '内容趋势加载失败', setTrend);
+    apply<OperationsData>(2, '爬虫统计加载失败', setOperations);
+    apply<ReportData>(3, '质量报表加载失败', setReport);
+    apply<HotSearchItem[]>(4, '搜索统计加载失败', setHotSearch);
+    setLoadIssue(issues.join('；'));
+    setLoading(false);
+  }, [days]);
 
-  // ---- Derived data ----
-  const total = overview?.totalContent ?? 0;
-  const pieData = overview ? TYPE_ORDER.map(t => ({ name: TYPE_LABELS[t] || t, value: overview.typeCounts[t] || 0 })).filter(d => d.value > 0) : [];
-  const barData = crawlerStats.schedules.map(s => ({ name: (TYPE_LABELS[s.contentType] || s.contentType).replace(/.*\s/, ''), runs: s.totalRuns || 0, items: s.totalItems || 0 }));
-  const contentStats = overview ? TYPE_ORDER.map(t => ({ label: TYPE_LABELS[t] || t, value: overview.typeCounts[t] || 0, icon: TYPE_ICONS[t] || '📄', growth: overview.weekGrowth[t] || 0 })) : [];
+  useEffect(() => { const timer = window.setTimeout(() => void fetchData(), 0); return () => window.clearTimeout(timer); }, [fetchData]);
 
-  // Build trend chart data from the new trend API
-  const trendChartData = trend ? trend.dates.map(date => {
-    const point: Record<string, string | number> = { date: date.slice(5) }; // MM-DD
-    for (const t of TYPE_ORDER) {
-      point[TYPE_LABELS[t] || t] = trend.series[t]?.[date] || 0;
-    }
+  const downloadCsv = async (request: () => Promise<AxiosResponse<Blob>>, filename: string) => {
+    setExporting(true);
+    try {
+      const response = await request();
+      const url = URL.createObjectURL(response.data);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      toast.success('导出任务已完成');
+    } catch (error: unknown) { toast.error(extractErrorMessage(error, '导出失败')); }
+    finally { setExporting(false); }
+  };
+
+  const totalContent = Number(overview?.totalContent || 0);
+  const contentDistribution = TYPE_ORDER.map((type, index) => ({
+    type, name: TYPE_LABELS[type], value: Number(overview?.typeCounts[type] || 0),
+    growth: Number(overview?.weekGrowth[type] || 0), color: COLORS[index],
+  }));
+  const pieData = contentDistribution.filter(item => item.value > 0);
+  const trendData = useMemo(() => (trend?.dates || []).map(date => {
+    const point: Record<string, string | number> = { date: date.slice(5) };
+    TYPE_ORDER.forEach(type => { point[TYPE_LABELS[type]] = Number(trend?.series[type]?.[date] || 0); });
     return point;
-  }) : [];
-
-
-
-  useEffect(() => {
-    if (activeTab === 'report' && !report && !loading) {
-      statsApi.getReport(reportDays).then(res => {
-        if (res.data?.code === 200) setReport(res.data.data);
-      }).catch((e: unknown) => toast.error(extractErrorMessage(e, '报表数据加载失败')));
-    }
-  }, [activeTab, reportDays, report, loading]);
+  }), [trend]);
+  const dailyData = useMemo(() => fillDaily(days, operations?.daily || []).map(row => ({ ...row, dateLabel: row.date.slice(5) })), [days, operations]);
+  const terminalJobs = (operations?.success || 0) + (operations?.partial || 0) + (operations?.failed || 0) + (operations?.cancelled || 0);
+  const successRate = terminalJobs ? (operations?.success || 0) * 100 / terminalJobs : 0;
+  const metrics = [
+    { label: '内容总量', value: totalContent.toLocaleString(), note: `近 ${days} 天趋势见下方`, icon: Film, tone: 'bg-primary/10 text-primary' },
+    { label: '终态成功率', value: `${successRate.toFixed(1)}%`, note: `${operations?.success || 0} / ${terminalJobs} 个终态 Job`, icon: CheckCircle2, tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+    { label: '平均耗时', value: `${((operations?.avgDurationMs || 0) / 1000).toFixed(1)}s`, note: `${operations?.jobs || 0} 个 Job`, icon: Timer, tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+    { label: '数据变更', value: ((operations?.added || 0) + (operations?.updated || 0)).toLocaleString(), note: `新增 ${operations?.added || 0} · 更新 ${operations?.updated || 0}`, icon: Activity, tone: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
+    { label: '失败条目', value: (operations?.failedItems || 0).toLocaleString(), note: `失败 Job ${operations?.failed || 0}`, icon: AlertTriangle, tone: (operations?.failedItems || 0) > 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground' },
+    { label: '资源总量', value: Number(overview?.resources.total || 0).toLocaleString(), note: `在线 ${overview?.resources.online || 0} · 磁力 ${overview?.resources.magnet || 0}`, icon: Database, tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
+  ];
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Header with tabs and export buttons */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground mb-1">数据统计</h1>
-          <p className="text-sm text-muted-foreground">内容数据与爬虫运行详细分析</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Tab switcher */}
-          <div className="flex rounded-lg bg-muted p-1">
-            <button
-              onClick={() => setActiveTab('charts')}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${activeTab === 'charts' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <span className="flex items-center gap-1.5"><BarChart3 className="w-3.5 h-3.5" /> 图表</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('report')}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${activeTab === 'report' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-            >
-              <span className="flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> 报表</span>
-            </button>
-          </div>
-          {/* Export dropdown - click-based for mobile compatibility */}
-          <div className="relative">
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-              disabled={exporting !== null}
-            >
-              {exporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-              {exporting ? '导出中...' : '导出'}
-            </button>
-            {showExportMenu && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowExportMenu(false)} />
-                <div className="absolute right-0 top-full mt-1 w-48 bg-popover border border-border rounded-lg shadow-lg z-50">
-                  <div className="py-1">
-                    <button onClick={() => { downloadCsv(statsApi.exportOverview, 'film-forest-overview.csv', '概览数据'); setShowExportMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">📊 概览数据</button>
-                    <button onClick={() => { downloadCsv(() => statsApi.exportContent(), 'film-forest-content-all.csv', '全部内容'); setShowExportMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">📋 全部内容</button>
-                    <button onClick={() => { downloadCsv(() => statsApi.exportContent('movie'), 'film-forest-movies.csv', '电影列表'); setShowExportMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">🎬 电影列表</button>
-                    <button onClick={() => { downloadCsv(() => statsApi.exportContent('drama'), 'film-forest-dramas.csv', '剧集列表'); setShowExportMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">📺 剧集列表</button>
-                    <button onClick={() => { downloadCsv(() => statsApi.exportHotSearch(30), 'film-forest-hot-search.csv', '搜索热词'); setShowExportMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted transition-colors">🔥 搜索热词</button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Analytics workspace</p><h1 className="mt-1 text-2xl font-bold text-foreground">数据统计</h1><p className="mt-1 text-sm text-muted-foreground">面向分析与排障的详细趋势，不重复仪表盘的即时运营摘要。</p></div>
+        <div className="flex flex-wrap items-center gap-2"><div className="flex rounded-xl border border-border bg-muted/35 p-1" aria-label="统计周期">{([7, 30] as const).map(value => <button key={value} type="button" onClick={() => setDays(value)} className={`h-7 rounded-lg px-3 text-xs font-semibold ${days === value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`} aria-pressed={days === value}>近 {value} 天</button>)}</div><Button variant="outline" size="sm" onClick={() => void fetchData()} disabled={loading}><RefreshCw className={loading ? 'animate-spin' : ''} />刷新</Button><DropdownMenu><DropdownMenuTrigger className="inline-flex h-8 items-center gap-1 rounded-lg bg-primary px-2.5 text-xs font-semibold text-primary-foreground outline-none focus-visible:ring-3 focus-visible:ring-ring/30" disabled={exporting}>{exporting ? <Loader2 className="size-3.5 animate-spin" /> : <Download className="size-3.5" />}导出</DropdownMenuTrigger><DropdownMenuContent align="end" className="w-48"><DropdownMenuGroup><DropdownMenuLabel>CSV 数据</DropdownMenuLabel><DropdownMenuItem onClick={() => void downloadCsv(statsApi.exportOverview as () => Promise<AxiosResponse<Blob>>, 'film-forest-overview.csv')}><BarChart3 />运营概览</DropdownMenuItem><DropdownMenuItem onClick={() => void downloadCsv(() => statsApi.exportContent() as Promise<AxiosResponse<Blob>>, 'film-forest-content.csv')}><FileText />全部内容</DropdownMenuItem><DropdownMenuItem onClick={() => void downloadCsv(() => statsApi.exportHotSearch(30) as Promise<AxiosResponse<Blob>>, 'film-forest-hot-search.csv')}><Search />搜索热词</DropdownMenuItem></DropdownMenuGroup></DropdownMenuContent></DropdownMenu></div>
+      </header>
+
+      {loadIssue && <div role="alert" className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 p-3 text-sm text-amber-800 dark:text-amber-200"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><span>部分统计暂不可用：{loadIssue}</span></div>}
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">{metrics.map(metric => <Card key={metric.label} className="border-border bg-card"><CardContent className="p-4"><span className={`grid size-9 place-items-center rounded-xl ${metric.tone}`}><metric.icon className="size-4" /></span><p className="mt-3 text-xs text-muted-foreground">{metric.label}</p>{loading ? <Skeleton className="mt-1 h-7 w-20" /> : <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{metric.value}</p>}<p className="mt-1 truncate text-xs text-muted-foreground" title={metric.note}>{metric.note}</p></CardContent></Card>)}</div>
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <ChartCard title="内容增长趋势" note={`按内容类型统计近 ${days} 天每日新增`}>
+          {loading ? <Skeleton className="h-72 w-full" /> : !trendData.some(point => TYPE_ORDER.some(type => Number(point[TYPE_LABELS[type]]) > 0)) ? <EmptyChart label="当前周期没有新增内容" /> : <ResponsiveContainer width="100%" height={288}><LineChart data={trendData} margin={{ left: -14, right: 8, top: 8 }}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} /><YAxis allowDecimals={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip isAnimationActive={false} contentStyle={CHART_STYLE} /><Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />{TYPE_ORDER.map((type, index) => <Line key={type} type="monotone" dataKey={TYPE_LABELS[type]} stroke={COLORS[index]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />)}</LineChart></ResponsiveContainer>}
+        </ChartCard>
+        <ChartCard title="Job 每日结果" note="成功、部分成功、失败和取消按日堆叠；零值日期也保留">
+          {loading ? <Skeleton className="h-72 w-full" /> : !dailyData.some(row => row.jobs > 0) ? <EmptyChart label="当前周期没有爬虫 Job" /> : <ResponsiveContainer width="100%" height={288}><BarChart data={dailyData} margin={{ left: -14, right: 8, top: 8 }}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="dateLabel" tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} /><YAxis allowDecimals={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip isAnimationActive={false} contentStyle={CHART_STYLE} cursor={{ fill: 'var(--muted)', opacity: 0.25 }} /><Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} /><Bar dataKey="success" name="成功" stackId="jobs" fill="#059669" isAnimationActive={false} /><Bar dataKey="partial" name="部分成功" stackId="jobs" fill="#d97706" isAnimationActive={false} /><Bar dataKey="failed" name="失败" stackId="jobs" fill="#dc2626" isAnimationActive={false} /><Bar dataKey="cancelled" name="取消" stackId="jobs" fill="#64748b" radius={[3, 3, 0, 0]} isAnimationActive={false} /></BarChart></ResponsiveContainer>}
+        </ChartCard>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-primary/20 p-4 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
-              <span className="text-lg">📊</span>
-            </div>
-            <p className="text-xs text-primary/70 mb-1 font-medium">内容总量</p>
-            <p className="text-xl font-bold text-primary tabular-nums">{loading ? <Skeleton className="h-5 w-14" /> : total.toLocaleString()}</p>
-            {overview && overview.totalWeekGrowth > 0 && <p className="text-xs mt-1 text-emerald-500 font-medium">+{overview.totalWeekGrowth} 本周</p>}
-          </div>
-        </div>
-        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent pointer-events-none" />
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-2">
-              <span className="text-lg">🤖</span>
-            </div>
-            <p className="text-xs text-muted-foreground mb-1 font-medium">爬虫成功率</p>
-            <p className="text-xl font-bold text-foreground tabular-nums">{loading ? <Skeleton className="h-5 w-14" /> : `${overview?.crawler.successRate ?? 0}%`}</p>
-            <p className="text-xs mt-1 text-muted-foreground">{overview?.crawler.totalRuns ?? 0} 次运行</p>
-          </div>
-        </div>
-        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent pointer-events-none" />
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center mb-2">
-              <span className="text-lg">📦</span>
-            </div>
-            <p className="text-xs text-muted-foreground mb-1 font-medium">资源总数</p>
-            <p className="text-xl font-bold text-foreground tabular-nums">{loading ? <Skeleton className="h-5 w-14" /> : (overview?.resources.total ?? 0).toLocaleString()}</p>
-            <p className="text-xs mt-1 text-muted-foreground">在线 {overview?.resources.online ?? 0} · 磁力 {overview?.resources.magnet ?? 0}</p>
-          </div>
-        </div>
-        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
-          <div className="relative">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-2">
-              <span className="text-lg">👥</span>
-            </div>
-            <p className="text-xs text-muted-foreground mb-1 font-medium">用户数</p>
-            <p className="text-xl font-bold text-foreground tabular-nums">{loading ? <Skeleton className="h-5 w-14" /> : (overview?.totalUsers ?? 0).toLocaleString()}</p>
-          </div>
-        </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+        <ChartCard title="内容分布" note="所有类型均展示真实占比，零值明确显示为 0.0%">
+          {loading ? <Skeleton className="h-72 w-full" /> : totalContent === 0 ? <EmptyChart label="暂无内容数据" /> : <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_180px]"><ResponsiveContainer width="100%" height={260}><PieChart><Pie data={pieData} dataKey="value" nameKey="name" innerRadius={62} outerRadius={96} paddingAngle={2} isAnimationActive={false}>{pieData.map(item => <Cell key={item.type} fill={item.color} />)}</Pie><Tooltip isAnimationActive={false} contentStyle={CHART_STYLE} formatter={(value, name) => [`${Number(value).toLocaleString()} 条 · ${(Number(value) * 100 / totalContent).toFixed(1)}%`, name]} /></PieChart></ResponsiveContainer><div className="space-y-2">{contentDistribution.map(item => <div key={item.type} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs"><span className="size-2 rounded-full" style={{ backgroundColor: item.color }} /><span className="text-muted-foreground">{item.name}</span><span className="font-medium tabular-nums text-foreground">{item.value.toLocaleString()} · {(item.value * 100 / totalContent).toFixed(1)}%</span></div>)}</div></div>}
+        </ChartCard>
+        <ChartCard title="爬取数据变化" note="新增、更新和单条失败按日对比">
+          {loading ? <Skeleton className="h-72 w-full" /> : !dailyData.some(row => row.added + row.updated + row.failedItems > 0) ? <EmptyChart label="当前周期没有数据变更" /> : <ResponsiveContainer width="100%" height={288}><LineChart data={dailyData} margin={{ left: -14, right: 8, top: 8 }}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="dateLabel" tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} /><YAxis allowDecimals={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip isAnimationActive={false} contentStyle={CHART_STYLE} /><Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} /><Line type="monotone" dataKey="added" name="新增" stroke="#059669" strokeWidth={2} dot={false} isAnimationActive={false} /><Line type="monotone" dataKey="updated" name="更新" stroke="#0284c7" strokeWidth={2} dot={false} isAnimationActive={false} /><Line type="monotone" dataKey="failedItems" name="失败条目" stroke="#dc2626" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer>}
+        </ChartCard>
       </div>
 
-      {/* Content Type Cards (charts tab only) */}
-      {activeTab === 'charts' && <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-        {contentStats.map((stat, i) => (
-          <div key={stat.label} className="relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:border-foreground/10 transition-colors group">
-            <div className="text-2xl mb-2">{stat.icon}</div>
-            <p className="text-xs text-muted-foreground mb-1">{stat.label}</p>
-            <p className="text-xl font-bold text-foreground">{loading ? <Skeleton className="h-5 w-14" /> : stat.value.toLocaleString()}</p>
-            <div className="flex items-center gap-1 mt-1">
-              {total > 0 && <span className="text-xs" style={{ color: COLORS[i] }}>{((stat.value / total) * 100).toFixed(1)}%</span>}
-              {stat.growth > 0 && <span className="text-xs text-green-500 ml-auto">+{stat.growth}</span>}
-            </div>
-          </div>
-        ))}
+      <div className="grid gap-6 xl:grid-cols-2">
+        <ChartCard title="资源结构" note="当前库内资源数量；来源失效与禁用项在资源管理中筛选">
+          <div className="grid grid-cols-3 gap-3">{[
+            { label: '在线', value: overview?.resources.online || 0, icon: RadioTower, tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+            { label: '磁力', value: overview?.resources.magnet || 0, icon: Link2, tone: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
+            { label: '网盘', value: overview?.resources.cloud || 0, icon: Cloud, tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
+          ].map(item => <div key={item.label} className="rounded-xl border border-border bg-muted/20 p-4"><span className={`grid size-8 place-items-center rounded-lg ${item.tone}`}><item.icon className="size-4" /></span><p className="mt-3 text-xs text-muted-foreground">{item.label}</p><p className="mt-1 text-xl font-bold tabular-nums text-foreground">{loading ? '-' : Number(item.value).toLocaleString()}</p></div>)}</div>
+        </ChartCard>
+        <ChartCard title="热门搜索" note="近 30 天真实搜索日志 Top 10">
+          {loading ? <Skeleton className="h-44 w-full" /> : hotSearch.length === 0 ? <div className="grid h-44 place-items-center text-sm text-muted-foreground">暂无搜索日志</div> : <div className="grid gap-2 sm:grid-cols-2">{hotSearch.map((item, index) => <div key={item.keyword} className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-muted/20 px-3 py-2.5"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-background text-xs font-bold text-muted-foreground">{index + 1}</span><span className="min-w-0 flex-1 truncate text-sm text-foreground">{item.keyword}</span><Badge variant="outline">{item.count}</Badge></div>)}</div>}
+        </ChartCard>
       </div>
 
-      {/* Content Growth Trend (30 days) */}
-      <ErrorBoundary moduleName="内容增长趋势">
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="px-5 py-4 border-b border-border/60"><h3 className="font-semibold text-foreground flex items-center gap-2"><span className="w-1 h-4 rounded-full bg-primary" /> 内容增长趋势（近30天）</h3></div>
-        <div className="p-5">
-          {loading ? <div className="h-64 flex items-center justify-center"><Skeleton className="w-full h-48" /></div>
-          : !trend || trendChartData.length === 0 || trendChartData.every(d => TYPE_ORDER.every(t => (d[TYPE_LABELS[t] || t] as number) === 0)) ?
-            <div className="h-64 flex flex-col items-center justify-center text-muted-foreground"><Inbox className="w-10 h-10 mb-2 opacity-40" /><p className="text-sm">暂无增长数据</p></div>
-          : (<ResponsiveContainer width="100%" height={280}>
-              <LineChart data={trendChartData} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip isAnimationActive={false} contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--foreground)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }} />
-                <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: 12, color: 'var(--muted-foreground)' }} />
-                {TYPE_ORDER.map((t, i) => (
-                  <Line key={t} type="monotone" dataKey={TYPE_LABELS[t] || t} stroke={COLORS[i]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>)}
-        </div>
-      </div>
+      <ChartCard title="来源健康度" note={`近 ${days} 天按来源聚合运行结果与平均耗时`}>
+        {loading ? <Skeleton className="h-40 w-full" /> : !operations?.sourceHealth.length ? <div className="grid h-36 place-items-center text-sm text-muted-foreground">暂无来源运行记录</div> : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-sm"><thead><tr className="border-b border-border text-left text-xs text-muted-foreground"><th className="px-3 py-2">来源</th><th className="px-3 py-2 text-right">Job</th><th className="px-3 py-2 text-right">成功</th><th className="px-3 py-2 text-right">部分成功</th><th className="px-3 py-2 text-right">失败</th><th className="px-3 py-2 text-right">取消</th><th className="px-3 py-2 text-right">平均耗时</th></tr></thead><tbody>{operations.sourceHealth.map(source => <tr key={source.source} className="border-b border-border/60"><td className="px-3 py-3 font-medium text-foreground">{source.source}</td><td className="px-3 py-3 text-right tabular-nums text-foreground">{source.jobs}</td><td className="px-3 py-3 text-right tabular-nums text-emerald-700 dark:text-emerald-300">{source.success}</td><td className="px-3 py-3 text-right tabular-nums text-amber-700 dark:text-amber-300">{source.partial}</td><td className="px-3 py-3 text-right tabular-nums text-destructive">{source.failed}</td><td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{source.cancelled}</td><td className="px-3 py-3 text-right tabular-nums text-foreground">{(source.avgDurationMs / 1000).toFixed(1)}s</td></tr>)}</tbody></table></div>}
+      </ChartCard>
 
-      </ErrorBoundary>
-
-      {/* Crawler Trend Line Chart (7 days) */}
-      <ErrorBoundary moduleName="爬虫运行趋势">
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="px-5 py-4 border-b border-border/60"><h3 className="font-semibold text-foreground flex items-center gap-2"><span className="w-1 h-4 rounded-full bg-blue-500" /> 爬虫运行趋势（近7天）</h3></div>
-        <div className="p-5">
-          {loading ? <div className="h-64 flex items-center justify-center"><Skeleton className="w-full h-48" /></div>
-          : dailyStats.length === 0 || dailyStats.every(d => d.runs === 0) ? <div className="h-64 flex flex-col items-center justify-center text-muted-foreground"><Inbox className="w-10 h-10 mb-2 opacity-40" /><p className="text-sm">暂无运行数据</p></div>
-          : (<ResponsiveContainer width="100%" height={280}><LineChart data={dailyStats} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} /><XAxis dataKey="dateLabel" tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} /><YAxis tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={false} tickLine={false} /><Tooltip isAnimationActive={false} contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--foreground)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }} /><Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: 12, color: 'var(--muted-foreground)' }} /><Line type="monotone" dataKey="items" name="抓取量" stroke="#3B82F6" strokeWidth={2} dot={{ r: 4, fill: '#3B82F6' }} activeDot={{ r: 6 }} /><Line type="monotone" dataKey="added" name="新增" stroke="#10B981" strokeWidth={2} dot={{ r: 4, fill: '#10B981' }} activeDot={{ r: 6 }} /><Line type="monotone" dataKey="updated" name="更新" stroke="#F59E0B" strokeWidth={2} dot={{ r: 4, fill: '#F59E0B' }} activeDot={{ r: 6 }} /><Line type="monotone" dataKey="runs" name="运行次数" stroke="#8B5CF6" strokeWidth={2} dot={{ r: 4, fill: '#8B5CF6' }} activeDot={{ r: 6 }} /></LineChart></ResponsiveContainer>)}
-        </div>
-      </div>
-      </ErrorBoundary>
-
-      {/* Hot Search Keywords */}
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="px-5 py-4 border-b border-border/60">
-          <h3 className="font-semibold text-foreground flex items-center gap-2">
-            <span className="w-1 h-4 rounded-full bg-amber-500" /> 热门搜索词（近30天）
-          </h3>
-        </div>
-        <div className="p-5">
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              {Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}
-            </div>
-          ) : hotSearch.length === 0 ? (
-            <div className="h-32 flex flex-col items-center justify-center text-muted-foreground">
-              <Inbox className="w-10 h-10 mb-2 opacity-40" />
-              <p className="text-sm">暂无搜索数据</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              {hotSearch.map((item, i) => {
-                const maxCount = hotSearch[0]?.count || 1;
-                const pct = (item.count / maxCount) * 100;
-                const barColors = ['bg-blue-500', 'bg-violet-500', 'bg-amber-500', 'bg-emerald-500', 'bg-rose-500'];
-                const colorClass = barColors[i % barColors.length];
-                return (
-                  <div key={item.keyword} className="p-3 rounded-lg bg-secondary/50 border border-border hover:border-foreground/10 transition-colors">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-bold text-muted-foreground w-5">{i + 1}</span>
-                      <span className="text-sm font-medium text-foreground truncate">{item.keyword}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-[width] duration-500 ${colorClass}`} style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-xs text-muted-foreground">{item.count}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pie Chart */}
-        <ErrorBoundary moduleName="内容分布图表">
-        <div className="rounded-xl bg-card border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border/60"><h3 className="font-semibold text-foreground flex items-center gap-2"><span className="w-1 h-4 rounded-full bg-violet-500" /> 内容分布</h3></div>
-          <div className="p-5 flex flex-col items-center">
-            {loading ? <div className="h-64 flex items-center justify-center"><Skeleton className="w-48 h-48 rounded-full" /></div>
-            : pieData.length === 0 ? <div className="h-64 flex flex-col items-center justify-center text-muted-foreground"><Inbox className="w-10 h-10 mb-2 opacity-40" /><p className="text-sm">暂无数据</p></div>
-            : (<><ResponsiveContainer width="100%" height={260}><PieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="value">{pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}</Pie><Tooltip isAnimationActive={false} content={<PieTooltip total={total} />} /></PieChart></ResponsiveContainer><div className="flex flex-wrap justify-center gap-4 mt-2">{pieData.map((d, i) => <div key={d.name} className="flex items-center gap-2 text-sm"><span className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i] }} /><span className="text-muted-foreground">{d.name}</span><span className="text-foreground font-medium">{d.value}</span></div>)}</div></>)}
-          </div>
-        </div>
-        </ErrorBoundary>
-        {/* Bar Chart */}
-        <ErrorBoundary moduleName="爬虫运行统计">
-        <div className="rounded-xl bg-card border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border/60"><h3 className="font-semibold text-foreground flex items-center gap-2"><span className="w-1 h-4 rounded-full bg-emerald-500" /> 爬虫运行统计</h3></div>
-          <div className="p-5">
-            {loading ? <div className="h-64 flex items-center justify-center"><div className="flex items-end gap-3 h-48">{[60, 100, 80, 120, 70].map((h, i) => <Skeleton key={i} className="w-12 rounded-t" style={{ height: `${h}px` }} />)}</div></div>
-            : barData.length === 0 ? <div className="h-64 flex flex-col items-center justify-center text-muted-foreground"><Inbox className="w-10 h-10 mb-2 opacity-40" /><p className="text-sm">暂无爬虫配置</p></div>
-            : (<ResponsiveContainer width="100%" height={260}><BarChart data={barData} barGap={4} barCategoryGap="20%"><CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} /><XAxis dataKey="name" tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} /><YAxis tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={false} tickLine={false} /><Tooltip isAnimationActive={false} cursor={{ fill: 'var(--muted)', opacity: 0.3 }} contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--foreground)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }} /><Bar dataKey="runs" name="运行次数" fill="#3B82F6" radius={[4, 4, 0, 0]} /><Bar dataKey="items" name="抓取量" fill="#10B981" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer>)}
-          </div>
-        </div>
-        </ErrorBoundary>
-      </div>
-
-      {/* Content Distribution Bars */}
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="px-5 py-4 border-b border-border/60"><h3 className="font-semibold text-foreground flex items-center gap-2"><span className="w-1 h-4 rounded-full bg-rose-500" /> 内容占比详情</h3></div>
-        <div className="p-5">
-          <div className="text-3xl font-bold text-foreground mb-6">{loading ? <Skeleton className="h-8 w-24 inline-block" /> : total.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">内容总量</span></div>
-          <div className="space-y-4">
-            {total > 0 && contentStats.map((stat, i) => { const pct = (stat.value / total) * 100; return (
-              <div key={stat.label}><div className="flex justify-between text-sm mb-2"><div className="flex items-center gap-2"><span className="text-lg">{stat.icon}</span><span className="text-muted-foreground">{stat.label}</span></div><div className="flex items-center gap-2"><span className="text-foreground font-medium">{stat.value.toLocaleString()}</span><span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS[i] + '20', color: COLORS[i] }}>{pct.toFixed(1)}%</span></div></div><div className="w-full h-2 bg-muted rounded-full overflow-hidden"><div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${pct}%`, backgroundColor: COLORS[i] }} /></div></div>
-            ); })}
-          </div>
-        </div>
-      </div>
-
-      {/* Crawler Details */}
-      <div className="rounded-xl bg-card border border-border overflow-hidden">
-        <div className="px-5 py-4 border-b border-border/60"><h3 className="font-semibold text-foreground flex items-center gap-2"><span className="w-1 h-4 rounded-full bg-blue-500" /> 爬虫配置详情</h3></div>
-        <div className="p-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {crawlerStats.schedules.map((s) => { const isRunning = s.status === 'running'; const pct = crawlerStats.totalItems > 0 ? ((s.totalItems || 0) / crawlerStats.totalItems * 100) : 0; return (
-            <div key={s.name} className="p-4 rounded-xl bg-secondary/50 border border-border hover:border-foreground/10 transition-colors">
-              <div className="flex items-center justify-between mb-3"><div className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${isRunning ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`} /><span className="text-sm font-medium text-foreground truncate">{s.name}</span></div><span className={`text-xs px-2 py-0.5 rounded-full ${isRunning ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{isRunning ? '运行中' : '空闲'}</span></div>
-              <div className="grid grid-cols-2 gap-3 mb-3"><div><p className="text-xs text-muted-foreground">运行次数</p><p className="text-lg font-bold text-foreground">{s.totalRuns?.toLocaleString()}</p></div><div><p className="text-xs text-muted-foreground">抓取量</p><p className="text-lg font-bold text-foreground">{s.totalItems?.toLocaleString()}</p></div></div>
-              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full transition-[width] duration-500" style={{ width: `${pct}%` }} /></div>
-              <p className="text-xs text-muted-foreground mt-1">占比 {pct.toFixed(1)}%</p>
-            </div>
-          ); })}
-        </div>
-      </div>
-      </>}
-
-      {/* ===== Report Tab ===== */}
-      {activeTab === 'report' && <>
-        {/* Report period selector */}
-        <div className="flex items-center gap-2">
-          {[7, 30, 90].map(d => (
-            <button key={d} onClick={() => { if (reportDays !== d) { setReportDays(d); setReport(null); } }}
-              className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${reportDays === d ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-border hover:border-foreground/20'}`}>
-              近{d}天
-            </button>
-          ))}
-        </div>
-
-        {!report ? (
-          <div className="flex flex-col gap-6">
-            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
-          </div>
-        ) : <>
-          {/* Report: Type Growth */}
-          <div className="rounded-xl bg-card border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border/60">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <span className="w-1 h-4 rounded-full bg-primary" /> 内容增长报告（近{report.days}天：{report.startDate} ~ {report.endDate}）
-              </h3>
-            </div>
-            <div className="p-5">
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {report.typeGrowth.map((item, i) => (
-                  <div key={item.type} className="p-4 rounded-xl bg-secondary/50 border border-border">
-                    <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
-                    <p className="text-2xl font-bold text-foreground">{item.count.toLocaleString()}</p>
-                    <p className="text-xs text-muted-foreground mt-1">新增内容</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Report: Crawler Efficiency */}
-          <div className="rounded-xl bg-card border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border/60">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <span className="w-1 h-4 rounded-full bg-blue-500" /> 爬虫效率报告
-              </h3>
-            </div>
-            <div className="p-5">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">总运行次数</p>
-                  <p className="text-xl font-bold text-foreground">{report.crawlerEfficiency.totalRuns.toLocaleString()}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">成功率</p>
-                  <p className="text-xl font-bold text-emerald-500">{report.crawlerEfficiency.successRate}%</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">总抓取量</p>
-                  <p className="text-xl font-bold text-foreground">{report.crawlerEfficiency.totalItems.toLocaleString()}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">平均耗时</p>
-                  <p className="text-xl font-bold text-foreground">{(report.crawlerEfficiency.avgDurationMs / 1000).toFixed(1)}s</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">新增内容</p>
-                  <p className="text-xl font-bold text-emerald-500">{report.crawlerEfficiency.totalAdded.toLocaleString()}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">更新内容</p>
-                  <p className="text-xl font-bold text-amber-500">{report.crawlerEfficiency.totalUpdated.toLocaleString()}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">成功次数</p>
-                  <p className="text-xl font-bold text-foreground">{report.crawlerEfficiency.successRuns.toLocaleString()}</p>
-                </div>
-                <div className="p-3 rounded-lg bg-secondary/50">
-                  <p className="text-xs text-muted-foreground">失败次数</p>
-                  <p className="text-xl font-bold text-rose-500">{report.crawlerEfficiency.failedRuns.toLocaleString()}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Report: Content Quality */}
-          <div className="rounded-xl bg-card border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border/60">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <span className="w-1 h-4 rounded-full bg-violet-500" /> 内容质量报告（豆瓣评分分布）
-              </h3>
-            </div>
-            <div className="p-5">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">类型</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">总量</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">均分</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">高分(≥8)</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">中分(5-8)</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">低分{'<'}5</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.qualityStats.map(q => (
-                      <tr key={q.type} className="border-b border-border/50 hover:bg-muted/50">
-                        <td className="py-2.5 px-3 font-medium text-foreground">{q.label}</td>
-                        <td className="py-2.5 px-3 text-right text-foreground">{q.total.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right">
-                          <span className={`font-medium ${q.avgScore >= 7 ? 'text-emerald-500' : q.avgScore >= 5 ? 'text-amber-500' : 'text-rose-500'}`}>
-                            {q.avgScore > 0 ? q.avgScore.toFixed(1) : '-'}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-right text-emerald-500">{q.highScore.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right text-amber-500">{q.midScore.toLocaleString()}</td>
-                        <td className="py-2.5 px-3 text-right text-rose-500">{q.lowScore.toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          {/* Report: Daily Trend */}
-          {report.dailyTrend && (
-            <div className="rounded-xl bg-card border border-border overflow-hidden">
-              <div className="px-5 py-4 border-b border-border/60">
-                <h3 className="font-semibold text-foreground flex items-center gap-2">
-                  <span className="w-1 h-4 rounded-full bg-amber-500" /> 每日新增趋势
-                </h3>
-              </div>
-              <div className="p-5">
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={report.dailyTrend.dates.map((d, i) => ({ date: d, 新增: report.dailyTrend.totals[i] }))} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} tickLine={false} />
-                    <YAxis tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                    <Tooltip isAnimationActive={false} contentStyle={{ backgroundColor: 'var(--popover)', border: '1px solid var(--border)', borderRadius: '8px', color: 'var(--foreground)' }} />
-                    <Bar dataKey="新增" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-        </>}
-      </>}
+      <ChartCard title="内容质量" note="豆瓣评分完整性与区间分布，用于发现爬取字段缺失">
+        {loading ? <Skeleton className="h-48 w-full" /> : !report?.qualityStats?.length ? <div className="grid h-36 place-items-center text-sm text-muted-foreground">暂无质量统计</div> : <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-sm"><thead><tr className="border-b border-border text-left text-xs text-muted-foreground"><th className="px-3 py-2">类型</th><th className="px-3 py-2 text-right">总量</th><th className="px-3 py-2 text-right">均分</th><th className="px-3 py-2 text-right">高分 ≥ 8</th><th className="px-3 py-2 text-right">中分 5–8</th><th className="px-3 py-2 text-right">低分 &lt; 5</th></tr></thead><tbody>{report.qualityStats.map(item => <tr key={item.type} className="border-b border-border/60"><td className="px-3 py-3 font-medium text-foreground">{item.label || TYPE_LABELS[item.type] || item.type}</td><td className="px-3 py-3 text-right tabular-nums text-foreground">{item.total}</td><td className="px-3 py-3 text-right tabular-nums text-foreground">{item.avgScore > 0 ? item.avgScore.toFixed(1) : '—'}</td><td className="px-3 py-3 text-right tabular-nums text-emerald-700 dark:text-emerald-300">{item.highScore}</td><td className="px-3 py-3 text-right tabular-nums text-amber-700 dark:text-amber-300">{item.midScore}</td><td className="px-3 py-3 text-right tabular-nums text-destructive">{item.lowScore}</td></tr>)}</tbody></table></div>}
+      </ChartCard>
     </div>
   );
 }
