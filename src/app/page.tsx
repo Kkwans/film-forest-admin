@@ -1,369 +1,235 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Film, Activity, Database, ArrowRight, Play, Square, RefreshCw, TrendingUp, Zap, Inbox, Tags, Users, Settings, FileText } from 'lucide-react';
-import { contentApi, crawlerApi, statsApi } from '@/lib/api';
 import type { AxiosResponse } from 'axios';
-import { useToast } from '@/components/ui/toast';
-import { extractErrorMessage } from '@/lib/utils';
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  Bot,
+  Boxes,
+  CalendarPlus,
+  CheckCircle2,
+  CirclePause,
+  Clock3,
+  Database,
+  Film,
+  Library,
+  RefreshCw,
+  ShieldAlert,
+  Sparkles,
+  Users,
+} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { contentApi, crawlerApi, statsApi } from '@/lib/api';
+import { extractErrorMessage } from '@/lib/utils';
 
-interface Stats {
-  movies: number;
-  dramas: number;
-  varieties: number;
-  animes: number;
-  shortDramas: number;
+interface ApiEnvelope<T> {
+  code: number;
+  message?: string;
+  data: T;
 }
 
-interface RecentItem { id: number; title: string; type: string; status: number; createdAt: string; scoreDouban?: number; }
-interface StatsResponse { code: number; data: Stats; }
-interface RecentItemsResponse { code: number; data: { records: RecentItem[]; total: number } | RecentItem[]; }
-interface CrawlerStatusItem { id: number; name: string; contentType: string; status: string; totalRuns: number; totalItems: number; enabled: number; lastRunTime: string | null; }
-interface CrawlerStatusResponse { code: number; data: { schedules: CrawlerStatusItem[]; }; }
+interface Overview {
+  typeCounts: Record<string, number>;
+  weekGrowth: Record<string, number>;
+  totalContent: number;
+  totalWeekGrowth: number;
+  totalUsers: number;
+  crawler: {
+    totalRuns: number;
+    successRuns: number;
+    failedRuns: number;
+    successRate: number;
+    totalItemsCrawled: number;
+  };
+  resources: { online: number; magnet: number; cloud: number; total: number };
+}
 
-const TYPE_LABELS: Record<string, string> = {
-  movie: '电影', drama: '剧集', variety: '综艺', anime: '动漫', short_drama: '短剧', short: '短剧'
+interface RecentItem {
+  id: number;
+  title: string;
+  type: string;
+  status: number;
+  createdAt: string;
+  scoreDouban?: number | null;
+}
+
+interface CrawlerScheduleItem {
+  id: number;
+  name: string;
+  contentType: string;
+  status?: string | null;
+  latestResult?: string | null;
+  enabled: number;
+  totalRuns: number;
+  totalItems: number;
+  lastRunTime?: string | null;
+  nextRunTime?: string | null;
+}
+
+const EMPTY_OVERVIEW: Overview = {
+  typeCounts: {}, weekGrowth: {}, totalContent: 0, totalWeekGrowth: 0, totalUsers: 0,
+  crawler: { totalRuns: 0, successRuns: 0, failedRuns: 0, successRate: 0, totalItemsCrawled: 0 },
+  resources: { online: 0, magnet: 0, cloud: 0, total: 0 },
 };
 
-const TYPE_ICONS: Record<string, string> = {
-  movie: '🎬', drama: '📺', variety: '🎤', anime: '🎯', short_drama: '⚡', short: '⚡'
-};
+const CONTENT_TYPES = [
+  { code: 'movie', label: '电影', icon: Film, color: 'bg-sky-500' },
+  { code: 'drama', label: '剧集', icon: Library, color: 'bg-violet-500' },
+  { code: 'variety', label: '综艺', icon: Sparkles, color: 'bg-amber-500' },
+  { code: 'anime', label: '动漫', icon: Boxes, color: 'bg-rose-500' },
+  { code: 'short_drama', label: '短剧', icon: Activity, color: 'bg-emerald-500' },
+] as const;
+
+const TYPE_LABELS = Object.fromEntries(CONTENT_TYPES.map(item => [item.code, item.label]));
+
+function unwrap<T>(response: AxiosResponse<ApiEnvelope<T>>, fallback: string): T {
+  if (response.data?.code !== 200) throw new Error(response.data?.message || fallback);
+  return response.data.data;
+}
+
+function relativeTime(value?: string | null): string {
+  if (!value) return '尚未运行';
+  const time = new Date(value).getTime();
+  if (!Number.isFinite(time)) return value;
+  const minutes = Math.max(0, Math.floor((Date.now() - time) / 60_000));
+  if (minutes < 1) return '刚刚';
+  if (minutes < 60) return `${minutes} 分钟前`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} 小时前`;
+  return `${Math.floor(hours / 24)} 天前`;
+}
+
+function contentStatus(status: number) {
+  if (status === 1) return { label: '已上线', className: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300' };
+  if (status === 2) return { label: '已下线', className: 'bg-amber-500/12 text-amber-700 dark:text-amber-300' };
+  return { label: '草稿', className: 'bg-muted text-muted-foreground' };
+}
+
+function crawlerState(item: CrawlerScheduleItem) {
+  const value = (item.latestResult || item.status || 'idle').toLowerCase();
+  if (value === 'running' || value === 'queued') return { value, label: value === 'queued' ? '排队中' : '运行中', tone: 'text-sky-700 dark:text-sky-300', dot: 'bg-sky-500' };
+  if (value === 'failed' || value === 'partial') return { value, label: value === 'partial' ? '部分成功' : '失败', tone: 'text-destructive', dot: 'bg-destructive' };
+  if (value === 'cancelled') return { value, label: '已取消', tone: 'text-amber-700 dark:text-amber-300', dot: 'bg-amber-500' };
+  if (value === 'success') return { value, label: '最近成功', tone: 'text-emerald-700 dark:text-emerald-300', dot: 'bg-emerald-500' };
+  return { value, label: item.enabled === 1 ? '待命' : '已停用', tone: 'text-muted-foreground', dot: 'bg-muted-foreground' };
+}
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<Stats>({ movies: 0, dramas: 0, varieties: 0, animes: 0, shortDramas: 0 });
+  const [overview, setOverview] = useState<Overview>(EMPTY_OVERVIEW);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
-  const [crawlerStatus, setCrawlerStatus] = useState<CrawlerStatusItem[]>([]);
-  const [totalUsers, setTotalUsers] = useState(0);
+  const [schedules, setSchedules] = useState<CrawlerScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const toast = useToast();
+  const [refreshing, setRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [loadIssue, setLoadIssue] = useState('');
 
   const fetchData = useCallback(async () => {
+    setRefreshing(true);
+    const results = await Promise.allSettled([
+      statsApi.getOverview() as Promise<AxiosResponse<ApiEnvelope<Overview>>>,
+      contentApi.listAll({ page: 1, size: 6, sort: 'createdAt', sortDir: 'desc' }) as Promise<AxiosResponse<ApiEnvelope<{ records: RecentItem[] } | RecentItem[]>>>,
+      crawlerApi.getStatus() as Promise<AxiosResponse<ApiEnvelope<{ schedules: CrawlerScheduleItem[] }>>>,
+    ]);
+    const issues: string[] = [];
     try {
-      const [statsRes, allRes, crawlerRes, overviewRes] = await Promise.allSettled([
-        contentApi.getStats() as Promise<AxiosResponse<StatsResponse>>,
-        contentApi.listAll({ page: 1, size: 20 }) as Promise<AxiosResponse<RecentItemsResponse>>,
-        crawlerApi.getStatus() as Promise<AxiosResponse<CrawlerStatusResponse>>,
-        statsApi.getOverview() as Promise<AxiosResponse<{ code: number; data: { totalUsers: number } }>>,
-      ]);
-
-      // 每个 API 独立处理，一个失败不影响其他
-      if (statsRes.status === 'fulfilled' && statsRes.value.data?.code === 200) {
-        setStats(statsRes.value.data.data);
-      }
-      if (allRes.status === 'fulfilled' && allRes.value.data?.code === 200) {
-        const raw = allRes.value.data.data;
-        const items: RecentItem[] = Array.isArray(raw) ? raw : (raw.records || []);
-        items.sort((a: RecentItem, b: RecentItem) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        setRecentItems(items.slice(0, 8));
-      }
-      if (crawlerRes.status === 'fulfilled' && crawlerRes.value.data?.code === 200) {
-        setCrawlerStatus(crawlerRes.value.data.data.schedules || []);
-      }
-      if (overviewRes.status === 'fulfilled' && overviewRes.value.data?.code === 200) {
-        setTotalUsers(overviewRes.value.data.data.totalUsers || 0);
-      }
-      setLastRefresh(new Date());
-    } catch (e: unknown) {
-      toast.error(extractErrorMessage(e, '数据加载失败，请检查后端服务'));
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
+      if (results[0].status === 'fulfilled') setOverview(unwrap(results[0].value, '运营概览加载失败'));
+      else throw results[0].reason;
+    } catch (error: unknown) { issues.push(extractErrorMessage(error, '运营概览加载失败')); }
+    try {
+      if (results[1].status === 'fulfilled') {
+        const data = unwrap(results[1].value, '最近内容加载失败');
+        setRecentItems(Array.isArray(data) ? data.slice(0, 6) : (data.records || []).slice(0, 6));
+      } else throw results[1].reason;
+    } catch (error: unknown) { issues.push(extractErrorMessage(error, '最近内容加载失败')); }
+    try {
+      if (results[2].status === 'fulfilled') setSchedules(unwrap(results[2].value, '爬虫状态加载失败').schedules || []);
+      else throw results[2].reason;
+    } catch (error: unknown) { issues.push(extractErrorMessage(error, '爬虫状态加载失败')); }
+    setLoadIssue(issues.join('；'));
+    setLastRefresh(new Date());
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
 
   useEffect(() => {
-    const initialTimer = window.setTimeout(() => void fetchData(), 0);
-    const refreshTimer = autoRefresh ? window.setInterval(() => void fetchData(), 30000) : null;
+    const initial = window.setTimeout(() => void fetchData(), 0);
+    const interval = autoRefresh ? window.setInterval(() => void fetchData(), 30_000) : null;
     return () => {
-      window.clearTimeout(initialTimer);
-      if (refreshTimer !== null) window.clearInterval(refreshTimer);
+      window.clearTimeout(initial);
+      if (interval) window.clearInterval(interval);
     };
-  }, [fetchData, autoRefresh]);
+  }, [autoRefresh, fetchData]);
 
-  const totalContent = stats.movies + stats.dramas + stats.varieties + stats.animes + stats.shortDramas;
-  const runningCrawlers = crawlerStatus.filter(s => s.status === 'running').length;
-  const totalCrawlItems = crawlerStatus.reduce((sum, s) => sum + (s.totalItems || 0), 0);
-  const totalCrawlRuns = crawlerStatus.reduce((sum, s) => sum + (s.totalRuns || 0), 0);
+  const activeJobs = schedules.filter(item => ['running', 'queued'].includes(crawlerState(item).value)).length;
+  const abnormalJobs = schedules.filter(item => ['failed', 'partial'].includes(crawlerState(item).value)).length;
+  const recentSchedules = useMemo(() => [...schedules]
+    .sort((a, b) => new Date(b.lastRunTime || 0).getTime() - new Date(a.lastRunTime || 0).getTime())
+    .slice(0, 6), [schedules]);
 
-  const getRelativeTime = (dateStr: string) => {
-    try {
-      const diff = Math.max(0, (lastRefresh?.getTime() ?? 0) - new Date(dateStr).getTime());
-      const mins = Math.floor(diff / 60000);
-      if (mins < 1) return '刚刚';
-      if (mins < 60) return `${mins}分钟前`;
-      const hours = Math.floor(mins / 60);
-      if (hours < 24) return `${hours}小时前`;
-      return `${Math.floor(hours / 24)}天前`;
-    } catch (e: unknown) { return dateStr; }
-  };
-
-  const statCards = [
-    { label: '内容总量', value: totalContent, icon: Database, color: 'text-primary', bgColor: 'bg-primary/10', href: '/content', gradient: 'from-primary/5 to-transparent' },
-    { label: '爬虫配置', value: crawlerStatus.length, icon: Activity, color: 'text-violet-500', bgColor: 'bg-violet-500/10', href: '/crawler', gradient: 'from-violet-500/5 to-transparent' },
-    { label: '运行中', value: runningCrawlers, icon: Zap, color: runningCrawlers > 0 ? 'text-emerald-500' : 'text-muted-foreground', bgColor: runningCrawlers > 0 ? 'bg-emerald-500/10' : 'bg-muted', href: '/crawler', gradient: runningCrawlers > 0 ? 'from-emerald-500/5 to-transparent' : 'from-muted/5 to-transparent' },
-    { label: '总抓取量', value: totalCrawlItems, icon: TrendingUp, color: 'text-amber-500', bgColor: 'bg-amber-500/10', href: '/stats', gradient: 'from-amber-500/5 to-transparent' },
-    { label: '用户数', value: totalUsers, icon: Users, color: 'text-emerald-500', bgColor: 'bg-emerald-500/10', href: '/users', gradient: 'from-emerald-500/5 to-transparent' },
-  ];
-
-  const contentStats = [
-    { label: '电影', value: stats.movies, icon: '🎬', color: 'text-muted-foreground', bgColor: 'bg-muted' },
-    { label: '剧集', value: stats.dramas, icon: '📺', color: 'text-muted-foreground', bgColor: 'bg-muted' },
-    { label: '综艺', value: stats.varieties, icon: '🎤', color: 'text-muted-foreground', bgColor: 'bg-muted' },
-    { label: '动漫', value: stats.animes, icon: '🎯', color: 'text-muted-foreground', bgColor: 'bg-muted' },
-    { label: '短剧', value: stats.shortDramas, icon: '⚡', color: 'text-primary', bgColor: 'bg-primary/10' },
+  const metricCards = [
+    { label: '内容总量', value: overview.totalContent, note: `近 7 天 +${overview.totalWeekGrowth}`, icon: Film, href: '/content', tone: 'bg-primary/10 text-primary' },
+    { label: '活动任务', value: activeJobs, note: `${schedules.length} 个计划`, icon: Bot, href: '/crawler', tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+    { label: '异常摘要', value: abnormalJobs, note: abnormalJobs ? '需要处理' : '当前无异常', icon: ShieldAlert, href: '/crawler', tone: abnormalJobs ? 'bg-destructive/10 text-destructive' : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+    { label: '资源总量', value: overview.resources.total, note: `在线 ${overview.resources.online}`, icon: Database, href: '/resources', tone: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
+    { label: '爬虫成功率', value: `${Number(overview.crawler.successRate || 0).toFixed(1)}%`, note: `${overview.crawler.totalRuns} 次运行`, icon: CheckCircle2, href: '/stats', tone: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+    { label: '用户总数', value: overview.totalUsers, note: '注册账号', icon: Users, href: '/users', tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
   ];
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header with refresh */}
-      <div className="flex items-center justify-between">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">仪表盘</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">影视森林管理后台概览</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Operations overview</p>
+          <h1 className="mt-1 text-2xl font-bold text-foreground">运营仪表盘</h1>
+          <p className="mt-1 text-sm text-muted-foreground">优先呈现正在运行、需要处理和最近发生的事项。</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setAutoRefresh(prev => !prev)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-              autoRefresh
-                ? 'text-primary bg-primary/10 hover:bg-primary/20'
-                : 'text-muted-foreground bg-muted hover:bg-muted/80'
-            }`}
-            title={autoRefresh ? '点击暂停自动刷新' : '点击开启自动刷新'}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`} />
-            <span className="hidden sm:inline">{autoRefresh ? '自动刷新' : '已暂停'}</span>
-          </button>
-          <button
-            onClick={() => { setLoading(true); fetchData(); }}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">刷新</span>
-          </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" aria-pressed={autoRefresh} onClick={() => setAutoRefresh(value => !value)}>
+            {autoRefresh ? <Activity className="text-primary" /> : <CirclePause />}{autoRefresh ? '自动刷新' : '已暂停'}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => void fetchData()} disabled={refreshing}>
+            <RefreshCw className={refreshing ? 'animate-spin' : ''} />刷新
+          </Button>
         </div>
+      </header>
+
+      {loadIssue && <div role="alert" className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/8 p-3 text-sm text-amber-800 dark:text-amber-200"><AlertTriangle className="mt-0.5 size-4 shrink-0" /><span>部分数据暂不可用：{loadIssue}</span></div>}
+
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">
+        {metricCards.map(metric => <Link key={metric.label} href={metric.href} className="group rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] hover:border-primary/25 hover:shadow-md"><div className="flex items-start justify-between gap-2"><span className={`grid size-9 place-items-center rounded-xl ${metric.tone}`}><metric.icon className="size-4" /></span><ArrowRight className="size-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5" /></div><p className="mt-4 text-xs font-medium text-muted-foreground">{metric.label}</p>{loading ? <Skeleton className="mt-1 h-7 w-16" /> : <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{typeof metric.value === 'number' ? metric.value.toLocaleString() : metric.value}</p>}<p className="mt-1 text-xs text-muted-foreground">{metric.note}</p></Link>)}
       </div>
 
-      {/* Overview Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        {statCards.map((stat) => (
-          <Link
-            key={stat.label}
-            href={stat.href}
-            className={`stat-card group relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:border-foreground/15 hover:shadow-lg hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200`}
-          >
-            <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} pointer-events-none`} />
-            <div className="relative">
-              <div className="flex items-center justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl ${stat.bgColor} flex items-center justify-center`}
-                  style={{ boxShadow: 'none' }}
-                >
-                  <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition-[color,transform]" />
-              </div>
-              <p className="text-xs text-muted-foreground mb-1 font-medium">{stat.label}</p>
-              <p className="text-2xl font-bold text-foreground tabular-nums">{loading ? <Skeleton className="h-7 w-16" /> : stat.value.toLocaleString()}</p>
-            </div>
-          </Link>
-        ))}
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+        <Card className="overflow-hidden border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">最近任务</h2><p className="text-xs text-muted-foreground">状态来自最近一次权威 Job，不再用“空闲”掩盖失败。</p></div><Link href="/crawler" className="flex items-center gap-1 text-xs font-medium text-primary">管理任务<ArrowRight className="size-3" /></Link></div>
+          <CardContent className="p-0">
+            {loading ? <div className="space-y-1 p-4">{[1, 2, 3, 4].map(item => <Skeleton key={item} className="h-14 w-full" />)}</div> : recentSchedules.length === 0 ? <div className="grid min-h-64 place-items-center text-center"><div><Bot className="mx-auto size-10 text-muted-foreground/40" /><p className="mt-3 text-sm font-medium text-foreground">尚未创建爬虫计划</p><Link href="/crawler" className="mt-1 inline-flex text-xs text-primary">创建第一个计划</Link></div></div> : <div className="divide-y divide-border/60">{recentSchedules.map(item => { const state = crawlerState(item); return <Link key={item.id} href="/crawler" className="flex items-center gap-3 px-5 py-3 hover:bg-muted/25"><span className={`size-2 shrink-0 rounded-full ${state.dot} ${state.value === 'running' ? 'animate-pulse' : ''}`} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.name}</p><p className="mt-0.5 truncate text-xs text-muted-foreground">{TYPE_LABELS[item.contentType] || item.contentType} · {item.totalRuns || 0} 次运行 · {item.totalItems || 0} 条</p></div><div className="text-right"><p className={`text-xs font-medium ${state.tone}`}>{state.label}</p><p className="mt-1 text-xs text-muted-foreground">{relativeTime(item.lastRunTime)}</p></div></Link>; })}</div>}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card">
+          <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">内容结构</h2><p className="text-xs text-muted-foreground">这里只做概览，详细趋势留在数据统计。</p></div><Link href="/stats" className="flex items-center gap-1 text-xs font-medium text-primary">详细统计<ArrowRight className="size-3" /></Link></div>
+          <CardContent className="space-y-4 p-5">
+            {CONTENT_TYPES.map(type => { const value = Number(overview.typeCounts[type.code] || 0); const growth = Number(overview.weekGrowth[type.code] || 0); const percent = overview.totalContent ? value * 100 / overview.totalContent : 0; return <div key={type.code}><div className="mb-1.5 flex items-center gap-2"><span className={`size-2 rounded-full ${type.color}`} /><span className="text-sm text-foreground">{type.label}</span><span className="ml-auto text-sm font-semibold tabular-nums text-foreground">{loading ? '-' : value.toLocaleString()}</span><span className="w-14 text-right text-xs text-muted-foreground">+{growth}/7天</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${type.color}`} style={{ width: `${Math.max(percent, value > 0 ? 1 : 0)}%` }} /></div><p className="mt-1 text-right text-[11px] text-muted-foreground">{percent.toFixed(1)}%</p></div>; })}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Content Breakdown */}
-      <ErrorBoundary moduleName="内容分布">
-      <div className="rounded-xl bg-card border border-border p-5">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <span className="w-1 h-4 rounded-full bg-primary" />
-            内容分布
-          </h2>
-          <Link href="/stats" className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
-            详细统计 <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-          {contentStats.map((stat) => {
-            const pct = totalContent > 0 ? (stat.value / totalContent * 100) : 0;
-            return (
-              <div key={stat.label} className="text-center">
-                <div className={`w-10 h-10 mx-auto rounded-lg ${stat.bgColor} flex items-center justify-center text-lg mb-2`}>
-                  {stat.icon}
-                </div>
-                <p className="text-lg font-bold text-foreground">{loading ? <Skeleton className="h-5 w-12" /> : stat.value.toLocaleString()}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                {!loading && totalContent > 0 && (
-                  <p className={`text-xs mt-1 ${stat.color}`}>{pct.toFixed(1)}%</p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      <Card className="overflow-hidden border-border bg-card">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">最近内容</h2><p className="text-xs text-muted-foreground">“草稿 / 已上线 / 已下线”使用明确三态。</p></div><Link href="/content" className="flex items-center gap-1 text-xs font-medium text-primary">内容管理<ArrowRight className="size-3" /></Link></div>
+        <CardContent className="p-0">
+          {loading ? <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">{[1, 2, 3, 4, 5, 6].map(item => <Skeleton key={item} className="h-20 w-full" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-3">{recentItems.map(item => { const status = contentStatus(item.status); const type = CONTENT_TYPES.find(entry => entry.code === item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-w-0 items-center gap-3 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{TYPE_LABELS[item.type] || item.type}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · {relativeTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
+        </CardContent>
+      </Card>
 
-      </ErrorBoundary>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Content */}
-        <div className="rounded-xl bg-card border border-border overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <span className="w-1 h-4 rounded-full bg-violet-500" />
-              最近内容
-            </h3>
-            <Link href="/content" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
-              查看全部 <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="divide-y divide-border/50">
-            {loading ? (
-              <div className="divide-y divide-border/50">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="flex items-center gap-3 px-5 py-3">
-                    <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
-                    <div className="flex-1">
-                      <Skeleton className="h-4 w-32 mb-1" />
-                      <Skeleton className="h-3 w-48" />
-                    </div>
-                    <Skeleton className="h-5 w-12 rounded-full" />
-                  </div>
-                ))}
-              </div>
-            ) : recentItems.length === 0 ? (
-              <div className="px-5 py-10 text-center text-muted-foreground">
-                <Inbox className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">暂无内容</p>
-                <Link href="/content" className="text-xs text-primary hover:underline mt-1 inline-block">去添加内容 →</Link>
-              </div>
-            ) : recentItems.map((item, i) => (
-              <div key={`${item.type}-${item.id}-${i}`} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/30 transition-colors">
-                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-sm shrink-0">
-                  {TYPE_ICONS[item.type] || '🎬'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground truncate">{item.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {TYPE_LABELS[item.type] || item.type}
-                    {item.scoreDouban ? ` · ⭐ ${item.scoreDouban}` : ''}
-                    {' · '}{getRelativeTime(item.createdAt)}
-                  </p>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  item.status === 1
-                    ? 'bg-primary/15 text-primary border border-primary/20'
-                    : 'bg-muted text-muted-foreground border border-border'
-                }`}>
-                  {item.status === 1 ? '已上线' : '已下线'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Crawler Status */}
-        <div className="rounded-xl bg-card border border-border overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <span className="w-1 h-4 rounded-full bg-emerald-500" />
-              爬虫状态
-            </h3>
-            <Link href="/crawler" className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
-              管理 <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
-          <div className="divide-y divide-border/50">
-            {loading ? (
-              <div className="divide-y divide-border/50">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-3 px-5 py-3">
-                    <Skeleton className="w-8 h-8 rounded-lg shrink-0" />
-                    <div className="flex-1">
-                      <Skeleton className="h-4 w-28 mb-1" />
-                      <Skeleton className="h-3 w-40" />
-                    </div>
-                    <Skeleton className="w-2 h-2 rounded-full" />
-                  </div>
-                ))}
-              </div>
-            ) : crawlerStatus.length === 0 ? (
-              <div className="px-5 py-10 text-center text-muted-foreground">
-                <Activity className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                <p className="text-sm">暂无爬虫配置</p>
-                <Link href="/crawler" className="text-xs text-primary hover:underline mt-1 inline-block">去创建爬虫 →</Link>
-              </div>
-            ) : crawlerStatus.map((task) => {
-              const isRunning = task.status === 'running';
-              return (
-                <div key={task.id} className="flex items-center gap-3 px-5 py-3 hover:bg-muted/30 transition-colors">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isRunning ? 'bg-primary/10' : 'bg-muted'}`}>
-                    {isRunning ? <Play className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4 text-muted-foreground" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground truncate">{task.name}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{task.totalRuns} 次运行</span>
-                      <span>·</span>
-                      <span>{task.totalItems?.toLocaleString()} 条数据</span>
-                      {task.lastRunTime && (
-                        <>
-                          <span>·</span>
-                          <span>{getRelativeTime(task.lastRunTime)}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${isRunning ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`} />
-                    <span className={`text-xs ${isRunning ? 'text-primary' : 'text-muted-foreground'}`}>
-                      {isRunning ? '运行中' : '空闲'}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <ErrorBoundary moduleName="快捷操作">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {[
-          { label: '内容管理', desc: '管理影视内容', icon: Film, href: '/content', color: 'text-blue-500', bg: 'bg-blue-500/10' },
-          { label: '爬虫管理', desc: '配置爬虫任务', icon: Activity, href: '/crawler', color: 'text-violet-500', bg: 'bg-violet-500/10' },
-          { label: '数据统计', desc: '查看数据图表', icon: TrendingUp, href: '/stats', color: 'text-amber-500', bg: 'bg-amber-500/10' },
-          { label: '标签管理', desc: '管理内容标签', icon: Tags, href: '/tags', color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
-          { label: '资源管理', desc: '管理媒体资源', icon: Database, href: '/resources', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-          { label: '用户管理', desc: '管理用户账号', icon: Users, href: '/users', color: 'text-rose-500', bg: 'bg-rose-500/10' },
-          { label: '系统设置', desc: '配置站点参数', icon: Settings, href: '/settings', color: 'text-slate-500', bg: 'bg-slate-500/10' },
-          { label: '操作日志', desc: '查看操作记录', icon: FileText, href: '/logs', color: 'text-orange-500', bg: 'bg-orange-500/10' },
-        ].map((action) => (
-          <Link
-            key={action.label}
-            href={action.href}
-            className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border hover:border-foreground/10 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200 group"
-          >
-            <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center shrink-0`}>
-              <action.icon className={`w-5 h-5 ${action.color}`} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">{action.label}</p>
-              <p className="text-xs text-muted-foreground">{action.desc}</p>
-            </div>
-            <ArrowRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition-[color,transform] ml-auto shrink-0" />
-          </Link>
-        ))}
-      </div>
-
-      </ErrorBoundary>
-
-      {/* Footer info */}
-      <div className="text-center text-xs text-muted-foreground py-2">
-        上次刷新: {lastRefresh ? lastRefresh.toLocaleTimeString('zh-CN') : '等待首次刷新'} · {autoRefresh ? '每30秒自动刷新' : '自动刷新已暂停'}
-      </div>
+      <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Clock3 className="size-4" />{lastRefresh ? `最近刷新：${lastRefresh.toLocaleTimeString('zh-CN', { hour12: false })}` : '正在获取运营数据'}</div><div className="ml-auto flex flex-wrap gap-2"><Link href="/crawler" className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-semibold text-foreground hover:bg-muted"><CalendarPlus className="size-3.5" />新建爬虫计划</Link><Link href="/resources" className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-semibold text-foreground hover:bg-muted"><Database className="size-3.5" />管理资源</Link></div></div>
     </div>
   );
 }
