@@ -2,17 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings, Database, Bell, Shield, Save, Loader2, CheckCircle2, Globe, Palette, Key, Server, HardDrive, Mail, AlertTriangle } from 'lucide-react';
+import { Database, Shield, Save, Loader2, CheckCircle2, Globe, Palette, Key, Server, HardDrive } from 'lucide-react';
 import { settingsApi, userApi } from '@/lib/api';
 import { extractErrorMessage } from '@/lib/utils';
 import { useToast } from '@/components/ui/toast';
+import NotificationDeliverySettings from './components/NotificationDeliverySettings';
 
 interface SettingsData {
   site_name: string;
   site_desc: string;
   copyright: string;
-  notify_on_complete: string;
-  notify_on_error: string;
   admin_path: string;
 }
 
@@ -20,8 +19,6 @@ const defaultSettings: SettingsData = {
   site_name: '影视森林',
   site_desc: '影视资源聚合平台',
   copyright: '© 2026 影视森林. 仅供学习交流.',
-  notify_on_complete: 'true',
-  notify_on_error: 'false',
   admin_path: '/admin',
 };
 
@@ -44,8 +41,6 @@ export default function SettingsPage() {
           site_name: d.site_name || prev.site_name,
           site_desc: d.site_desc || prev.site_desc,
           copyright: d.copyright || prev.copyright,
-          notify_on_complete: d.notify_on_complete ?? prev.notify_on_complete,
-          notify_on_error: d.notify_on_error ?? prev.notify_on_error,
         }));
       }
     }).catch((e: unknown) => toast.error(extractErrorMessage(e, '加载设置失败'))).finally(() => setLoading(false));
@@ -69,8 +64,6 @@ export default function SettingsPage() {
         site_name: settings.site_name,
         site_desc: settings.site_desc,
         copyright: settings.copyright,
-        notify_on_complete: settings.notify_on_complete,
-        notify_on_error: settings.notify_on_error,
       });
       setSaved(true);
       toast.success('设置已保存');
@@ -157,7 +150,7 @@ export default function SettingsPage() {
           ) : saved ? (
             <><CheckCircle2 className="w-4 h-4" /> 已保存</>
           ) : (
-            <><Save className="w-4 h-4" /> 保存全部设置</>
+            <><Save className="w-4 h-4" /> 保存站点信息</>
           )}
         </button>
       </div>
@@ -206,57 +199,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
-      {/* Notification Settings */}
-      <Card className="bg-card border-border">
-        <CardHeader className="pb-4">
-          <CardTitle className="text-foreground flex items-center gap-2.5 text-lg">
-            <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center">
-              <Bell className="w-4 h-4 text-muted-foreground" />
-            </div>
-            通知设置
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-foreground font-medium">爬取完成通知</p>
-                <p className="text-sm text-muted-foreground">每次爬虫任务完成后发送通知</p>
-              </div>
-            </div>
-            <button
-              onClick={() => update('notify_on_complete', settings.notify_on_complete === 'true' ? 'false' : 'true')}
-              className={`w-12 h-6 rounded-full relative transition-colors ${settings.notify_on_complete === 'true' ? 'bg-primary' : 'bg-muted'}`}
-            >
-              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-[left,right] shadow-sm ${settings.notify_on_complete === 'true' ? 'right-1' : 'left-1'}`} />
-            </button>
-          </div>
-          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-foreground font-medium">错误告警</p>
-                <p className="text-sm text-muted-foreground">爬虫出错时发送告警通知</p>
-              </div>
-            </div>
-            <button
-              onClick={() => update('notify_on_error', settings.notify_on_error === 'true' ? 'false' : 'true')}
-              className={`w-12 h-6 rounded-full relative transition-colors ${settings.notify_on_error === 'true' ? 'bg-primary' : 'bg-muted'}`}
-            >
-              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-[left,right] shadow-sm ${settings.notify_on_error === 'true' ? 'right-1' : 'left-1'}`} />
-            </button>
-          </div>
-          <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-primary/5 border border-primary/10">
-            <Mail className="w-4 h-4 text-primary shrink-0" />
-            <p className="text-xs text-muted-foreground">邮件通知功能将在后续版本中支持</p>
-          </div>
-        </CardContent>
-      </Card>
+      <NotificationDeliverySettings />
 
       {/* Database Info */}
       <Card className="bg-card border-border">
