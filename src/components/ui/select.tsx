@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronDown, Check, Search, X } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { Select as SelectPrimitive } from '@base-ui/react/select';
+import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface SelectOption {
@@ -22,6 +23,80 @@ interface SelectProps {
   size?: 'sm' | 'default';
 }
 
+interface OptionsPopupProps {
+  options: SelectOption[];
+  searchable: boolean;
+  search: string;
+  onSearchChange: (value: string) => void;
+  searchRef: React.RefObject<HTMLInputElement | null>;
+  size: 'sm' | 'default';
+}
+
+function OptionsPopup({ options, searchable, search, onSearchChange, searchRef, size }: OptionsPopupProps) {
+  const filtered = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase('zh-CN');
+    return query
+      ? options.filter(option => option.label.toLocaleLowerCase('zh-CN').includes(query))
+      : options;
+  }, [options, search]);
+
+  return (
+    <SelectPrimitive.Portal>
+      <SelectPrimitive.Positioner
+        sideOffset={6}
+        align="start"
+        alignItemWithTrigger={false}
+        className="z-[70] w-[var(--anchor-width)] min-w-44 max-w-[calc(100vw-1.5rem)]"
+      >
+        <SelectPrimitive.Popup className="origin-[var(--transform-origin)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl outline-none transition-[transform,opacity] duration-150 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0">
+          {searchable && (
+            <div className="border-b border-border p-2">
+              <label className="relative block">
+                <span className="sr-only">搜索选项</span>
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  ref={searchRef}
+                  value={search}
+                  onChange={event => onSearchChange(event.target.value)}
+                  onKeyDown={event => {
+                    if (event.key !== 'Escape') event.stopPropagation();
+                  }}
+                  placeholder="搜索选项"
+                  className="h-8 w-full rounded-lg border border-input bg-background pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+                />
+              </label>
+            </div>
+          )}
+          <SelectPrimitive.List className="max-h-[min(18rem,var(--available-height))] overflow-y-auto p-1.5">
+            {filtered.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">没有匹配选项</p>
+            ) : (
+              filtered.map(option => (
+                <SelectPrimitive.Item
+                  key={option.value}
+                  value={option.value}
+                  label={option.label}
+                  disabled={option.disabled}
+                  className={cn(
+                    'grid cursor-default grid-cols-[1fr_auto] items-center gap-3 rounded-lg px-2.5 outline-none select-none',
+                    size === 'sm' ? 'min-h-8 text-xs' : 'min-h-9 text-sm',
+                    'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[selected]:font-medium data-[disabled]:pointer-events-none data-[disabled]:opacity-45',
+                  )}
+                >
+                  <SelectPrimitive.ItemText className="truncate">{option.label}</SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemIndicator className="text-primary">
+                    <Check className="size-4" strokeWidth={2.2} />
+                  </SelectPrimitive.ItemIndicator>
+                </SelectPrimitive.Item>
+              ))
+            )}
+          </SelectPrimitive.List>
+        </SelectPrimitive.Popup>
+      </SelectPrimitive.Positioner>
+    </SelectPrimitive.Portal>
+  );
+}
+
 export function Select({
   options,
   value,
@@ -35,124 +110,66 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const selected = options.find(option => option.value === value);
 
-  const selected = options.find(o => o.value === value);
-
-  const filtered = search
-    ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
-    : options;
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  useEffect(() => {
-    if (open && searchable && searchRef.current) {
-      searchRef.current.focus();
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setSearch('');
+    } else if (searchable) {
+      requestAnimationFrame(() => searchRef.current?.focus());
     }
-  }, [open, searchable]);
-
-  const handleSelect = useCallback((opt: SelectOption) => {
-    if (opt.disabled) return;
-    onChange?.(opt.value);
-    setOpen(false);
-    setSearch('');
-  }, [onChange]);
-
-  const handleClear = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    onChange?.('');
-    setSearch('');
-  }, [onChange]);
-
-  const h = size === 'sm' ? 'h-8' : 'h-9';
-  const textSize = size === 'sm' ? 'text-xs' : 'text-sm';
+  };
 
   return (
-    <div ref={containerRef} className={cn('relative', className)}>
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => { if (!disabled) { setOpen(!open); setSearch(''); } }}
-        className={cn(
-          'flex w-full items-center justify-between gap-1.5 rounded-lg border border-border bg-background px-3 transition-colors',
-          h, textSize,
-          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary/30',
-          open && 'border-primary ring-1 ring-primary/30'
-        )}
+    <div className={cn('relative', className)}>
+      <SelectPrimitive.Root
+        items={options}
+        value={value || null}
+        onValueChange={nextValue => onChange?.(nextValue ?? '')}
+        open={open}
+        onOpenChange={handleOpenChange}
+        disabled={disabled}
       >
-        <span className={cn('truncate', selected ? 'text-foreground' : 'text-muted-foreground')}>
-          {selected ? selected.label : placeholder}
-        </span>
-        <span className="flex items-center gap-1 shrink-0">
-          {clearable && value && !disabled && (
-            <X
-              className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground transition-colors"
-              onClick={handleClear}
-            />
+        <SelectPrimitive.Trigger
+          className={cn(
+            'flex w-full items-center justify-between gap-2 rounded-xl border border-input bg-background px-3 text-left text-foreground outline-none transition-[border-color,box-shadow,background-color]',
+            size === 'sm' ? 'h-8 text-xs' : 'h-9 text-sm',
+            clearable && selected && 'pr-16',
+            'hover:border-muted-foreground/55 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 data-[popup-open]:border-ring data-[popup-open]:ring-3 data-[popup-open]:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-55',
           )}
-          <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform', open && 'rotate-180')} />
-        </span>
-      </button>
-
-      {/* Dropdown - z-[10000] to appear above Modal */}
-      {open && (
-        <div className="absolute z-[10000] mt-1 w-full rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-100">
-          {searchable && (
-            <div className="p-2 border-b border-border">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <input
-                  ref={searchRef}
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="搜索..."
-                  className={cn('w-full pl-8 pr-3 rounded-md border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary', size === 'sm' ? 'h-7 text-xs' : 'h-8 text-sm')}
-                />
-              </div>
-            </div>
-          )}
-          <div className="max-h-60 overflow-y-auto py-1">
-            {filtered.length === 0 ? (
-              <div className="px-3 py-6 text-center text-muted-foreground text-sm">无匹配选项</div>
-            ) : (
-              filtered.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => handleSelect(opt)}
-                  disabled={opt.disabled}
-                  className={cn(
-                    'flex w-full items-center justify-between px-3 py-2 transition-colors',
-                    textSize,
-                    opt.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-                    opt.value === value
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-foreground hover:bg-muted'
-                  )}
-                >
-                  <span className="truncate">{opt.label}</span>
-                  {opt.value === value && <Check className="w-4 h-4 shrink-0 text-primary" />}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
+        >
+          <SelectPrimitive.Value placeholder={placeholder} className="min-w-0 truncate data-[placeholder]:text-muted-foreground">
+            {() => selected?.label ?? placeholder}
+          </SelectPrimitive.Value>
+          <SelectPrimitive.Icon className="ml-auto shrink-0 text-muted-foreground transition-transform data-[popup-open]:rotate-180">
+            <ChevronDown className="size-4" />
+          </SelectPrimitive.Icon>
+        </SelectPrimitive.Trigger>
+        <OptionsPopup
+          options={options}
+          searchable={searchable}
+          search={search}
+          onSearchChange={setSearch}
+          searchRef={searchRef}
+          size={size}
+        />
+      </SelectPrimitive.Root>
+      {clearable && selected && !disabled && (
+        <button
+          type="button"
+          onClick={() => onChange?.('')}
+          className="absolute right-8 top-1/2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={`清除${selected.label}`}
+        >
+          <X className="size-3.5" />
+        </button>
       )}
     </div>
   );
 }
 
-// Multi-select variant
 interface MultiSelectProps {
   options: SelectOption[];
   value?: string[];
@@ -176,129 +193,67 @@ export function MultiSelect({
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const containerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const selected = options.filter(option => value.includes(option.value));
+  const visibleLabels = selected.slice(0, maxDisplay).map(option => option.label);
+  const hiddenCount = Math.max(0, selected.length - maxDisplay);
 
-  const selectedOptions = options.filter(o => value.includes(o.value));
-  const filtered = search
-    ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
-    : options;
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  useEffect(() => {
-    if (open && searchable && searchRef.current) {
-      searchRef.current.focus();
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      setSearch('');
+    } else if (searchable) {
+      requestAnimationFrame(() => searchRef.current?.focus());
     }
-  }, [open, searchable]);
-
-  const toggleOption = useCallback((optValue: string) => {
-    const newValue = value.includes(optValue)
-      ? value.filter(v => v !== optValue)
-      : [...value, optValue];
-    onChange?.(newValue);
-  }, [value, onChange]);
-
-  const removeOption = useCallback((e: React.MouseEvent, optValue: string) => {
-    e.stopPropagation();
-    onChange?.(value.filter(v => v !== optValue));
-  }, [value, onChange]);
+  };
 
   return (
-    <div ref={containerRef} className={cn('relative', className)}>
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => { if (!disabled) { setOpen(!open); setSearch(''); } }}
-        className={cn(
-          'flex w-full items-center justify-between gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 min-h-9 transition-colors',
-          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-muted-foreground/50 focus:border-primary focus:ring-1 focus:ring-primary/30',
-          open && 'border-primary ring-1 ring-primary/30'
-        )}
+    <div className={cn('relative', className)}>
+      <SelectPrimitive.Root
+        multiple
+        items={options}
+        value={value}
+        onValueChange={nextValue => onChange?.(nextValue)}
+        open={open}
+        onOpenChange={handleOpenChange}
+        disabled={disabled}
       >
-        <div className="flex flex-wrap gap-1 flex-1">
-          {selectedOptions.length === 0 ? (
-            <span className="text-sm text-muted-foreground">{placeholder}</span>
-          ) : (
-            <>
-              {selectedOptions.slice(0, maxDisplay).map(opt => (
-                <span
-                  key={opt.value}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs"
+        <SelectPrimitive.Trigger className="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-input bg-background px-3 py-1.5 text-left text-sm text-foreground outline-none transition-[border-color,box-shadow,background-color] hover:border-muted-foreground/55 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 data-[popup-open]:border-ring data-[popup-open]:ring-3 data-[popup-open]:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-55">
+          <SelectPrimitive.Value placeholder={placeholder} className="min-w-0 flex-1 truncate data-[placeholder]:text-muted-foreground">
+            {() => selected.length === 0
+              ? placeholder
+              : `${visibleLabels.join('、')}${hiddenCount > 0 ? `，另 ${hiddenCount} 项` : ''}`}
+          </SelectPrimitive.Value>
+          <SelectPrimitive.Icon className="shrink-0 text-muted-foreground transition-transform data-[popup-open]:rotate-180">
+            <ChevronDown className="size-4" />
+          </SelectPrimitive.Icon>
+        </SelectPrimitive.Trigger>
+        <OptionsPopup
+          options={options}
+          searchable={searchable}
+          search={search}
+          onSearchChange={setSearch}
+          searchRef={searchRef}
+          size="default"
+        />
+      </SelectPrimitive.Root>
+      {selected.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5" aria-label="已选择项目">
+          {selected.map(option => (
+            <span key={option.value} className="inline-flex items-center gap-1 rounded-lg bg-accent px-2 py-1 text-xs font-medium text-accent-foreground">
+              {option.label}
+              {!disabled && (
+                <button
+                  type="button"
+                  onClick={() => onChange?.(value.filter(item => item !== option.value))}
+                  className="rounded text-accent-foreground/65 transition-colors hover:text-accent-foreground"
+                  aria-label={`移除${option.label}`}
                 >
-                  {opt.label}
-                  {!disabled && (
-                    <X
-                      className="w-3 h-3 hover:text-primary/70 transition-colors cursor-pointer"
-                      onClick={(e) => removeOption(e, opt.value)}
-                    />
-                  )}
-                </span>
-              ))}
-              {selectedOptions.length > maxDisplay && (
-                <span className="text-xs text-muted-foreground px-1 py-0.5">
-                  +{selectedOptions.length - maxDisplay}
-                </span>
+                  <X className="size-3" />
+                </button>
               )}
-            </>
-          )}
-        </div>
-        <ChevronDown className={cn('w-4 h-4 text-muted-foreground transition-transform shrink-0', open && 'rotate-180')} />
-      </button>
-
-      {/* Dropdown - z-[10000] to appear above Modal */}
-      {open && (
-        <div className="absolute z-[10000] mt-1 w-full rounded-lg border border-border bg-popover shadow-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-100">
-          {searchable && (
-            <div className="p-2 border-b border-border">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <input
-                  ref={searchRef}
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="搜索..."
-                  className="w-full h-8 pl-8 pr-3 rounded-md border border-input bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
-                />
-              </div>
-            </div>
-          )}
-          <div className="max-h-60 overflow-y-auto py-1">
-            {filtered.length === 0 ? (
-              <div className="px-3 py-6 text-center text-muted-foreground text-sm">无匹配选项</div>
-            ) : (
-              filtered.map(opt => {
-                const isSelected = value.includes(opt.value);
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => toggleOption(opt.value)}
-                    disabled={opt.disabled}
-                    className={cn(
-                      'flex w-full items-center justify-between px-3 py-2 text-sm transition-colors',
-                      opt.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-                      isSelected
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-foreground hover:bg-muted'
-                    )}
-                  >
-                    <span className="truncate">{opt.label}</span>
-                    {isSelected && <Check className="w-4 h-4 shrink-0 text-primary" />}
-                  </button>
-                );
-              })
-            )}
-          </div>
+            </span>
+          ))}
         </div>
       )}
     </div>
