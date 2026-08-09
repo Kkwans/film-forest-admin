@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, UserPlus, Search, Pencil, Trash2, Key, Loader2, Shield, ShieldOff, X } from 'lucide-react';
-import { userApi, type UserItem } from '@/lib/api';
+import { Users, UserPlus, Search, Pencil, Trash2, Key, Loader2, Shield, ShieldOff, X, Copy, Link2, Mail, Phone, Ban } from 'lucide-react';
+import { userApi, type UserItem, type RegistrationInvitationItem } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 import { useDialog } from '@/components/ui/dialog';
 import { extractErrorMessage } from '@/lib/utils';
@@ -19,6 +19,17 @@ interface PageResult<T> {
   pages: number;
 }
 
+const INVITATION_STATUS: Record<RegistrationInvitationItem['status'], { label: string; className: string }> = {
+  ACTIVE: { label: '有效', className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' },
+  USED: { label: '已使用', className: 'border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300' },
+  REVOKED: { label: '已撤销', className: 'border-border bg-muted text-muted-foreground' },
+  EXPIRED: { label: '已过期', className: 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300' },
+};
+
+function formatDateTime(value?: string | null) {
+  return value ? new Date(value).toLocaleString('zh-CN') : '—';
+}
+
 export default function UsersPage() {
   const toast = useToast();
   const dialog = useDialog();
@@ -29,6 +40,10 @@ export default function UsersPage() {
   const [keyword, setKeyword] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [loading, setLoading] = useState(true);
+  const [invitations, setInvitations] = useState<RegistrationInvitationItem[]>([]);
+  const [invitationsLoading, setInvitationsLoading] = useState(true);
+  const [generatingInvitation, setGeneratingInvitation] = useState(false);
+  const [createdInvitation, setCreatedInvitation] = useState<{ link: string; expiresAt: string } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Debounce search keyword
@@ -90,12 +105,28 @@ export default function UsersPage() {
     }
   }, [page, size, debouncedKeyword, toast]);
 
+  const loadInvitations = useCallback(async () => {
+    setInvitationsLoading(true);
+    try {
+      const response = await userApi.listRegistrationInvitations();
+      const data = response.data?.data;
+      setInvitations(Array.isArray(data) ? data as RegistrationInvitationItem[] : []);
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, '加载注册邀请失败'));
+    } finally {
+      setInvitationsLoading(false);
+    }
+  }, [toast]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => void loadUsers(), 0);
     return () => window.clearTimeout(timer);
   }, [loadUsers]);
 
-  const handleSearch = () => { setPage(1); };
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadInvitations(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadInvitations]);
 
   const openCreateModal = () => {
     setEditingUser(null);
@@ -192,21 +223,82 @@ export default function UsersPage() {
     }
   };
 
+  const registrationLink = (token: string) => {
+    const configured = process.env.NEXT_PUBLIC_CLIENT_URL?.replace(/\/$/, '');
+    const base = configured || `${window.location.protocol}//${window.location.hostname}:3000`;
+    return `${base}/register?invite=${encodeURIComponent(token)}`;
+  };
+
+  const handleCreateInvitation = async () => {
+    if (generatingInvitation) return;
+    setGeneratingInvitation(true);
+    try {
+      const response = await userApi.createRegistrationInvitation();
+      const invitation = response.data?.data as { token?: string; expiresAt?: string } | undefined;
+      if (!invitation?.token || !invitation.expiresAt) throw new Error('邀请创建成功但响应不完整');
+      setCreatedInvitation({ link: registrationLink(invitation.token), expiresAt: invitation.expiresAt });
+      await loadInvitations();
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, '生成注册邀请失败'));
+    } finally {
+      setGeneratingInvitation(false);
+    }
+  };
+
+  const handleCopyInvitation = async () => {
+    if (!createdInvitation) return;
+    try {
+      await navigator.clipboard.writeText(createdInvitation.link);
+      toast.success('邀请链接已复制');
+    } catch {
+      toast.error('复制失败，请手动选择邀请链接');
+    }
+  };
+
+  const handleRevokeInvitation = async (invitation: RegistrationInvitationItem) => {
+    const ok = await dialog.confirm({
+      title: '撤销注册邀请',
+      content: '撤销后，该邀请链接将立即失效且无法恢复。',
+      confirmText: '确认撤销',
+      cancelText: '取消',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      await userApi.revokeRegistrationInvitation(invitation.id);
+      toast.success('邀请已撤销');
+      await loadInvitations();
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, '撤销邀请失败'));
+    }
+  };
+
   const totalPages = Math.ceil(total / size);
 
   return (
     <div className="flex flex-col gap-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2.5">
             <Users className="w-6 h-6" /> 用户管理
           </h1>
           <p className="text-sm text-muted-foreground mt-1">管理系统用户账号、权限和状态</p>
         </div>
-        <button onClick={openCreateModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-[color,background-color,box-shadow]">
-          <UserPlus className="w-4 h-4" /> 新建用户
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => void handleCreateInvitation()}
+            disabled={generatingInvitation}
+            className="flex min-h-10 items-center gap-2 rounded-xl border border-border bg-card px-4 text-sm font-medium text-foreground transition-colors hover:border-primary/35 hover:text-primary disabled:opacity-50"
+          >
+            {generatingInvitation ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+            生成注册邀请
+          </button>
+          <button onClick={openCreateModal} className="flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-[color,background-color,box-shadow] hover:bg-primary/90">
+            <UserPlus className="w-4 h-4" /> 新建用户
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -325,8 +417,8 @@ export default function UsersPage() {
                     </Badge>
                   </div>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground mb-2">
-                    {user.email && <span>📧 {user.email}</span>}
-                    {user.phone && <span>📱 {user.phone}</span>}
+                    {user.email && <span className="inline-flex items-center gap-1"><Mail aria-hidden className="h-3 w-3" />{user.email}</span>}
+                    {user.phone && <span className="inline-flex items-center gap-1"><Phone aria-hidden className="h-3 w-3" />{user.phone}</span>}
                     <span>{user.createdAt ? new Date(user.createdAt).toLocaleDateString('zh-CN') : '-'}</span>
                   </div>
                   <div className="flex items-center gap-1">
@@ -358,6 +450,55 @@ export default function UsersPage() {
           <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       )}
+
+      <Card className="overflow-hidden border-border bg-card">
+        <CardHeader className="border-b border-border bg-muted/20">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base"><Link2 className="h-4 w-4 text-primary" />家庭注册邀请</CardTitle>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">邀请 24 小时内有效，只能使用一次；系统仅保存令牌哈希。</p>
+            </div>
+            <span className="text-xs tabular-nums text-muted-foreground">最近 {invitations.length} 条</span>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {invitationsLoading ? (
+            <div className="flex h-28 items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" />加载邀请记录…</div>
+          ) : invitations.length === 0 ? (
+            <div className="grid min-h-28 place-items-center px-5 text-center text-sm text-muted-foreground">尚未生成注册邀请</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {invitations.map((invitation) => {
+                const status = INVITATION_STATUS[invitation.status];
+                return (
+                  <div key={invitation.id} className="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${status.className}`}>{status.label}</span>
+                        <span className="text-xs text-muted-foreground">由 {invitation.createdByUsername} 创建</span>
+                        {invitation.usedByUsername && <span className="text-xs text-secondary-foreground">注册账号：{invitation.usedByUsername}</span>}
+                      </div>
+                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                        创建 {formatDateTime(invitation.createdAt)} · 到期 {formatDateTime(invitation.expiresAt)}
+                        {invitation.usedAt ? ` · 使用 ${formatDateTime(invitation.usedAt)}` : ''}
+                      </p>
+                    </div>
+                    {invitation.status === 'ACTIVE' && (
+                      <button
+                        type="button"
+                        onClick={() => void handleRevokeInvitation(invitation)}
+                        className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg border border-destructive/25 px-3 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+                      >
+                        <Ban className="h-3.5 w-3.5" />撤销邀请
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Create/Edit Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editingUser ? '编辑用户' : '新建用户'}>
@@ -427,6 +568,33 @@ export default function UsersPage() {
             </div>
           </div>
         </Modal>
+
+      <Modal open={Boolean(createdInvitation)} onClose={() => setCreatedInvitation(null)} title="注册邀请已生成">
+        {createdInvitation && (
+          <div className="space-y-4 p-1">
+            <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 p-4">
+              <p className="text-sm font-semibold text-foreground">请现在复制并发送给家庭成员</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">出于安全考虑，关闭后无法再次查看这条原始邀请链接。</p>
+            </div>
+            <div>
+              <label htmlFor="registration-invitation-link" className="mb-2 block text-sm font-medium text-foreground">一次性邀请链接</label>
+              <textarea
+                id="registration-invitation-link"
+                readOnly
+                value={createdInvitation.link}
+                rows={3}
+                onFocus={(event) => event.currentTarget.select()}
+                className="w-full resize-none rounded-xl border border-border bg-background p-3 text-xs leading-5 text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              <p className="mt-2 text-xs text-muted-foreground">有效期至 {formatDateTime(createdInvitation.expiresAt)}</p>
+            </div>
+            <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+              <button type="button" onClick={() => setCreatedInvitation(null)} className="min-h-10 rounded-lg border border-border px-4 text-sm font-medium text-foreground hover:bg-muted">完成</button>
+              <button type="button" onClick={() => void handleCopyInvitation()} className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"><Copy className="h-4 w-4" />复制邀请链接</button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

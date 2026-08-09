@@ -505,6 +505,24 @@ export interface UserItem {
   updatedAt: string;
 }
 
+export interface RegistrationInvitationItem {
+  id: number;
+  status: 'ACTIVE' | 'USED' | 'REVOKED' | 'EXPIRED';
+  createdBy: number;
+  createdByUsername: string;
+  usedBy: number | null;
+  usedByUsername: string | null;
+  expiresAt: string;
+  usedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+export interface CreatedRegistrationInvitation {
+  token: string;
+  expiresAt: string;
+}
+
 export const userApi = {
   /** 分页查询用户 */
   list: (params?: { page?: number; size?: number; keyword?: string; status?: number }) =>
@@ -524,6 +542,12 @@ export const userApi = {
   /** 重置密码 */
   resetPassword: (id: number, newPassword: string) =>
     adminClient.post(`/api/admin/users/${id}/reset-password`, { newPassword }),
+  listRegistrationInvitations: () =>
+    adminClient.get('/api/admin/registration-invitations'),
+  createRegistrationInvitation: () =>
+    adminClient.post('/api/admin/registration-invitations'),
+  revokeRegistrationInvitation: (id: number) =>
+    adminClient.post(`/api/admin/registration-invitations/${id}/revoke`),
 };
 
 // 操作日志 API
