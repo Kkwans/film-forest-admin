@@ -5,6 +5,7 @@ import { Monitor, Moon, Sun } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -34,21 +35,23 @@ export default function ThemeToggle() {
         <ResolvedIcon className="size-[18px]" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40">
-        <DropdownMenuLabel>外观</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={currentTheme} onValueChange={value => setTheme(value as Theme)}>
-          <DropdownMenuRadioItem value="system">
-            <Monitor />
-            跟随系统
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="light">
-            <Sun />
-            浅色
-          </DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="dark">
-            <Moon />
-            深色
-          </DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>外观</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={currentTheme} onValueChange={value => setTheme(value as Theme)}>
+            <DropdownMenuRadioItem value="system">
+              <Monitor />
+              跟随系统
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="light">
+              <Sun />
+              浅色
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="dark">
+              <Moon />
+              深色
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
