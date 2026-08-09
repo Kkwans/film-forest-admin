@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tags, Plus, Pencil, Trash2, Search, Loader2, Inbox, Tag, X, Hash } from 'lucide-react';
 import { tagApi, type TagItem } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText, Search, Loader2, Activity, CheckCircle2, XCircle, Filter, X } from 'lucide-react';
 import { logApi, type LogItem } from '@/lib/api';
@@ -96,7 +96,7 @@ export default function LogsPage() {
     try {
       const res = await logApi.stats();
       if (res.data?.code === 200) setStats(res.data.data);
-    } catch (e: unknown) { /* ignore */ }
+    } catch { /* 统计失败不阻断日志列表。 */ }
   }, []);
 
   useEffect(() => {
@@ -108,7 +108,6 @@ export default function LogsPage() {
     return () => window.clearTimeout(timer);
   }, [loadStats]);
 
-  const handleSearch = () => { setPage(1); };
   const handleReset = () => {
     setKeyword(''); setActionFilter(''); setModuleFilter(''); setStatusFilter('');
     setPage(1);

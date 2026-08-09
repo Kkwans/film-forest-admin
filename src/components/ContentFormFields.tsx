@@ -178,6 +178,7 @@ function PosterPreview({ url }: { url: string }) {
   const [failedUrl, setFailedUrl] = useState('');
   const canShow = Boolean(url) && failedUrl !== url;
   return canShow ? (
+    // eslint-disable-next-line @next/next/no-img-element -- 海报来源由爬虫或管理员配置，域名不固定。
     <img src={url} alt="海报预览" className="size-full object-cover" onError={() => setFailedUrl(url)} />
   ) : (
     <div className="grid size-full place-items-center gap-1 p-2 text-center text-muted-foreground">

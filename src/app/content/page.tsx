@@ -108,6 +108,7 @@ function ContentPoster({ url, title, className }: { url?: string; title: string;
   return (
     <div className={`overflow-hidden border border-border bg-muted/45 ${className}`}>
       {canShowImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- 海报来源由爬虫或管理员配置，域名不固定。
         <img
           src={url}
           alt={`${title}海报`}
@@ -260,14 +261,14 @@ export default function ContentPage() {
     contentApi.getStats().then(res => {
       if (res.data?.code === 200) setStats(res.data.data);
     }).catch((e: unknown) => toast.error(extractErrorMessage(e, '加载统计数据失败')));
-  }, []);
+  }, [toast]);
 
   // Load all tags
   useEffect(() => {
     tagApi.list().then(res => {
       if (res.data?.code === 200) setAllTags(res.data.data || []);
     }).catch((e: unknown) => toast.error(extractErrorMessage(e, '标签加载失败')));
-  }, []);
+  }, [toast]);
 
   const filtered = items;
 
@@ -296,7 +297,7 @@ export default function ContentPage() {
       } catch (e: unknown) { toast.error(extractErrorMessage(e, '加载标签失败')); }
     };
     loadItemTags();
-  }, [items, allTags]);
+  }, [items, allTags, contentTagMap, toast]);
 
   const typeCountMap: Record<string, number> = {
     movie: stats.movies,
@@ -307,7 +308,7 @@ export default function ContentPage() {
   };
 
   // ========== 表单验证 ==========
-  const validateForm = (form: EditForm): Record<string, string> => {
+  const validateForm = useCallback((form: EditForm): Record<string, string> => {
     const errors: Record<string, string> = {};
     if (!form.title.trim()) errors.title = '请输入标题';
     if (form.year && (isNaN(Number(form.year)) || Number(form.year) < 1888 || Number(form.year) > 2099)) errors.year = '请输入有效年份 (1888-2099)';
@@ -318,7 +319,7 @@ export default function ContentPage() {
     if (form.totalEpisode && (!Number.isInteger(Number(form.totalEpisode)) || Number(form.totalEpisode) < 0)) errors.totalEpisode = '请输入有效集数';
     if (form.seriesOrder && (!Number.isInteger(Number(form.seriesOrder)) || Number(form.seriesOrder) < 1)) errors.seriesOrder = '系列序号应为正整数';
     return errors;
-  };
+  }, []);
 
   // ========== 操作处理 ==========
   const handleDelete = async (id: number, type: ContentRecord['type']) => {
@@ -384,7 +385,7 @@ export default function ContentPage() {
     setFormErrors({});
   };
 
-  const handleSaveNew = async () => {
+  const handleSaveNew = useCallback(async () => {
     const errors = validateForm(editForm);
     setFormErrors(errors);
     if (Object.keys(errors).length > 0) {
@@ -414,7 +415,7 @@ export default function ContentPage() {
     } finally {
       setSavingNew(false);
     }
-  };
+  }, [editForm, fetchItems, toast, validateForm]);
 
   useEffect(() => {
     handleSaveNewRef.current = handleSaveNew;
@@ -489,7 +490,7 @@ export default function ContentPage() {
     setEditingItem(fullItem);
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = useCallback(async () => {
     if (!editingItem) return;
     const errors = validateForm(editForm);
     setFormErrors(errors);
@@ -526,7 +527,7 @@ export default function ContentPage() {
     } finally {
       setSavingEdit(false);
     }
-  };
+  }, [editForm, editingItem, fetchItems, toast, validateForm]);
 
   useEffect(() => {
     handleSaveEditRef.current = handleSaveEdit;
@@ -561,7 +562,8 @@ export default function ContentPage() {
   const toggleSelectItem = (key: string) => {
     setSelectedKeys(prev => {
       const s = new Set(prev);
-      s.has(key) ? s.delete(key) : s.add(key);
+      if (s.has(key)) s.delete(key);
+      else s.add(key);
       return s;
     });
   };
@@ -601,7 +603,7 @@ export default function ContentPage() {
         short_drama: () => contentApi.deleteShortDrama(e.id),
       }))
     );
-    const successCount = results.reduce((acc, r, i) => {
+    const successCount = results.reduce((acc, r) => {
       if (r.status === 'fulfilled' && (r.value?.data?.code === 200 || r.value?.data?.code === 0)) return acc + 1;
       return acc;
     }, 0);
