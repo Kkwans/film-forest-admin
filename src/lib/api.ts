@@ -35,7 +35,7 @@ adminClient.interceptors.response.use(
       if (typeof window !== 'undefined') {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        window.location.href = '/login';
+        window.dispatchEvent(new Event('film-forest:unauthorized'));
       }
     }
     return Promise.reject(error);

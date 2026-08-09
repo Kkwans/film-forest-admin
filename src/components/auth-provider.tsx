@@ -61,6 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, [pathname, router]);
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setUser(null);
+      setToken(null);
+      router.replace('/login');
+    };
+    window.addEventListener('film-forest:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('film-forest:unauthorized', handleUnauthorized);
+  }, [router]);
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
