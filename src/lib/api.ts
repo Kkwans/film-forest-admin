@@ -75,12 +75,14 @@ export interface SaveMagnetData {
   id?: number;
   contentType: string;
   contentId: number;
+  sourceCode?: string;
   title?: string;
   magnetUrl: string;
   resolution?: string;
   hasSubtitle?: boolean;
   isSpecialSub?: boolean;
   sort?: number;
+  enabled?: number;
 }
 
 /** 保存网盘资源请求体 */
@@ -88,20 +90,51 @@ export interface SaveCloudData {
   id?: number;
   contentType: string;
   contentId: number;
+  sourceCode?: string;
   title?: string;
   diskType: string;
   url: string;
   password?: string;
   sort?: number;
+  enabled?: number;
 }
 
 /** 保存资源来源请求体 */
 export interface SaveSourceData {
   id?: number;
+  code: string;
   name: string;
   url: string;
-  type?: string;
-  enabled?: boolean;
+  enabled?: number;
+  sort?: number;
+}
+
+export interface SaveOnlineData {
+  id?: number;
+  contentType: string;
+  contentId: number;
+  sourceCode?: string;
+  sourceName: string;
+  sourceUrl: string;
+  season?: number | null;
+  episodeNumber?: number | null;
+  episodeTitle?: string;
+  sort?: number;
+  enabled?: number;
+}
+
+export interface ResourcePageQuery {
+  page?: number;
+  size?: number;
+  keyword?: string;
+  contentType?: string;
+  contentId?: number;
+  source?: string;
+  status?: 'ACTIVE' | 'DISABLED' | 'REMOVED';
+  resolution?: string;
+  diskType?: string;
+  sort?: 'createdAt' | 'updatedAt' | 'contentId' | 'title' | 'sort';
+  order?: 'asc' | 'desc';
 }
 
 export const crawlerApi = {
@@ -327,20 +360,28 @@ export const resourceApi = {
   // 资源统计
   getStats: () => adminClient.get('/api/admin/resources/stats'),
   // 在线资源列表
-  listOnline: (contentType?: string, contentId?: number) =>
-    adminClient.get('/api/admin/resources/online', { params: { contentType, contentId } }),
+  listOnline: (params?: ResourcePageQuery) =>
+    adminClient.get('/api/admin/resources/online', { params }),
+  saveOnline: (data: SaveOnlineData) => adminClient.post('/api/admin/resources/online', data),
+  deleteOnline: (id: number) => adminClient.delete(`/api/admin/resources/online/${id}`),
+  toggleOnline: (id: number, enabled: boolean) =>
+    adminClient.post(`/api/admin/resources/online/${id}/toggle`, null, { params: { enabled } }),
   // 磁力资源列表（分页）
-  listMagnet: (params?: { page?: number; size?: number; contentType?: string; contentId?: number; keyword?: string }) =>
+  listMagnet: (params?: ResourcePageQuery) =>
     adminClient.get('/api/admin/resources/magnet', { params }),
   // 磁力资源 CRUD
   saveMagnet: (data: SaveMagnetData) => adminClient.post('/api/admin/resources/magnet', data),
   deleteMagnet: (id: number) => adminClient.delete(`/api/admin/resources/magnet/${id}`),
+  toggleMagnet: (id: number, enabled: boolean) =>
+    adminClient.post(`/api/admin/resources/magnet/${id}/toggle`, null, { params: { enabled } }),
   // 网盘资源列表（分页）
-  listCloud: (params?: { page?: number; size?: number; contentType?: string; contentId?: number; keyword?: string }) =>
+  listCloud: (params?: ResourcePageQuery) =>
     adminClient.get('/api/admin/resources/cloud', { params }),
   // 网盘资源 CRUD
   saveCloud: (data: SaveCloudData) => adminClient.post('/api/admin/resources/cloud', data),
   deleteCloud: (id: number) => adminClient.delete(`/api/admin/resources/cloud/${id}`),
+  toggleCloud: (id: number, enabled: boolean) =>
+    adminClient.post(`/api/admin/resources/cloud/${id}/toggle`, null, { params: { enabled } }),
 
   // 资源来源 CRUD
   listSources: () => adminClient.get('/api/admin/resources/sources'),
