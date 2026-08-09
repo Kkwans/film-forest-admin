@@ -1,16 +1,16 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo, ReactNode } from 'react';
-import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
-interface Toast {
+interface ToastItem {
   id: string;
   type: ToastType;
   message: string;
-  duration?: number;
+  count: number;
 }
 
 interface ToastContextValue {
@@ -22,55 +22,70 @@ interface ToastContextValue {
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null);
+const MAX_VISIBLE_TOASTS = 4;
 
-const ICONS: Record<ToastType, ReactNode> = {
-  success: <CheckCircle className="w-4 h-4" />,
-  error: <AlertCircle className="w-4 h-4" />,
-  warning: <AlertTriangle className="w-4 h-4" />,
-  info: <Info className="w-4 h-4" />,
-};
-
-const STYLES: Record<ToastType, { bg: string; border: string; icon: string; text: string }> = {
+const TOAST_STYLES = {
   success: {
-    bg: 'bg-primary/10',
-    border: 'border-primary/30',
-    icon: 'text-primary',
-    text: 'text-primary',
+    icon: CheckCircle2,
+    shell: 'border-success/30 bg-card',
+    iconClass: 'bg-success/12 text-success',
   },
   error: {
-    bg: 'bg-destructive/10',
-    border: 'border-destructive/30',
-    icon: 'text-destructive',
-    text: 'text-destructive',
+    icon: AlertCircle,
+    shell: 'border-destructive/35 bg-card',
+    iconClass: 'bg-destructive/12 text-destructive',
   },
   warning: {
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/30',
-    icon: 'text-amber-400',
-    text: 'text-amber-300',
+    icon: AlertTriangle,
+    shell: 'border-warning/40 bg-card',
+    iconClass: 'bg-warning/16 text-warning-foreground dark:text-warning',
   },
   info: {
-    bg: 'bg-blue-500/10',
-    border: 'border-blue-500/30',
-    icon: 'text-blue-400',
-    text: 'text-blue-300',
+    icon: Info,
+    shell: 'border-info/30 bg-card',
+    iconClass: 'bg-info/12 text-info',
   },
-};
+} satisfies Record<ToastType, { icon: typeof Info; shell: string; iconClass: string }>;
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const timersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const remove = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
+    const timer = timersRef.current.get(id);
+    if (timer) clearTimeout(timer);
+    timersRef.current.delete(id);
+    setToasts(previous => previous.filter(item => item.id !== id));
+  }, []);
+
+  useEffect(() => () => {
+    timersRef.current.forEach(timer => clearTimeout(timer));
+    timersRef.current.clear();
   }, []);
 
   const toast = useCallback((message: string, type: ToastType = 'info', duration?: number) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    // Error toasts stay longer (5s) if duration not specified
-    const actualDuration = duration ?? (type === 'error' ? 5000 : 3000);
-    setToasts(prev => [...prev, { id, type, message, duration: actualDuration }]);
+    const normalizedMessage = message.trim();
+    if (!normalizedMessage) return;
+
+    const id = `${type}:${normalizedMessage}`;
+    const actualDuration = duration ?? (type === 'error' ? 6000 : 3500);
+
+    setToasts(previous => {
+      const existing = previous.find(item => item.id === id);
+      const nextItem: ToastItem = {
+        id,
+        type,
+        message: normalizedMessage,
+        count: (existing?.count ?? 0) + 1,
+      };
+      const withoutExisting = previous.filter(item => item.id !== id);
+      return [...withoutExisting, nextItem].slice(-MAX_VISIBLE_TOASTS);
+    });
+
+    const existingTimer = timersRef.current.get(id);
+    if (existingTimer) clearTimeout(existingTimer);
     if (actualDuration > 0) {
-      setTimeout(() => remove(id), actualDuration);
+      timersRef.current.set(id, setTimeout(() => remove(id), actualDuration));
     }
   }, [remove]);
 
@@ -78,36 +93,54 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const error = useCallback((message: string, duration?: number) => toast(message, 'error', duration), [toast]);
   const warning = useCallback((message: string, duration?: number) => toast(message, 'warning', duration), [toast]);
   const info = useCallback((message: string, duration?: number) => toast(message, 'info', duration), [toast]);
-  const ctx = useMemo<ToastContextValue>(() => ({ toast, success, error, warning, info }), [error, info, success, toast, warning]);
+  const value = useMemo<ToastContextValue>(() => ({ toast, success, error, warning, info }), [error, info, success, toast, warning]);
 
   return (
-    <ToastContext.Provider value={ctx}>
+    <ToastContext.Provider value={value}>
       {children}
-      {/* Toast container - top center on mobile, top right on desktop */}
-      <div className="fixed top-4 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-4 z-[9999] flex flex-col gap-2 pointer-events-none w-[calc(100vw-2rem)] max-w-sm">
-        {toasts.map(t => {
-          const style = STYLES[t.type];
+      <section
+        className="pointer-events-none fixed inset-x-4 top-4 z-[90] ml-auto flex max-w-sm flex-col gap-2 md:left-auto md:right-4"
+        aria-label="系统通知"
+        aria-live="polite"
+        aria-relevant="additions text"
+      >
+        {toasts.map(item => {
+          const styles = TOAST_STYLES[item.type];
+          const Icon = styles.icon;
+          const isAssertive = item.type === 'error';
           return (
             <div
-              key={t.id}
+              key={item.id}
+              role={isAssertive ? 'alert' : 'status'}
               className={cn(
-                'pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-md shadow-lg shadow-black/20',
-                'animate-in slide-in-from-top-2 fade-in duration-200',
-                style.bg, style.border
+                'pointer-events-auto flex items-start gap-3 rounded-xl border px-3.5 py-3 text-foreground shadow-xl backdrop-blur-xl',
+                'animate-in fade-in slide-in-from-top-2 duration-150',
+                styles.shell,
               )}
             >
-              <span className={cn('shrink-0', style.icon)}>{ICONS[t.type]}</span>
-              <span className={cn('text-sm flex-1 leading-snug', style.text)}>{t.message}</span>
+              <span className={cn('mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg', styles.iconClass)}>
+                <Icon className="size-4" />
+              </span>
+              <p className="min-w-0 flex-1 break-words pt-1 text-sm leading-5">
+                {item.message}
+                {item.count > 1 && (
+                  <span className="ml-2 inline-flex rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                    ×{item.count}
+                  </span>
+                )}
+              </p>
               <button
-                onClick={() => remove(t.id)}
-                className="p-1 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                type="button"
+                onClick={() => remove(item.id)}
+                className="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="关闭通知"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="size-3.5" />
               </button>
             </div>
           );
         })}
-      </div>
+      </section>
     </ToastContext.Provider>
   );
 }
