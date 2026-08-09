@@ -1,6 +1,7 @@
 'use client';
 
-import { ReactNode, useEffect } from 'react';
+import { type ReactNode } from 'react';
+import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,70 +23,50 @@ const WIDTH_MAP = {
 };
 
 export function Modal({ open, onClose, title, description, children, width = 'md', footer }: ModalProps) {
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
-
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
-    }
-  }, [open]);
-
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[9997] flex items-end md:items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose} />
-      {/* Modal */}
-      <div className={cn(
-        'relative bg-popover border-border shadow-2xl w-full flex flex-col',
-        /* Mobile: full screen minus safe area */
-        'h-[100dvh] md:h-auto md:max-h-[85vh] md:rounded-2xl md:border md:mx-4',
-        /* Desktop: centered with max width */
-        WIDTH_MAP[width],
-        'animate-in duration-200',
-        'md:zoom-in-95 md:fade-in',
-        'slide-in-from-bottom-4 md:slide-in-from-bottom-0'
-      )}>
-        {/* Header */}
-        {(title || description) && (
-          <div className="flex items-start justify-between px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4 border-b border-border/60 shrink-0 bg-muted/20">
-            <div className="min-w-0 flex-1">
-              {title && <h3 className="text-lg font-bold text-foreground truncate">{title}</h3>}
-              {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
+    <DialogPrimitive.Root
+      open={open}
+      onOpenChange={nextOpen => {
+        if (!nextOpen) onClose();
+      }}
+    >
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Backdrop className="fixed inset-0 z-[75] bg-black/45 backdrop-blur-[2px] transition-opacity duration-150 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+        <DialogPrimitive.Viewport className="fixed inset-0 z-[76] flex items-end justify-center md:items-center md:p-4">
+          <DialogPrimitive.Popup
+            className={cn(
+              'relative flex h-dvh w-full flex-col bg-popover text-popover-foreground shadow-2xl outline-none',
+              'transition-[transform,opacity] duration-200 data-[starting-style]:translate-y-4 data-[starting-style]:opacity-0 data-[ending-style]:translate-y-4 data-[ending-style]:opacity-0',
+              'md:h-auto md:max-h-[min(88dvh,56rem)] md:rounded-2xl md:border md:border-border md:data-[starting-style]:translate-y-0 md:data-[starting-style]:scale-[0.98] md:data-[ending-style]:translate-y-0 md:data-[ending-style]:scale-[0.98]',
+              WIDTH_MAP[width],
+            )}
+          >
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-border bg-muted/30 px-4 pb-3 pt-[max(1rem,env(safe-area-inset-top))] md:px-6 md:py-5">
+              <div className="min-w-0 flex-1">
+                <DialogPrimitive.Title className={cn('text-lg font-semibold tracking-tight text-foreground', !title && 'sr-only')}>
+                  {title || '对话框'}
+                </DialogPrimitive.Title>
+                {description && (
+                  <DialogPrimitive.Description className="mt-1 text-sm leading-5 text-muted-foreground">
+                    {description}
+                  </DialogPrimitive.Description>
+                )}
+              </div>
+              <DialogPrimitive.Close className="flex size-9 shrink-0 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="关闭对话框">
+                <X className="size-4" />
+              </DialogPrimitive.Close>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 md:px-6 md:py-5">
+              {children}
             </div>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0 ml-4">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-        {/* No title - just close button */}
-        {!title && !description && (
-          <div className="flex justify-end px-4 md:px-6 pt-3 shrink-0">
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-        {/* Content - scrollable */}
-        <div className="flex-1 overflow-y-auto px-4 md:px-6 py-3 md:py-4 min-h-0">
-          {children}
-        </div>
-        {/* Footer */}
-        {footer && (
-          <div className="shrink-0 flex items-center justify-end gap-2 px-4 md:px-6 py-3 md:py-4 border-t border-border bg-popover/80 backdrop-blur-sm safe-area-inset-bottom">
-            {footer}
-          </div>
-        )}
-      </div>
-    </div>
+            {footer && (
+              <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-popover/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:flex-row sm:justify-end md:px-6 md:py-4">
+                {footer}
+              </footer>
+            )}
+          </DialogPrimitive.Popup>
+        </DialogPrimitive.Viewport>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }

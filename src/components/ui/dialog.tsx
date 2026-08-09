@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
-import { X, AlertTriangle, Info, HelpCircle } from 'lucide-react';
+import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from 'react';
+import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
+import { AlertTriangle, HelpCircle, Info, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface DialogOptions {
@@ -23,19 +24,19 @@ const DialogContext = createContext<DialogContextValue | null>(null);
 
 const VARIANT_STYLES = {
   default: {
-    icon: <HelpCircle className="w-6 h-6 text-muted-foreground" />,
-    button: 'bg-primary hover:bg-primary/90 text-primary-foreground',
-    iconBg: 'bg-muted',
+    icon: HelpCircle,
+    iconClass: 'bg-muted text-muted-foreground',
+    buttonClass: 'bg-primary text-primary-foreground hover:bg-primary/90',
   },
   danger: {
-    icon: <AlertTriangle className="w-6 h-6 text-destructive" />,
-    button: 'bg-destructive hover:bg-destructive/90 text-destructive-foreground',
-    iconBg: 'bg-destructive/10',
+    icon: AlertTriangle,
+    iconClass: 'bg-destructive/10 text-destructive',
+    buttonClass: 'bg-destructive text-white hover:bg-destructive/90',
   },
   warning: {
-    icon: <Info className="w-6 h-6 text-amber-400" />,
-    button: 'bg-amber-600 hover:bg-amber-500 text-white',
-    iconBg: 'bg-amber-500/10',
+    icon: Info,
+    iconClass: 'bg-warning/15 text-warning-foreground dark:text-warning',
+    buttonClass: 'bg-warning text-warning-foreground hover:bg-warning/90',
   },
 };
 
@@ -43,23 +44,29 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   const [dialog, setDialog] = useState<DialogOptions | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [resolveRef, setResolveRef] = useState<((value: boolean) => void) | null>(null);
+  const resolveRef = useRef<((value: boolean) => void) | null>(null);
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
 
-  const confirm = useCallback((options: DialogOptions): Promise<boolean> => {
-    return new Promise(resolve => {
-      setDialog(options);
-      setIsOpen(true);
-      setResolveRef(() => resolve);
-    });
-  }, []);
+  const confirm = useCallback((options: DialogOptions): Promise<boolean> => new Promise(resolve => {
+    setDialog(options);
+    setIsOpen(true);
+    resolveRef.current = resolve;
+  }), []);
 
-  const alert = useCallback((message: string, title?: string): Promise<void> => {
-    return new Promise(resolve => {
-      setDialog({ content: message, title, confirmText: '确定', cancelText: undefined });
-      setIsOpen(true);
-      setResolveRef(() => (_v: boolean) => resolve());
-    });
-  }, []);
+  const alert = useCallback((message: string, title?: string): Promise<void> => new Promise(resolve => {
+    setDialog({ content: message, title, confirmText: '确定' });
+    setIsOpen(true);
+    resolveRef.current = () => resolve();
+  }), []);
+
+  const finishClose = useCallback((confirmed: boolean) => {
+    const current = dialog;
+    if (!confirmed) current?.onCancel?.();
+    setIsOpen(false);
+    setDialog(null);
+    resolveRef.current?.(confirmed);
+    resolveRef.current = null;
+  }, [dialog]);
 
   const handleClose = useCallback(async (confirmed: boolean) => {
     if (loading) return;
@@ -67,80 +74,86 @@ export function DialogProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       try {
         await dialog.onConfirm();
-      } finally {
+      } catch {
         setLoading(false);
+        return;
       }
+      setLoading(false);
     }
-    dialog?.onCancel?.();
-    setIsOpen(false);
-    resolveRef?.(confirmed);
-    setDialog(null);
-    setResolveRef(null);
-  }, [dialog, loading, resolveRef]);
+    finishClose(confirmed);
+  }, [dialog, finishClose, loading]);
 
-  // Enter 确认快捷键（loading 时禁用防止重复提交）
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') handleClose(false);
-    if (e.key === 'Enter' && !loading) handleClose(true);
-  }, [loading, handleClose]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, handleKeyDown]);
-
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = ''; };
-    }
-  }, [isOpen]);
-
-  const variant = dialog?.variant || 'default';
-  const variantStyle = VARIANT_STYLES[variant];
+  const variant = dialog?.variant ?? 'default';
+  const styles = VARIANT_STYLES[variant];
+  const Icon = styles.icon;
+  const accessibleTitle = dialog?.title || (variant === 'danger' ? '确认危险操作' : '请确认');
 
   return (
     <DialogContext.Provider value={{ confirm, alert }}>
       {children}
-      {isOpen && dialog && (
-        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => handleClose(false)} />
-          <div className="relative bg-popover border border-border rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 fade-in duration-200 overflow-hidden">
-            {/* Header */}
-            <div className="px-6 pt-6 pb-2 flex items-start gap-4">
-              <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', variantStyle.iconBg)}>
-                {variantStyle.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                {dialog.title && <h3 className="text-lg font-semibold text-foreground">{dialog.title}</h3>}
-                <p className="text-sm text-muted-foreground mt-1 leading-relaxed">{dialog.content}</p>
-              </div>
-              <button onClick={() => handleClose(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            {/* Buttons */}
-            <div className="flex items-center justify-end gap-2 px-6 py-4 bg-popover/80 backdrop-blur-sm border-t border-border">
-              {dialog.cancelText && (
-                <button
-                  onClick={() => handleClose(false)}
-                  className="px-4 py-2 text-sm rounded-xl border border-border bg-background text-foreground hover:bg-muted transition-colors"
-                >
-                  {dialog.cancelText}
-                </button>
-              )}
-              <button
-                onClick={() => handleClose(true)}
-                disabled={loading}
-                className={cn('px-4 py-2 text-sm rounded-xl font-medium disabled:opacity-50 transition-colors', variantStyle.button)}
+      <DialogPrimitive.Root
+        open={isOpen}
+        onOpenChange={open => {
+          if (!open) void handleClose(false);
+        }}
+      >
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Backdrop className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-[2px] transition-opacity duration-150 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
+          <DialogPrimitive.Viewport className="fixed inset-0 z-[81] flex items-center justify-center p-4">
+            {dialog && (
+              <DialogPrimitive.Popup
+                initialFocus={confirmButtonRef}
+                className="w-full max-w-md origin-center overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl outline-none transition-[transform,opacity] duration-150 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.97] data-[ending-style]:opacity-0"
               >
-                {loading ? '处理中...' : (dialog.confirmText || '确定')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="flex items-start gap-4 px-5 pb-5 pt-5 sm:px-6 sm:pt-6">
+                  <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl', styles.iconClass)}>
+                    <Icon className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <DialogPrimitive.Title className="text-base font-semibold tracking-tight text-foreground">
+                      {accessibleTitle}
+                    </DialogPrimitive.Title>
+                    <DialogPrimitive.Description className="mt-1.5 text-sm leading-6 text-muted-foreground">
+                      {dialog.content}
+                    </DialogPrimitive.Description>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleClose(false)}
+                    disabled={loading}
+                    className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                    aria-label="关闭对话框"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
+                <div className="flex flex-col-reverse gap-2 border-t border-border bg-muted/35 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+                  {dialog.cancelText && (
+                    <button
+                      type="button"
+                      onClick={() => void handleClose(false)}
+                      disabled={loading}
+                      className="h-9 rounded-xl border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                    >
+                      {dialog.cancelText}
+                    </button>
+                  )}
+                  <button
+                    ref={confirmButtonRef}
+                    type="button"
+                    onClick={() => void handleClose(true)}
+                    disabled={loading}
+                    className={cn('flex h-9 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-colors disabled:cursor-wait disabled:opacity-60', styles.buttonClass)}
+                  >
+                    {loading && <Loader2 className="size-4 animate-spin" />}
+                    {loading ? '处理中' : (dialog.confirmText || '确定')}
+                  </button>
+                </div>
+              </DialogPrimitive.Popup>
+            )}
+          </DialogPrimitive.Viewport>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
     </DialogContext.Provider>
   );
 }
