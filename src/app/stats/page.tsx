@@ -211,7 +211,7 @@ export default function StatsPage() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
-        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-primary/20 p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-primary/20 p-4 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
@@ -222,7 +222,7 @@ export default function StatsPage() {
             {overview && overview.totalWeekGrowth > 0 && <p className="text-xs mt-1 text-emerald-500 font-medium">+{overview.totalWeekGrowth} 本周</p>}
           </div>
         </div>
-        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200">
           <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-transparent pointer-events-none" />
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center mb-2">
@@ -233,7 +233,7 @@ export default function StatsPage() {
             <p className="text-xs mt-1 text-muted-foreground">{overview?.crawler.totalRuns ?? 0} 次运行</p>
           </div>
         </div>
-        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent pointer-events-none" />
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center mb-2">
@@ -244,7 +244,7 @@ export default function StatsPage() {
             <p className="text-xs mt-1 text-muted-foreground">在线 {overview?.resources.online ?? 0} · 磁力 {overview?.resources.magnet ?? 0}</p>
           </div>
         </div>
-        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+        <div className="stat-card relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent pointer-events-none" />
           <div className="relative">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center mb-2">
@@ -341,7 +341,7 @@ export default function StatsPage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all duration-500 ${colorClass}`} style={{ width: `${pct}%` }} />
+                        <div className={`h-full rounded-full transition-[width] duration-500 ${colorClass}`} style={{ width: `${pct}%` }} />
                       </div>
                       <span className="text-xs text-muted-foreground">{item.count}</span>
                     </div>
@@ -386,7 +386,7 @@ export default function StatsPage() {
           <div className="text-3xl font-bold text-foreground mb-6">{loading ? <Skeleton className="h-8 w-24 inline-block" /> : total.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">内容总量</span></div>
           <div className="space-y-4">
             {total > 0 && contentStats.map((stat, i) => { const pct = (stat.value / total) * 100; return (
-              <div key={stat.label}><div className="flex justify-between text-sm mb-2"><div className="flex items-center gap-2"><span className="text-lg">{stat.icon}</span><span className="text-muted-foreground">{stat.label}</span></div><div className="flex items-center gap-2"><span className="text-foreground font-medium">{stat.value.toLocaleString()}</span><span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS[i] + '20', color: COLORS[i] }}>{pct.toFixed(1)}%</span></div></div><div className="w-full h-2 bg-muted rounded-full overflow-hidden"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: COLORS[i] }} /></div></div>
+              <div key={stat.label}><div className="flex justify-between text-sm mb-2"><div className="flex items-center gap-2"><span className="text-lg">{stat.icon}</span><span className="text-muted-foreground">{stat.label}</span></div><div className="flex items-center gap-2"><span className="text-foreground font-medium">{stat.value.toLocaleString()}</span><span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: COLORS[i] + '20', color: COLORS[i] }}>{pct.toFixed(1)}%</span></div></div><div className="w-full h-2 bg-muted rounded-full overflow-hidden"><div className="h-full rounded-full transition-[width] duration-500" style={{ width: `${pct}%`, backgroundColor: COLORS[i] }} /></div></div>
             ); })}
           </div>
         </div>
@@ -400,7 +400,7 @@ export default function StatsPage() {
             <div key={s.name} className="p-4 rounded-xl bg-secondary/50 border border-border hover:border-foreground/10 transition-colors">
               <div className="flex items-center justify-between mb-3"><div className="flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${isRunning ? 'bg-primary animate-pulse' : 'bg-muted-foreground'}`} /><span className="text-sm font-medium text-foreground truncate">{s.name}</span></div><span className={`text-xs px-2 py-0.5 rounded-full ${isRunning ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>{isRunning ? '运行中' : '空闲'}</span></div>
               <div className="grid grid-cols-2 gap-3 mb-3"><div><p className="text-xs text-muted-foreground">运行次数</p><p className="text-lg font-bold text-foreground">{s.totalRuns?.toLocaleString()}</p></div><div><p className="text-xs text-muted-foreground">抓取量</p><p className="text-lg font-bold text-foreground">{s.totalItems?.toLocaleString()}</p></div></div>
-              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${pct}%` }} /></div>
+              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full transition-[width] duration-500" style={{ width: `${pct}%` }} /></div>
               <p className="text-xs text-muted-foreground mt-1">占比 {pct.toFixed(1)}%</p>
             </div>
           ); })}

@@ -152,7 +152,7 @@ export default function AdminDashboard() {
           <Link
             key={stat.label}
             href={stat.href}
-            className={`stat-card group relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:border-foreground/15 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200`}
+            className={`stat-card group relative overflow-hidden rounded-xl bg-card border border-border p-4 hover:border-foreground/15 hover:shadow-lg hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200`}
           >
             <div className={`absolute inset-0 bg-gradient-to-br ${stat.gradient} pointer-events-none`} />
             <div className="relative">
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
                 >
                   <stat.icon className={`w-5 h-5 ${stat.color}`} />
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition-all" />
+                <ArrowRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition-[color,transform]" />
               </div>
               <p className="text-xs text-muted-foreground mb-1 font-medium">{stat.label}</p>
               <p className="text-2xl font-bold text-foreground tabular-nums">{loading ? <Skeleton className="h-7 w-16" /> : stat.value.toLocaleString()}</p>
@@ -342,7 +342,7 @@ export default function AdminDashboard() {
           <Link
             key={action.label}
             href={action.href}
-            className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border hover:border-foreground/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group"
+            className="flex items-center gap-3 p-4 rounded-xl bg-card border border-border hover:border-foreground/10 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200 group"
           >
             <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center shrink-0`}>
               <action.icon className={`w-5 h-5 ${action.color}`} />
@@ -351,7 +351,7 @@ export default function AdminDashboard() {
               <p className="text-sm font-medium text-foreground">{action.label}</p>
               <p className="text-xs text-muted-foreground">{action.desc}</p>
             </div>
-            <ArrowRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition-all ml-auto shrink-0" />
+            <ArrowRight className="w-4 h-4 text-muted-foreground/30 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition-[color,transform] ml-auto shrink-0" />
           </Link>
         ))}
       </div>

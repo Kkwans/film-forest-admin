@@ -176,7 +176,7 @@ export default function LogsPage() {
                 value={keyword}
                 onChange={e => setKeyword(e.target.value)}
                 placeholder="搜索用户名、目标、详情... (Ctrl+F)"
-                className="h-10 pl-10 pr-9 rounded-lg border bg-background text-foreground text-sm w-full focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                className="h-10 pl-10 pr-9 rounded-lg border bg-background text-foreground text-sm w-full focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]"
               />
               {keyword && (
                 <button

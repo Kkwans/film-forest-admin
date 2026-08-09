@@ -110,7 +110,7 @@ function TagSelector({ allTags, selectedIds, onChange }: { allTags: TagItem[]; s
           key={tag.id}
           type="button"
           onClick={() => toggleTag(tag.id)}
-          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-[color,background-color,border-color] ${
             selectedIds.includes(tag.id)
               ? 'text-white shadow-sm'
               : 'bg-muted text-muted-foreground hover:bg-muted/80'
@@ -623,7 +623,7 @@ export default function ContentPage() {
           { label: '动漫', key: 'anime', icon: '🎯', color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
           { label: '短剧', key: 'short_drama', icon: '⚡', color: 'text-rose-500', bg: 'bg-rose-500/10' },
         ].map((stat) => (
-          <Card key={stat.key} className="bg-card border-border hover:border-foreground/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 group">
+          <Card key={stat.key} className="bg-card border-border hover:border-foreground/10 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200 group">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className={`w-9 h-9 rounded-lg ${stat.bg} flex items-center justify-center text-base`}>{stat.icon}</div>
@@ -791,7 +791,7 @@ export default function ContentPage() {
                     const itemKey = `${item.type}-${item.id}`;
                     const isSelected = selectedKeys.has(itemKey);
                     return (
-                    <tr key={itemKey} className={`border-b border-border/40 hover:bg-muted/40 even:bg-muted/10 transition-all duration-150 ${isSelected ? 'bg-primary/5' : ''}`}>
+                    <tr key={itemKey} className={`border-b border-border/40 hover:bg-muted/40 even:bg-muted/10 transition-[background-color] duration-150 ${isSelected ? 'bg-primary/5' : ''}`}>
                       <td className="text-center px-3 py-3.5">
                         <input
                           type="checkbox"
@@ -837,7 +837,7 @@ export default function ContentPage() {
                         <button
                           onClick={() => handleToggleStatus(item)}
                           disabled={togglingIds.has(`${item.type}-${item.id}`)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-all disabled:opacity-50 ${item.status === 1 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 ring-1 ring-emerald-500/20' : 'bg-muted text-muted-foreground hover:bg-muted/80 ring-1 ring-border'}`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-[color,background-color,box-shadow] disabled:opacity-50 ${item.status === 1 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 ring-1 ring-emerald-500/20' : 'bg-muted text-muted-foreground hover:bg-muted/80 ring-1 ring-border'}`}
                         >
                           {togglingIds.has(`${item.type}-${item.id}`) ? (
                             <Loader2 className="w-1.5 h-1.5 animate-spin" />
@@ -894,7 +894,7 @@ export default function ContentPage() {
               </div>
             ) : (
               filtered.map((item) => (
-                <div key={`${item.type}-${item.id}`} className="p-4 hover:bg-muted/30 transition-all duration-150 active:bg-muted/50">
+                <div key={`${item.type}-${item.id}`} className="p-4 hover:bg-muted/30 transition-[background-color] duration-150 active:bg-muted/50">
                   <div className="flex items-start gap-3">
                     <img
                       src={item.posterUrl || `https://picsum.photos/seed/${item.type}${item.id}/100/150`}
@@ -915,7 +915,7 @@ export default function ContentPage() {
                         <button
                           onClick={() => handleToggleStatus(item)}
                           disabled={togglingIds.has(`${item.type}-${item.id}`)}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-all disabled:opacity-50 ${item.status === 1 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-muted text-muted-foreground'}`}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-[color,background-color] disabled:opacity-50 ${item.status === 1 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-muted text-muted-foreground'}`}
                         >
                           <span className={`w-1.5 h-1.5 rounded-full ${item.status === 1 ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
                           {item.status === 1 ? '已上线' : '已下线'}

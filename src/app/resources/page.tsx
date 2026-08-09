@@ -413,7 +413,7 @@ export default function ResourcesPage() {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-foreground">启用状态</label>
               <button type="button" onClick={() => setEditingSource({...editingSource, enabled: !editingSource.enabled})} className={`w-10 h-5 rounded-full relative transition-colors ${editingSource.enabled ? 'bg-primary' : 'bg-muted'}`}>
-                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${editingSource.enabled ? 'right-0.5' : 'left-0.5'}`} />
+                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-[left,right] ${editingSource.enabled ? 'right-0.5' : 'left-0.5'}`} />
               </button>
             </div>
           </div>

@@ -201,7 +201,7 @@ export default function UsersPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">管理系统用户账号、权限和状态</p>
         </div>
-        <button onClick={openCreateModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all">
+        <button onClick={openCreateModal} className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-[color,background-color,box-shadow]">
           <UserPlus className="w-4 h-4" /> 新建用户
         </button>
       </div>
@@ -217,7 +217,7 @@ export default function UsersPage() {
                 value={keyword}
                 onChange={e => setKeyword(e.target.value)}
                 placeholder="搜索用户名、昵称、邮箱、手机号... (Ctrl+F)"
-                className="h-10 pl-10 pr-9 rounded-lg border bg-background text-foreground text-sm w-full focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+                className="h-10 pl-10 pr-9 rounded-lg border bg-background text-foreground text-sm w-full focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]"
               />
               {keyword && (
                 <button
@@ -362,33 +362,33 @@ export default function UsersPage() {
             {!editingUser && (
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-foreground">用户名 <span className="text-destructive">*</span></label>
-                <input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="3~30 位" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" />
+                <input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="3~30 位" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]" />
               </div>
             )}
             {!editingUser && (
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-foreground">密码 <span className="text-destructive">*</span></label>
-                <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="至少 6 位" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" />
+                <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="至少 6 位" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]" />
               </div>
             )}
             {!editingUser && (
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-foreground">确认密码 <span className="text-destructive">*</span></label>
-                <input type="password" value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))} placeholder="再次输入密码" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" />
+                <input type="password" value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))} placeholder="再次输入密码" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]" />
               </div>
             )}
             <div className="grid gap-2">
               <label className="text-sm font-medium text-foreground">昵称</label>
-              <input value={form.nickname} onChange={e => setForm(f => ({ ...f, nickname: e.target.value }))} placeholder="显示名称" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" />
+              <input value={form.nickname} onChange={e => setForm(f => ({ ...f, nickname: e.target.value }))} placeholder="显示名称" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]" />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-foreground">邮箱</label>
-                <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="可选" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" />
+                <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="可选" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]" />
               </div>
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-foreground">手机号</label>
-                <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="可选" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" />
+                <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="可选" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]" />
               </div>
             </div>
             <div className="grid gap-2">
@@ -416,7 +416,7 @@ export default function UsersPage() {
           <div className="space-y-4 p-1">
             <div className="grid gap-2">
               <label className="text-sm font-medium text-foreground">新密码</label>
-              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="至少 6 位" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all" />
+              <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="至少 6 位" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]" />
             </div>
             <div className="flex justify-end gap-3 pt-4 border-t border-border">
               <button onClick={() => setShowResetModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted transition-colors">取消</button>

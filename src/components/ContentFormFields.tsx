@@ -104,7 +104,7 @@ function FormInput({ error, ...props }: React.InputHTMLAttributes<HTMLInputEleme
     <div className="grid gap-1">
       <input
         {...props}
-        className={INPUT_CLASS + ' placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all' + (error ? ` ${INPUT_ERROR_CLASS}` : '') + (props.className ? ` ${props.className}` : '')}
+        className={INPUT_CLASS + ' placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-[border-color,box-shadow,background-color]' + (error ? ` ${INPUT_ERROR_CLASS}` : '') + (props.className ? ` ${props.className}` : '')}
       />
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
@@ -113,7 +113,7 @@ function FormInput({ error, ...props }: React.InputHTMLAttributes<HTMLInputEleme
 
 /** 通用表单文本域 */
 function FormTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...props} className={'px-3 py-2 rounded-lg border bg-background text-foreground text-sm resize-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all' + (props.className ? ` ${props.className}` : '')} />;
+  return <textarea {...props} className={'px-3 py-2 rounded-lg border bg-background text-foreground text-sm resize-none placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-[border-color,box-shadow,background-color]' + (props.className ? ` ${props.className}` : '')} />;
 }
 
 // ========== Field 布局组件 ==========
@@ -243,7 +243,7 @@ export function ContentFormFields({ form, onChange, showStatus = false, errors =
           <Field label="状态">
             <div className="flex items-center gap-2 h-9">
               <button type="button" onClick={() => onChange({ ...form, status: form.status === 1 ? 0 : 1 })} className={`w-10 h-5 rounded-full relative transition-colors ${form.status === 1 ? 'bg-primary' : 'bg-muted'}`}>
-                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all ${form.status === 1 ? 'right-0.5' : 'left-0.5'}`} />
+                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-[left,right] ${form.status === 1 ? 'right-0.5' : 'left-0.5'}`} />
               </button>
               <span className="text-sm text-muted-foreground">{form.status === 1 ? '已上线' : '已下线'}</span>
             </div>

@@ -136,7 +136,7 @@ export default function TagsPage() {
         </div>
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-all"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 transition-[color,background-color,box-shadow]"
         >
           <Plus className="w-4 h-4" /> 新建标签
         </button>
@@ -195,7 +195,7 @@ export default function TagsPage() {
               value={keyword}
               onChange={e => setKeyword(e.target.value)}
               placeholder="搜索标签名称... (Ctrl+F)"
-              className="h-10 pl-10 pr-9 rounded-lg border bg-background text-foreground text-sm w-full focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              className="h-10 pl-10 pr-9 rounded-lg border bg-background text-foreground text-sm w-full focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]"
             />
             {keyword && (
               <button
@@ -234,7 +234,7 @@ export default function TagsPage() {
               {filtered.map(tag => (
                 <div
                   key={tag.id}
-                  className="group flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border hover:border-foreground/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200"
+                  className="group flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border hover:border-foreground/10 hover:shadow-md hover:-translate-y-0.5 transition-[transform,box-shadow,border-color] duration-200"
                 >
                   <div
                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white font-bold text-sm shadow-sm"
@@ -309,7 +309,7 @@ export default function TagsPage() {
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
               placeholder="如：经典、高分、科幻..."
               maxLength={20}
-              className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]"
               autoFocus
               onKeyDown={e => e.key === 'Enter' && handleSave()}
             />
@@ -324,7 +324,7 @@ export default function TagsPage() {
                   key={color}
                   type="button"
                   onClick={() => setForm(f => ({ ...f, color }))}
-                  className={`w-8 h-8 rounded-lg transition-all ${form.color === color ? 'ring-2 ring-offset-2 ring-primary scale-110' : 'hover:scale-105'}`}
+                  className={`w-8 h-8 rounded-lg transition-[transform,box-shadow] ${form.color === color ? 'ring-2 ring-offset-2 ring-primary scale-110' : 'hover:scale-105'}`}
                   style={{ backgroundColor: color }}
                 />
               ))}

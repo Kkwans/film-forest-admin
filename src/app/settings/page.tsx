@@ -150,7 +150,7 @@ export default function SettingsPage() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 transition-all shadow-lg shadow-primary/20"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 transition-[color,background-color,box-shadow] shadow-lg shadow-primary/20"
         >
           {saving ? (
             <><Loader2 className="w-4 h-4 animate-spin" /> 保存中...</>
@@ -178,7 +178,7 @@ export default function SettingsPage() {
             <input
               value={settings.site_name}
               onChange={e => update('site_name', e.target.value)}
-              className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]"
               placeholder="影视森林"
             />
             <p className="text-xs text-muted-foreground">显示在浏览器标签和页面标题中</p>
@@ -188,7 +188,7 @@ export default function SettingsPage() {
             <input
               value={settings.site_desc}
               onChange={e => update('site_desc', e.target.value)}
-              className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]"
               placeholder="影视资源聚合平台"
             />
             <p className="text-xs text-muted-foreground">用于 SEO 和社交分享</p>
@@ -198,7 +198,7 @@ export default function SettingsPage() {
             <input
               value={settings.copyright}
               onChange={e => update('copyright', e.target.value)}
-              className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm placeholder:text-muted-foreground/60 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]"
               placeholder="© 2026 影视森林"
             />
             <p className="text-xs text-muted-foreground">显示在页面底部</p>
@@ -231,7 +231,7 @@ export default function SettingsPage() {
               onClick={() => update('notify_on_complete', settings.notify_on_complete === 'true' ? 'false' : 'true')}
               className={`w-12 h-6 rounded-full relative transition-colors ${settings.notify_on_complete === 'true' ? 'bg-primary' : 'bg-muted'}`}
             >
-              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm ${settings.notify_on_complete === 'true' ? 'right-1' : 'left-1'}`} />
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-[left,right] shadow-sm ${settings.notify_on_complete === 'true' ? 'right-1' : 'left-1'}`} />
             </button>
           </div>
           <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border">
@@ -248,7 +248,7 @@ export default function SettingsPage() {
               onClick={() => update('notify_on_error', settings.notify_on_error === 'true' ? 'false' : 'true')}
               className={`w-12 h-6 rounded-full relative transition-colors ${settings.notify_on_error === 'true' ? 'bg-primary' : 'bg-muted'}`}
             >
-              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm ${settings.notify_on_error === 'true' ? 'right-1' : 'left-1'}`} />
+              <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-[left,right] shadow-sm ${settings.notify_on_error === 'true' ? 'right-1' : 'left-1'}`} />
             </button>
           </div>
           <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-primary/5 border border-primary/10">
@@ -338,7 +338,7 @@ export default function SettingsPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="输入新密码"
-                  className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
+                  className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]"
                 />
                 {password && (
                   <div className="flex items-center gap-2">
@@ -360,7 +360,7 @@ export default function SettingsPage() {
                   value={confirmPassword}
                   onChange={e => setConfirmPassword(e.target.value)}
                   placeholder="再次输入新密码"
-                  className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
+                  className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]"
                 />
               </div>
               <button
