@@ -49,7 +49,7 @@ export default function SettingsPage() {
         setDbInfo(res.data.data);
       }
     }).catch((e: unknown) => toast.error(extractErrorMessage(e, '加载数据库信息失败')));
-  }, []);
+  }, [toast]);
 
   const update = (key: keyof SettingsData, value: string) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -133,9 +133,9 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl">
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">系统设置</h1>
           <p className="text-sm text-muted-foreground mt-1">配置站点参数、通知与安全策略</p>
