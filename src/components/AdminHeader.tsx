@@ -1,13 +1,39 @@
 'use client';
 
-import { History, User, LogOut } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Bell, History, User, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import ThemeToggle from './ThemeToggle';
 import Breadcrumb from './Breadcrumb';
 import { useAuth } from './auth-provider';
+import { notificationApi } from '@/lib/api';
 
 export default function AdminHeader() {
   const { user, logout } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const loadUnreadCount = useCallback(async () => {
+    try {
+      const response = await notificationApi.unreadCount();
+      if (response.data?.code === 200) setUnreadCount(Number(response.data.data?.count || 0));
+    } catch {
+      // 顶栏计数不可用不应干扰管理端主流程。
+    }
+  }, []);
+
+  useEffect(() => {
+    const initialLoad = window.setTimeout(() => void loadUnreadCount(), 0);
+    const interval = window.setInterval(() => {
+      if (!document.hidden) void loadUnreadCount();
+    }, 30_000);
+    const refresh = () => void loadUnreadCount();
+    window.addEventListener('filmforest:notifications-changed', refresh);
+    return () => {
+      window.clearTimeout(initialLoad);
+      window.clearInterval(interval);
+      window.removeEventListener('filmforest:notifications-changed', refresh);
+    };
+  }, [loadUnreadCount]);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between border-b border-border/80 bg-background/88 px-4 backdrop-blur-xl md:px-6">
@@ -18,6 +44,18 @@ export default function AdminHeader() {
 
       <div className="flex items-center gap-1.5">
         <ThemeToggle />
+        <Link
+          href="/notifications"
+          className="relative flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          aria-label={unreadCount > 0 ? `通知中心，${unreadCount} 条未读` : '通知中心'}
+        >
+          <Bell className="size-[18px]" />
+          {unreadCount > 0 && (
+            <span className="absolute -right-0.5 -top-0.5 flex min-w-4.5 h-4.5 items-center justify-center rounded-full border-2 border-background bg-destructive px-1 text-[9px] font-bold leading-none text-destructive-foreground">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </Link>
         <Link
           href="/logs"
           className="relative flex size-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"

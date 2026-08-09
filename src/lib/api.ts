@@ -544,6 +544,67 @@ export const logApi = {
   stats: () => adminClient.get('/api/admin/logs/stats'),
 };
 
+// 站内通知与邮件告警
+export interface AdminNotificationItem {
+  id: number;
+  userId: number;
+  eventType: string;
+  severity: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR';
+  title: string;
+  message: string;
+  link?: string | null;
+  referenceType?: string | null;
+  referenceId?: number | null;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface NotificationPreference {
+  emailEnabled: number;
+  crawlerFailure: number;
+  crawlerRecovery: number;
+  dataAnomaly: number;
+  crawlerSuccess: number;
+}
+
+export interface SmtpSettingView {
+  configured: boolean;
+  enabled: boolean;
+  host: string | null;
+  port: number | null;
+  username: string | null;
+  fromEmail: string | null;
+  fromName: string | null;
+  securityMode: 'NONE' | 'STARTTLS' | 'SSL';
+  passwordMask: string | null;
+}
+
+export const notificationApi = {
+  list: (params?: { unreadOnly?: boolean; page?: number; size?: number }) =>
+    adminClient.get('/api/admin/notifications', { params }),
+  unreadCount: () => adminClient.get('/api/admin/notifications/unread-count'),
+  markRead: (id: number) => adminClient.post(`/api/admin/notifications/${id}/read`),
+  markAllRead: () => adminClient.post('/api/admin/notifications/read-all'),
+  getPreferences: () => adminClient.get('/api/admin/notifications/preferences'),
+  savePreferences: (data: NotificationPreference) =>
+    adminClient.put('/api/admin/notifications/preferences', data),
+  getSmtp: () => adminClient.get('/api/admin/smtp'),
+  saveSmtp: (data: {
+    host: string;
+    port: number;
+    username?: string;
+    password?: string;
+    clearPassword?: boolean;
+    fromEmail: string;
+    fromName?: string;
+    securityMode: 'NONE' | 'STARTTLS' | 'SSL';
+    enabled: boolean;
+  }) => adminClient.put('/api/admin/smtp', data),
+  testSmtpConnection: () => adminClient.post('/api/admin/smtp/test-connection'),
+  sendTestMail: (recipient: string) =>
+    adminClient.post('/api/admin/smtp/test-mail', { recipient }),
+};
+
 // ---- Tags ----
 
 export interface TagItem {

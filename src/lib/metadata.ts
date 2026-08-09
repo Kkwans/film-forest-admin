@@ -11,6 +11,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/tags': '标签管理',
   '/users': '用户管理',
   '/logs': '操作日志',
+  '/notifications': '通知中心',
   '/settings': '系统设置',
   '/login': '登录',
 };
