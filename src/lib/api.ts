@@ -49,7 +49,7 @@ export interface ContentSubmitData {
   scoreDouban?: number | null;
   scoreImdb?: number | null;
   scoreRt?: number | null;
-  genre?: string | null;   // JSON array string
+  genreTagIds?: number[];
   region?: string | null;   // JSON array string
   language?: string | null;
   director?: string | null;
@@ -62,6 +62,9 @@ export interface ContentSubmitData {
   status?: number;
   type?: string;
   posterUrl?: string;
+  totalEpisode?: number | null;
+  seriesName?: string | null;
+  seriesOrder?: number | null;
 }
 
 /** 保存爬虫配置请求体 */

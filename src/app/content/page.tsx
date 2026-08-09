@@ -22,7 +22,8 @@ import {
   buildSubmitData,
   parseJsonArray,
   TYPE_LABELS,
-  TYPE_ICON_EMOJI,
+  STATUS_LABELS,
+  STATUS_OPTIONS,
 } from '@/components/ContentFormFields';
 
 // ========== 类型分发工具 ==========
@@ -63,12 +64,15 @@ interface ContentRecord {
   duration?: number;
   releaseDate?: string;
   alias?: string;
+  totalEpisode?: number;
+  seriesName?: string;
+  seriesOrder?: number;
   status: number;
   createdAt: string;
   updatedAt: string;
 }
 type FilterType = 'all' | ContentType;
-type StatusFilter = 'all' | '1' | '0';
+type StatusFilter = 'all' | '0' | '1' | '2';
 type SortField = 'createdAt' | 'updatedAt' | 'year' | 'title' | 'score' | 'status';
 type SortDirection = 'asc' | 'desc';
 
@@ -76,7 +80,9 @@ type SortDirection = 'asc' | 'desc';
 function ContentTags({ item, allTags, contentTagMap }: { item: ContentRecord; allTags: TagItem[]; contentTagMap: Record<string, number[]> }) {
   const tagIds = contentTagMap[`${item.type}-${item.id}`];
   if (!tagIds || tagIds.length === 0) return null;
-  const tags = tagIds.map(id => allTags.find(t => t.id === id)).filter(Boolean) as TagItem[];
+  const tags = tagIds
+    .map(id => allTags.find(tag => tag.id === id && tag.system === 1))
+    .filter(Boolean) as TagItem[];
   if (tags.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-1 mt-1">
@@ -93,35 +99,6 @@ function ContentTags({ item, allTags, contentTagMap }: { item: ContentRecord; al
         <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">
           +{tags.length - 3}
         </span>
-      )}
-    </div>
-  );
-}
-
-/** 标签选择器组件 */
-function TagSelector({ allTags, selectedIds, onChange }: { allTags: TagItem[]; selectedIds: number[]; onChange: (ids: number[]) => void }) {
-  const toggleTag = (id: number) => {
-    onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]);
-  };
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {allTags.map(tag => (
-        <button
-          key={tag.id}
-          type="button"
-          onClick={() => toggleTag(tag.id)}
-          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-[color,background-color,border-color] ${
-            selectedIds.includes(tag.id)
-              ? 'text-white shadow-sm'
-              : 'bg-muted text-muted-foreground hover:bg-muted/80'
-          }`}
-          style={selectedIds.includes(tag.id) ? { backgroundColor: tag.color || '#6B7280' } : {}}
-        >
-          {tag.name}
-        </button>
-      ))}
-      {allTags.length === 0 && (
-        <p className="text-xs text-muted-foreground">暂无标签，请先创建标签</p>
       )}
     </div>
   );
@@ -152,7 +129,8 @@ export default function ContentPage() {
   const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [allTags, setAllTags] = useState<TagItem[]>([]);
-  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+  const [standardGenres, setStandardGenres] = useState<TagItem[]>([]);
+  const [genresLoading, setGenresLoading] = useState(false);
   const [contentTagMap, setContentTagMap] = useState<Record<string, number[]>>({});
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
   const [batchProcessing, setBatchProcessing] = useState(false);
@@ -278,6 +256,8 @@ export default function ContentPage() {
     if (form.scoreImdb && (isNaN(Number(form.scoreImdb)) || Number(form.scoreImdb) < 0 || Number(form.scoreImdb) > 10)) errors.scoreImdb = '评分范围 0-10';
     if (form.scoreRt && (isNaN(Number(form.scoreRt)) || Number(form.scoreRt) < 0 || Number(form.scoreRt) > 100)) errors.scoreRt = '评分范围 0-100';
     if (form.duration && (isNaN(Number(form.duration)) || Number(form.duration) < 0)) errors.duration = '请输入有效时长';
+    if (form.totalEpisode && (!Number.isInteger(Number(form.totalEpisode)) || Number(form.totalEpisode) < 0)) errors.totalEpisode = '请输入有效集数';
+    if (form.seriesOrder && (!Number.isInteger(Number(form.seriesOrder)) || Number(form.seriesOrder) < 1)) errors.seriesOrder = '系列序号应为正整数';
     return errors;
   };
 
@@ -314,11 +294,35 @@ export default function ContentPage() {
   const [detailItem, setDetailItem] = useState<ContentRecord | null>(null);
   const [editForm, setEditForm] = useState<EditForm>(EMPTY_FORM);
 
+  useEffect(() => {
+    if (!creatingNew && !editingItem) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setGenresLoading(true);
+      tagApi.listStandardGenres(editForm.type)
+        .then(response => {
+          if (cancelled) return;
+          if (response.data?.code !== 200) throw new Error(response.data?.message || '标准题材加载失败');
+          setStandardGenres(Array.isArray(response.data.data) ? response.data.data : []);
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) {
+            setStandardGenres([]);
+            toast.error(extractErrorMessage(error, '标准题材加载失败'));
+          }
+        })
+        .finally(() => { if (!cancelled) setGenresLoading(false); });
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [creatingNew, editForm.type, editingItem, toast]);
+
   const handleCreateNew = () => {
     setCreatingNew(true);
-    setEditForm(EMPTY_FORM);
+    setEditForm({ ...EMPTY_FORM, genreTagIds: [] });
     setFormErrors({});
-    setSelectedTagIds([]);
   };
 
   const handleSaveNew = async () => {
@@ -339,17 +343,10 @@ export default function ContentPage() {
         short_drama: () => contentApi.createShortDrama(data),
       });
       if (res?.data?.code === 200 || res?.data?.code === 0) {
-        // Save tag associations if any selected
-        if (selectedTagIds.length > 0) {
-          const newId = res.data.data?.id;
-          if (newId) {
-            try { await tagApi.setContentTags(editForm.type, newId, selectedTagIds); } catch (e: unknown) { toast.error(extractErrorMessage(e, '标签关联失败')); }
-          }
-        }
         setCreatingNew(false);
         setFormErrors({});
         toast.success('创建成功');
-        fetchItems();
+        await fetchItems();
       } else {
         toast.error(res?.data?.message || '创建失败');
       }
@@ -394,17 +391,19 @@ export default function ContentPage() {
       toast.error(extractErrorMessage(error, '内容详情加载失败'));
       return;
     }
-    setEditingItem(fullItem);
     setFormErrors({});
-    // Load tags for this content
+    // 只回填系统标准题材；自定义标签不属于 genre 编辑契约。
+    let genreTagIds: string[] = [];
     try {
       const tagRes = await tagApi.getContentTags(fullItem.type, fullItem.id);
       if (tagRes.data?.code === 200 && Array.isArray(tagRes.data.data)) {
-        setSelectedTagIds(tagRes.data.data.map((t: TagItem) => t.id));
-      } else {
-        setSelectedTagIds([]);
+        genreTagIds = tagRes.data.data
+          .filter((tag: TagItem) => tag.system === 1)
+          .map((tag: TagItem) => String(tag.id));
       }
-    } catch (e: unknown) { setSelectedTagIds([]); }
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, '内容题材加载失败'));
+    }
     setEditForm({
       title: fullItem.title || '',
       posterUrl: fullItem.posterUrl || '',
@@ -412,7 +411,7 @@ export default function ContentPage() {
       scoreDouban: String(fullItem.scoreDouban || ''),
       scoreImdb: String(fullItem.scoreImdb || ''),
       scoreRt: String(fullItem.scoreRt || ''),
-      genre: parseJsonArray(fullItem.genre),
+      genreTagIds,
       region: parseJsonArray(fullItem.region),
       language: parseJsonArray(fullItem.language),
       director: parseJsonArray(fullItem.director),
@@ -420,11 +419,15 @@ export default function ContentPage() {
       actor: parseJsonArray(fullItem.actor),
       storyline: fullItem.storyline || '',
       duration: String(fullItem.duration || ''),
+      totalEpisode: String(fullItem.totalEpisode || ''),
       releaseDate: fullItem.releaseDate || '',
       alias: parseJsonArray(fullItem.alias),
+      seriesName: fullItem.seriesName || '',
+      seriesOrder: String(fullItem.seriesOrder || ''),
       status: fullItem.status,
       type: fullItem.type,
     });
+    setEditingItem(fullItem);
   };
 
   const handleSaveEdit = async () => {
@@ -446,12 +449,16 @@ export default function ContentPage() {
         short_drama: () => contentApi.updateShortDrama(editingItem.id, data),
       });
       if (res?.data?.code === 200 || res?.data?.code === 0) {
-        // Save tag associations
-        try { await tagApi.setContentTags(editingItem.type, editingItem.id, selectedTagIds); } catch (e: unknown) { toast.error(extractErrorMessage(e, '标签关联失败')); }
+        const contentKey = `${editingItem.type}-${editingItem.id}`;
+        setContentTagMap(previous => {
+          const next = { ...previous };
+          delete next[contentKey];
+          return next;
+        });
         setEditingItem(null);
         setFormErrors({});
         toast.success('已保存');
-        fetchItems();
+        await fetchItems();
       } else {
         toast.error(res?.data?.message || '保存失败');
       }
@@ -466,9 +473,9 @@ export default function ContentPage() {
     handleSaveEditRef.current = handleSaveEdit;
   }, [handleSaveEdit]);
 
-  const handleToggleStatus = async (item: ContentRecord) => {
+  const handleSetStatus = async (item: ContentRecord, newStatus: number) => {
+    if (item.status === newStatus) return;
     const key = `${item.type}-${item.id}`;
-    const newStatus = item.status === 1 ? 0 : 1;
     // Optimistic update
     setItems(prev => prev.map(i => (i.id === item.id && i.type === item.type) ? { ...i, status: newStatus } : i));
     setTogglingIds(prev => new Set(prev).add(key));
@@ -476,7 +483,7 @@ export default function ContentPage() {
     try {
       const res = await contentApi.toggleStatus(item.type, item.id, newStatus);
       if (res?.data?.code === 200 || res?.data?.code === 0) {
-        toast.success(newStatus === 1 ? '已上线' : '已下线');
+        toast.success(`状态已更新为“${STATUS_LABELS[newStatus]}”`);
       } else {
         // Revert optimistic update
         setItems(prev => prev.map(i => (i.id === item.id && i.type === item.type) ? { ...i, status: item.status } : i));
@@ -552,7 +559,7 @@ export default function ContentPage() {
     fetchItems();
   };
 
-  const handleBatchToggleStatus = async (newStatus: number) => {
+  const handleBatchSetStatus = async (newStatus: number) => {
     if (selectedKeys.size === 0) return;
     if (batchProcessing) return;
     setBatchProcessing(true);
@@ -571,7 +578,7 @@ export default function ContentPage() {
       if (r.status === 'fulfilled' && (r.value?.data?.code === 200 || r.value?.data?.code === 0)) return acc + 1;
       return acc;
     }, 0);
-    toast.success(`成功${newStatus === 1 ? '上线' : '下线'} ${successCount} 条内容`);
+    toast.success(`已将 ${successCount} 条内容设为“${STATUS_LABELS[newStatus]}”`);
     // 清理已操作条目的标签缓存，确保刷新后标签一致
     setContentTagMap(prev => {
       const next = { ...prev };
@@ -638,22 +645,29 @@ export default function ContentPage() {
 
       {/* Batch Action Bar */}
       {selectedKeys.size > 0 && (
-        <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
           <span className="text-sm font-medium text-primary">已选 {selectedKeys.size} 项</span>
           <div className="flex-1" />
           <button
-            onClick={() => handleBatchToggleStatus(1)}
+            onClick={() => handleBatchSetStatus(1)}
             disabled={batchProcessing}
             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
           >
             {batchProcessing ? '处理中...' : '批量上线'}
           </button>
           <button
-            onClick={() => handleBatchToggleStatus(0)}
+            onClick={() => handleBatchSetStatus(2)}
             disabled={batchProcessing}
             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
           >
             {batchProcessing ? '处理中...' : '批量下线'}
+          </button>
+          <button
+            onClick={() => handleBatchSetStatus(0)}
+            disabled={batchProcessing}
+            className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          >
+            {batchProcessing ? '处理中...' : '转为草稿'}
           </button>
           <button
             onClick={handleBatchDelete}
@@ -703,7 +717,7 @@ export default function ContentPage() {
             <Select
               value={statusFilter}
               onChange={(v) => { setStatusFilter(v as StatusFilter); setPage(1); }}
-              options={[{ label: '全部状态', value: 'all' }, { label: '已上线', value: '1' }, { label: '已下线', value: '0' }]}
+              options={[{ label: '全部状态', value: 'all' }, ...STATUS_OPTIONS]}
               className="w-36"
             />
             <Select
@@ -819,7 +833,7 @@ export default function ContentPage() {
                       </td>
                       <td className="px-4 py-3.5">
                         <span className="text-sm text-foreground">
-                          {TYPE_ICON_EMOJI[item.type] || ''} {TYPE_LABELS[item.type] || item.type}
+                          {TYPE_LABELS[item.type] || item.type}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-sm text-muted-foreground">
@@ -835,18 +849,14 @@ export default function ContentPage() {
                         )}
                       </td>
                       <td className="px-4 py-3.5">
-                        <button
-                          onClick={() => handleToggleStatus(item)}
+                        <Select
+                          value={String(item.status)}
+                          onChange={value => void handleSetStatus(item, Number(value))}
+                          options={STATUS_OPTIONS}
+                          size="sm"
                           disabled={togglingIds.has(`${item.type}-${item.id}`)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold transition-[color,background-color,box-shadow] disabled:opacity-50 ${item.status === 1 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 ring-1 ring-emerald-500/20' : 'bg-muted text-muted-foreground hover:bg-muted/80 ring-1 ring-border'}`}
-                        >
-                          {togglingIds.has(`${item.type}-${item.id}`) ? (
-                            <Loader2 className="w-1.5 h-1.5 animate-spin" />
-                          ) : (
-                            <span className={`w-1.5 h-1.5 rounded-full ${item.status === 1 ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-                          )}
-                          {item.status === 1 ? '已上线' : '已下线'}
-                        </button>
+                          className="w-24"
+                        />
                       </td>
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-1">
@@ -908,19 +918,19 @@ export default function ContentPage() {
                       <p className="text-sm font-semibold text-foreground truncate">{item.title}</p>
                       <ContentTags item={item} allTags={allTags} contentTagMap={contentTagMap} />
                       <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">{TYPE_ICON_EMOJI[item.type]} {TYPE_LABELS[item.type]}</span>
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">{TYPE_LABELS[item.type]}</span>
                         {item.year && <span className="text-xs text-muted-foreground">{item.year}</span>}
                         {item.scoreDouban && (
                           <span className="inline-flex items-center text-xs font-bold text-amber-600 dark:text-amber-400">⭐ {item.scoreDouban}</span>
                         )}
-                        <button
-                          onClick={() => handleToggleStatus(item)}
+                        <Select
+                          value={String(item.status)}
+                          onChange={value => void handleSetStatus(item, Number(value))}
+                          options={STATUS_OPTIONS}
+                          size="sm"
                           disabled={togglingIds.has(`${item.type}-${item.id}`)}
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold transition-[color,background-color] disabled:opacity-50 ${item.status === 1 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-muted text-muted-foreground'}`}
-                        >
-                          <span className={`w-1.5 h-1.5 rounded-full ${item.status === 1 ? 'bg-emerald-500' : 'bg-muted-foreground'}`} />
-                          {item.status === 1 ? '已上线' : '已下线'}
-                        </button>
+                          className="w-24"
+                        />
                       </div>
                       <p className="text-xs text-muted-foreground mt-1.5">{item.createdAt?.slice(0, 10)}</p>
                     </div>
@@ -1028,20 +1038,20 @@ export default function ContentPage() {
         footer={
           <>
             <button onClick={() => { setCreatingNew(false); setFormErrors({}); }} className="px-4 py-2 text-sm rounded-lg border bg-background text-foreground hover:bg-muted transition-colors">取消</button>
-            <button onClick={handleSaveNew} disabled={savingNew} className="px-4 py-2 text-sm rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-2">
+            <button onClick={handleSaveNew} disabled={savingNew || genresLoading} className="px-4 py-2 text-sm rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-2">
               {savingNew && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {savingNew ? '创建中...' : '创建'}
             </button>
           </>
         }
       >
-        <ContentFormFields form={editForm} onChange={(f) => { setEditForm(f); setFormErrors({}); }} errors={formErrors} />
-        {allTags.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <label className="text-sm font-medium text-foreground mb-2 block">🏷️ 内容标签</label>
-            <TagSelector allTags={allTags} selectedIds={selectedTagIds} onChange={setSelectedTagIds} />
-          </div>
-        )}
+        <ContentFormFields
+          form={editForm}
+          onChange={(form) => { setEditForm(form); setFormErrors({}); }}
+          standardGenres={standardGenres}
+          genresLoading={genresLoading}
+          errors={formErrors}
+        />
       </Modal>
 
       {/* Edit Modal */}
@@ -1049,20 +1059,22 @@ export default function ContentPage() {
         footer={
           <>
             <button onClick={() => { setEditingItem(null); setFormErrors({}); }} className="px-4 py-2 text-sm rounded-lg border bg-background text-foreground hover:bg-muted transition-colors">取消</button>
-            <button onClick={handleSaveEdit} disabled={savingEdit} className="px-4 py-2 text-sm rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-2">
+            <button onClick={handleSaveEdit} disabled={savingEdit || genresLoading} className="px-4 py-2 text-sm rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-2">
               {savingEdit && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {savingEdit ? '保存中...' : '保存'}
             </button>
           </>
         }
       >
-        <ContentFormFields form={editForm} onChange={(f) => { setEditForm(f); setFormErrors({}); }} showStatus errors={formErrors} />
-        {allTags.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-border">
-            <label className="text-sm font-medium text-foreground mb-2 block">🏷️ 内容标签</label>
-            <TagSelector allTags={allTags} selectedIds={selectedTagIds} onChange={setSelectedTagIds} />
-          </div>
-        )}
+        <ContentFormFields
+          form={editForm}
+          onChange={(form) => { setEditForm(form); setFormErrors({}); }}
+          standardGenres={standardGenres}
+          genresLoading={genresLoading}
+          showStatus
+          lockType
+          errors={formErrors}
+        />
       </Modal>
     </div>
   );
