@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Eye, Loader2, RefreshCw, RotateCcw, Search } from 'lucide-react';
-import { crawlerApi, type CrawlerSchedule, type CrawlerTaskLog, type PageData } from '@/lib/api';
+import { crawlerApi, type CrawlerSchedule, type CrawlerSourceDescriptor, type CrawlerTaskLog, type PageData } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
@@ -10,12 +10,11 @@ import Pagination from '@/components/Pagination';
 import { useToast } from '@/components/ui/toast';
 import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
 import { extractErrorMessage } from '@/lib/utils';
-import type { CrawlerSourceOption } from './CrawlerConfigSection';
 import { CONTENT_TYPES, JOB_STATUSES, StatusBadge, contentTypeLabel, elapsedFor, formatCrawlerTime, inputClass } from './crawler-ui';
 
 interface Props {
   schedules: CrawlerSchedule[];
-  sources: CrawlerSourceOption[];
+  sources: CrawlerSourceDescriptor[];
   hasActiveJobs: boolean;
 }
 

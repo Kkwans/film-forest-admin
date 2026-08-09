@@ -65,7 +65,7 @@ export interface ContentSubmitData {
 }
 
 /** 保存爬虫配置请求体 */
-export type SaveScheduleData = Partial<Omit<CrawlerSchedule, 'id' | 'status' | 'lastRunTime' | 'nextRunTime' | 'totalRuns' | 'totalItems' | 'createdAt' | 'updatedAt'>>;
+export type SaveScheduleData = { id?: number } & Partial<Omit<CrawlerSchedule, 'id' | 'status' | 'lastRunTime' | 'nextRunTime' | 'totalRuns' | 'totalItems' | 'createdAt' | 'updatedAt'>>;
 
 /** 保存磁力资源请求体 */
 export interface SaveMagnetData {
@@ -110,6 +110,10 @@ export const crawlerApi = {
 
   /** 保存/更新配置 */
   saveSchedule: (data: SaveScheduleData) => adminClient.post('/api/crawler/schedule', data),
+
+  /** 规范化图形向导或 Cron，并返回未来五次运行时间 */
+  previewSchedule: (data: CrawlerSchedulePreviewRequest) =>
+    adminClient.post('/api/crawler/schedule/preview', data),
 
   /** 删除配置 */
   deleteSchedule: (id: number) => adminClient.delete(`/api/crawler/schedule/${id}`),
@@ -166,12 +170,18 @@ export interface CrawlerSchedule {
   contentType: string;
   crawlMode: 'latest' | 'full';
   sourceSite: string;
+  sourceId: number;
+  adapterCode: string;
   enabled: number;
-  cronExpression: string;
+  cronExpression: string | null;
+  scheduleMode: CrawlerScheduleMode;
+  scheduleConfig: Record<string, unknown>;
+  timezone: string;
   batchSize: number;
   rateLimitMs: number;
   priority: string;
   genreFilter: string | null;
+  genreTagIds: number[];
   status: string;
   latestJobId?: number | null;
   latestResult?: string | null;
@@ -183,9 +193,41 @@ export interface CrawlerSchedule {
   updatedAt: string;
 }
 
+export type CrawlerScheduleMode =
+  | 'MANUAL'
+  | 'INTERVAL'
+  | 'DAILY'
+  | 'WEEKLY'
+  | 'MONTHLY'
+  | 'CUSTOM_CRON';
+
+export interface CrawlerSchedulePreviewRequest {
+  scheduleMode?: CrawlerScheduleMode;
+  scheduleConfig?: Record<string, unknown>;
+  cronExpression?: string | null;
+  timezone?: string;
+}
+
+export interface CrawlerSchedulePreview {
+  cronExpression: string | null;
+  scheduleMode: CrawlerScheduleMode;
+  scheduleConfig: Record<string, unknown>;
+  timezone: string;
+  description: string;
+  nextRuns: string[];
+}
+
+export interface CrawlerAdapterDescriptor {
+  code: string;
+  contentType: string;
+}
+
 export interface CrawlerSourceDescriptor {
+  id: number;
   code: string;
   name: string;
+  url: string;
+  adapters: CrawlerAdapterDescriptor[];
 }
 
 export interface CrawlerTaskLog {
@@ -462,8 +504,11 @@ export const logApi = {
 
 export interface TagItem {
   id: number;
+  code?: string;
   name: string;
   color: string;
+  sortOrder?: number;
+  system?: number;
   usageCount?: number;
   createdAt?: string;
 }
@@ -471,6 +516,9 @@ export interface TagItem {
 export const tagApi = {
   /** 获取所有标签 */
   list: () => adminClient.get('/api/tags'),
+  /** 获取指定内容类型的系统标准题材 */
+  listStandardGenres: (contentType: string) =>
+    adminClient.get('/api/tags/genres', { params: { contentType } }),
   /** 创建标签 */
   create: (data: { name: string; color?: string }) => adminClient.post('/api/tags', data),
   /** 更新标签 */
