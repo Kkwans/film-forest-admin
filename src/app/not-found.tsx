@@ -1,47 +1,42 @@
 "use client";
 
 import Link from "next/link";
-import { Film, ArrowLeft, Home } from "lucide-react";
+import { ArrowLeft, Home, MapPinned } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export default function NotFound() {
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-center space-y-6 max-w-md mx-auto px-4">
-        {/* Icon */}
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <div className="mx-auto max-w-md space-y-6 px-4 text-center">
         <div className="flex justify-center">
-          <div className="relative">
-            <Film className="h-20 w-20 text-muted-foreground/30" />
-            <span className="absolute -top-2 -right-2 text-4xl font-bold text-destructive">
-              ?
-            </span>
+          <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <MapPinned className="size-7" />
           </div>
         </div>
 
-        {/* Title */}
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">404</h1>
-          <p className="text-xl text-muted-foreground">页面未找到</p>
+          <p className="text-sm font-semibold tracking-[0.18em] text-primary">404</p>
+          <h1 className="text-2xl font-semibold tracking-tight">没有找到这个页面</h1>
         </div>
 
-        {/* Description */}
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          抱歉，您访问的页面不存在。可能是链接有误，或页面已被移除。
+        <p className="text-sm leading-6 text-muted-foreground">
+          当前地址可能已经失效，或您没有可用的入口。请返回工作台后从导航重新进入。
         </p>
 
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+        <div className="flex flex-col justify-center gap-3 pt-2 sm:flex-row">
           <Link
             href="/"
-            className="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/80 transition-colors"
+            className={buttonVariants()}
           >
-            <Home className="h-4 w-4" />
-            返回首页
+            <Home className="size-4" />
+            返回工作台
           </Link>
           <button
             onClick={() => window.history.back()}
-            className="inline-flex items-center justify-center gap-2 h-8 px-4 rounded-lg text-sm font-medium border border-border bg-background hover:bg-muted hover:text-foreground transition-colors"
+            className={cn(buttonVariants({ variant: "outline" }))}
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
             返回上一页
           </button>
         </div>
