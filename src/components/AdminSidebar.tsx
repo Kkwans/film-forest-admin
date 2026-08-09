@@ -2,8 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Film, Upload, BarChart3, Settings, Database, Users, FileText, Tags, Menu, X, TreePine, Bell } from 'lucide-react';
+import { LayoutDashboard, Film, Upload, BarChart3, Settings, Database, Users, FileText, Tags, Menu, X, TreePine, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
+import { useAuth } from '@/components/auth-provider';
+import { layoutApi } from '@/lib/api';
+import { useToast } from '@/components/ui/toast';
 
 const NAV_ITEMS = [
   { href: '/', label: '仪表盘', icon: LayoutDashboard },
@@ -20,14 +23,33 @@ const NAV_ITEMS = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const toast = useToast();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [collapsed, setCollapsed] = useState(Boolean(user?.adminSidebarCollapsed));
+  const [savingPreference, setSavingPreference] = useState(false);
   const drawerId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   const closeDrawer = () => setMobileOpen(false);
+
+  const toggleCollapsed = async () => {
+    if (savingPreference) return;
+    const next = !collapsed;
+    setCollapsed(next);
+    setSavingPreference(true);
+    try {
+      await layoutApi.saveSidebarPreference(next);
+    } catch {
+      setCollapsed(!next);
+      toast.error('侧栏偏好保存失败，请重试');
+    } finally {
+      setSavingPreference(false);
+    }
+  };
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
@@ -76,6 +98,8 @@ export default function AdminSidebar() {
     };
   }, [isMobile, mobileOpen]);
 
+  const desktopCollapsed = collapsed && !isMobile;
+
   return (
     <>
       {/* Mobile toggle button */}
@@ -111,8 +135,9 @@ export default function AdminSidebar() {
         inert={isMobile && !mobileOpen ? true : undefined}
         className={`
           fixed inset-y-0 left-0 z-[51] flex w-64 flex-col border-r border-sidebar-border bg-sidebar
-          transform shadow-2xl transition-transform duration-200 ease-out
+          transform shadow-2xl transition-[width,transform] duration-200 ease-out
           md:relative md:z-auto md:translate-x-0 md:shadow-none
+          ${desktopCollapsed ? 'md:w-20' : 'md:w-64'}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
@@ -139,19 +164,21 @@ export default function AdminSidebar() {
         </div>
 
         {/* Desktop logo */}
-        <div className="hidden items-center gap-3 border-b border-sidebar-border px-5 py-5 md:flex">
+        <div className={`hidden items-center border-b border-sidebar-border py-5 md:flex ${desktopCollapsed ? 'justify-center px-3' : 'gap-3 px-5'}`}>
           <div className="flex size-10 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
             <TreePine className="size-5" />
           </div>
-          <div>
-            <p className="font-semibold tracking-tight text-sidebar-foreground">影视森林</p>
-            <p className="text-xs text-sidebar-foreground/55">运营控制台</p>
-          </div>
+          {!desktopCollapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold tracking-tight text-sidebar-foreground">影视森林</p>
+              <p className="text-xs text-sidebar-foreground/55">运营控制台</p>
+            </div>
+          )}
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-          <p className="mb-2 px-3 text-[11px] font-semibold tracking-[0.14em] text-sidebar-foreground/50">工作区</p>
+        <nav className={`flex-1 space-y-1 overflow-y-auto py-4 ${desktopCollapsed ? 'px-2' : 'px-3'}`}>
+          {!desktopCollapsed && <p className="mb-2 px-3 text-[11px] font-semibold tracking-[0.14em] text-sidebar-foreground/50">工作区</p>}
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -160,31 +187,44 @@ export default function AdminSidebar() {
                 href={item.href}
                 onClick={closeDrawer}
                 aria-current={isActive ? 'page' : undefined}
-                className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                title={desktopCollapsed ? item.label : undefined}
+                className={`group flex min-h-11 items-center rounded-xl text-sm font-medium transition-[color,background-color,box-shadow] ${
+                  desktopCollapsed ? 'justify-center px-2' : 'gap-3 px-3'
+                } ${
                   isActive
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm'
+                    ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
                     : 'text-sidebar-foreground/68 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground'
                 }`}
               >
-                {isActive && (
-                  <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-sidebar-primary" />
-                )}
                 <span className={`flex size-8 items-center justify-center rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-sidebar-primary/12 text-sidebar-primary'
+                    ? 'bg-white/14 text-current'
                     : 'text-sidebar-foreground/55 group-hover:text-sidebar-accent-foreground'
                 }`}>
                   <item.icon className="size-[18px]" strokeWidth={1.8} />
                 </span>
-                <span className="truncate">{item.label}</span>
+                <span className={desktopCollapsed ? 'sr-only' : 'truncate'}>{item.label}</span>
               </Link>
             );
           })}
         </nav>
 
         {/* Footer */}
-        <div className="border-t border-sidebar-border px-5 py-4">
-          <p className="text-xs text-sidebar-foreground/55">影视森林 · 授权访问</p>
+        <div className={`border-t border-sidebar-border py-4 ${desktopCollapsed ? 'px-2' : 'px-4'}`}>
+          <button
+            type="button"
+            onClick={() => void toggleCollapsed()}
+            disabled={savingPreference}
+            className={`hidden min-h-10 w-full items-center rounded-xl text-xs font-medium text-sidebar-foreground/65 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground disabled:opacity-50 md:flex ${
+              desktopCollapsed ? 'justify-center px-2' : 'gap-2 px-3'
+            }`}
+            aria-label={desktopCollapsed ? '展开侧边菜单' : '折叠侧边菜单'}
+            title={desktopCollapsed ? '展开侧边菜单' : undefined}
+          >
+            {desktopCollapsed ? <PanelLeftOpen className="size-[18px]" /> : <PanelLeftClose className="size-[18px]" />}
+            {!desktopCollapsed && <span>折叠侧边菜单</span>}
+          </button>
+          <p className={`mt-3 text-xs text-sidebar-foreground/55 md:mt-2 ${desktopCollapsed ? 'hidden' : ''}`}>影视森林 · 授权访问</p>
         </div>
       </aside>
     </>

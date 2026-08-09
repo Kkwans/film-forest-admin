@@ -469,6 +469,11 @@ export const settingsApi = {
   getDbInfo: () => adminClient.get('/api/settings/db-info'),
 };
 
+export const layoutApi = {
+  saveSidebarPreference: (sidebarCollapsed: boolean) =>
+    adminClient.put('/api/auth/preferences/layout', { sidebarCollapsed }),
+};
+
 // 数据统计 API
 export const statsApi = {
   /** 数据概览（各类型数量 + 7日增长 + 爬虫成功率 + 资源统计） */

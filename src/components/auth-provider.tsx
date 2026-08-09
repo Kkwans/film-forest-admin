@@ -7,6 +7,7 @@ interface User {
   id: number;
   username: string;
   nickname?: string;
+  adminSidebarCollapsed?: boolean;
 }
 
 interface AuthContextValue {
@@ -33,8 +34,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const savedToken = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-
     if (!savedToken) {
       router.push('/login');
       return;
