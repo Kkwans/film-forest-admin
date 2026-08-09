@@ -64,7 +64,10 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs }: Props)
     }
   }, [from, keyword, page, scheduleId, source, status, to, toast, type]);
 
-  useEffect(() => { void fetchLogs(); }, [fetchLogs]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void fetchLogs(), 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchLogs]);
   useAdaptivePolling({ hasActiveJobs, onPoll: fetchLogs });
 
   const resetPage = () => setPage(1);

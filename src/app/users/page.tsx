@@ -88,9 +88,12 @@ export default function UsersPage() {
     } catch (e: unknown) { toast.error(extractErrorMessage(e, '加载用户列表失败')); } finally {
       setLoading(false);
     }
-  }, [page, size, debouncedKeyword]);
+  }, [page, size, debouncedKeyword, toast]);
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadUsers(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadUsers]);
 
   const handleSearch = () => { setPage(1); };
 

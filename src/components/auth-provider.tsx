@@ -29,7 +29,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
-      setLoading(false);
       return;
     }
 

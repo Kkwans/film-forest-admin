@@ -201,7 +201,7 @@ export default function ResourcesPage() {
     } catch (e: unknown) { toast.error(extractErrorMessage(e, '磁力资源加载失败')); } finally {
       setMagnetLoading(false);
     }
-  }, [extractErrorMessage]);
+  }, [toast]);
 
   // ===== 加载网盘资源 =====
   const fetchClouds = useCallback(async (page: number, filter?: { contentType?: string; keyword?: string }) => {
@@ -219,9 +219,9 @@ export default function ResourcesPage() {
     } catch (e: unknown) { toast.error(extractErrorMessage(e, '网盘资源加载失败')); } finally {
       setCloudLoading(false);
     }
-  }, [extractErrorMessage]);
+  }, [toast]);
 
-  const fetchBaseData = async () => {
+  const fetchBaseData = useCallback(async () => {
     try {
       setLoading(true);
       const [statsRes, sourcesRes] = await Promise.all([
@@ -233,12 +233,15 @@ export default function ResourcesPage() {
     } catch (e: unknown) { toast.error(extractErrorMessage(e, '数据加载失败')); } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    fetchBaseData();
-    fetchMagnets(1, {});
-    fetchClouds(1, {});
+    const timer = window.setTimeout(() => {
+      void fetchBaseData();
+      void fetchMagnets(1, {});
+      void fetchClouds(1, {});
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [fetchBaseData, fetchMagnets, fetchClouds]);
 
   // ===== 磁力资源筛选 =====

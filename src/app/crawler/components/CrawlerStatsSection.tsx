@@ -33,7 +33,10 @@ export function CrawlerStatsSection({ hasActiveJobs }: Props) {
     }
   }, [days, toast]);
 
-  useEffect(() => { void fetchStats(); }, [fetchStats]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void fetchStats(), 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchStats]);
   useAdaptivePolling({ hasActiveJobs, onPoll: fetchStats });
 
   const maxDailyJobs = useMemo(() => Math.max(1, ...(data?.daily.map(item => item.jobs) || [1])), [data]);

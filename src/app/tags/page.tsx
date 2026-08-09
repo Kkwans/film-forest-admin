@@ -53,7 +53,10 @@ export default function TagsPage() {
     }
   }, [toast]);
 
-  useEffect(() => { loadTags(); }, [loadTags]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadTags(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadTags]);
 
   const filtered = keyword
     ? tags.filter(t => t.name.toLowerCase().includes(keyword.toLowerCase()))

@@ -210,10 +210,11 @@ export default function ContentPage() {
         setLoading(false);
       }
     }
-  }, [typeFilter, statusFilter, debouncedKeyword, sortField, sortDirection, page]);
+  }, [typeFilter, statusFilter, debouncedKeyword, sortField, sortDirection, page, toast]);
 
   useEffect(() => {
-    fetchItems();
+    const timer = window.setTimeout(() => void fetchItems(), 0);
+    return () => window.clearTimeout(timer);
   }, [fetchItems]);
 
   // Stats per type
@@ -358,7 +359,10 @@ export default function ContentPage() {
       setSavingNew(false);
     }
   };
-  handleSaveNewRef.current = handleSaveNew;
+
+  useEffect(() => {
+    handleSaveNewRef.current = handleSaveNew;
+  }, [handleSaveNew]);
 
   const loadFullContent = async (item: ContentRecord): Promise<ContentRecord> => {
     const response = await dispatchByType(item.type, {
@@ -457,7 +461,10 @@ export default function ContentPage() {
       setSavingEdit(false);
     }
   };
-  handleSaveEditRef.current = handleSaveEdit;
+
+  useEffect(() => {
+    handleSaveEditRef.current = handleSaveEdit;
+  }, [handleSaveEdit]);
 
   const handleToggleStatus = async (item: ContentRecord) => {
     const key = `${item.type}-${item.id}`;
@@ -577,12 +584,6 @@ export default function ContentPage() {
   };
 
   // Keyboard shortcut: Ctrl+Enter to save in modal, Escape to close
-  // 用 ref 存储 editForm，避免表单输入导致频繁重新注册事件监听
-  const editFormRef = useRef(editForm);
-  editFormRef.current = editForm;
-  const formErrorsRef = useRef(formErrors);
-  formErrorsRef.current = formErrors;
-
   useEffect(() => {
     if (!editingItem && !creatingNew && !detailItem) return;
     const handler = (e: KeyboardEvent) => {

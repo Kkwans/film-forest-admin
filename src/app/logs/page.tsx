@@ -90,7 +90,7 @@ export default function LogsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, size, debouncedKeyword, actionFilter, moduleFilter, statusFilter]);
+  }, [page, size, debouncedKeyword, actionFilter, moduleFilter, statusFilter, toast]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -99,8 +99,14 @@ export default function LogsPage() {
     } catch (e: unknown) { /* ignore */ }
   }, []);
 
-  useEffect(() => { loadLogs(); }, [loadLogs]);
-  useEffect(() => { loadStats(); }, [loadStats]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadLogs(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadLogs]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadStats(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadStats]);
 
   const handleSearch = () => { setPage(1); };
   const handleReset = () => {

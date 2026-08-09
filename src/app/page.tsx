@@ -38,7 +38,7 @@ export default function AdminDashboard() {
   const [crawlerStatus, setCrawlerStatus] = useState<CrawlerStatusItem[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const toast = useToast();
   const [autoRefresh, setAutoRefresh] = useState(true);
 
@@ -73,13 +73,15 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
-    fetchData();
-    if (!autoRefresh) return;
-    const timer = setInterval(fetchData, 30000);
-    return () => clearInterval(timer);
+    const initialTimer = window.setTimeout(() => void fetchData(), 0);
+    const refreshTimer = autoRefresh ? window.setInterval(() => void fetchData(), 30000) : null;
+    return () => {
+      window.clearTimeout(initialTimer);
+      if (refreshTimer !== null) window.clearInterval(refreshTimer);
+    };
   }, [fetchData, autoRefresh]);
 
   const totalContent = stats.movies + stats.dramas + stats.varieties + stats.animes + stats.shortDramas;
@@ -89,7 +91,7 @@ export default function AdminDashboard() {
 
   const getRelativeTime = (dateStr: string) => {
     try {
-      const diff = Date.now() - new Date(dateStr).getTime();
+      const diff = Math.max(0, (lastRefresh?.getTime() ?? 0) - new Date(dateStr).getTime());
       const mins = Math.floor(diff / 60000);
       if (mins < 1) return '刚刚';
       if (mins < 60) return `${mins}分钟前`;
@@ -360,7 +362,7 @@ export default function AdminDashboard() {
 
       {/* Footer info */}
       <div className="text-center text-xs text-muted-foreground py-2">
-        上次刷新: {lastRefresh.toLocaleTimeString('zh-CN')} · {autoRefresh ? '每30秒自动刷新' : '自动刷新已暂停'}
+        上次刷新: {lastRefresh ? lastRefresh.toLocaleTimeString('zh-CN') : '等待首次刷新'} · {autoRefresh ? '每30秒自动刷新' : '自动刷新已暂停'}
       </div>
     </div>
   );
