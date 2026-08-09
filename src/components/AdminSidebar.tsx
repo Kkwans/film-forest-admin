@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Film, Upload, BarChart3, Settings, Database, Users, FileText, Tags, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { LayoutDashboard, Film, Upload, BarChart3, Settings, Database, Users, FileText, Tags, Menu, X, TreePine } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
 
 const NAV_ITEMS = [
   { href: '/', label: '仪表盘', icon: LayoutDashboard },
@@ -20,41 +20,106 @@ const NAV_ITEMS = [
 export default function AdminSidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const drawerId = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  const closeDrawer = () => setMobileOpen(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileOpen || !isMobile) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const trigger = triggerRef.current;
+    document.body.style.overflow = 'hidden';
+    closeRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeDrawer();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !drawerRef.current) return;
+      const focusable = Array.from(drawerRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+      trigger?.focus();
+    };
+  }, [isMobile, mobileOpen]);
 
   return (
     <>
       {/* Mobile toggle button */}
       <button
+        ref={triggerRef}
+        type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed top-3 left-3 z-[60] p-2 rounded-lg bg-sidebar border border-sidebar-border md:hidden shadow-lg"
-        aria-label="打开菜单"
+        className="fixed top-3 left-3 z-50 flex size-10 items-center justify-center rounded-xl border border-border bg-popover text-foreground shadow-md transition-colors hover:bg-accent md:hidden"
+        aria-label="打开主导航"
+        aria-controls={drawerId}
+        aria-expanded={mobileOpen}
       >
-        <Menu className="w-5 h-5 text-sidebar-foreground" />
+        <Menu className="size-5" />
       </button>
 
       {/* Overlay */}
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-[55] bg-black/60 backdrop-blur-sm md:hidden"
-          onClick={() => setMobileOpen(false)}
+        <button
+          type="button"
+          className="fixed inset-0 z-50 cursor-default bg-black/45 backdrop-blur-[2px] md:hidden"
+          onClick={closeDrawer}
+          aria-label="关闭主导航"
         />
       )}
 
       {/* Sidebar */}
       <aside
+        ref={drawerRef}
+        id={drawerId}
+        aria-label="主导航"
+        role={isMobile && mobileOpen ? 'dialog' : undefined}
+        aria-modal={isMobile && mobileOpen ? true : undefined}
+        inert={isMobile && !mobileOpen ? true : undefined}
         className={`
-          fixed md:relative inset-y-0 left-0 z-[56]
-          w-64 bg-sidebar border-r border-sidebar-border flex flex-col
-          transform transition-transform duration-200 ease-in-out
-          md:translate-x-0 md:block
+          fixed inset-y-0 left-0 z-[51] flex w-64 flex-col border-r border-sidebar-border bg-sidebar
+          transform shadow-2xl transition-transform duration-200 ease-out
+          md:relative md:z-auto md:translate-x-0 md:shadow-none
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
         {/* Mobile close button */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-sidebar-border md:hidden">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-sidebar-primary/20 flex items-center justify-center">
-              <span className="text-lg">🌲</span>
+            <div className="flex size-9 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
+              <TreePine className="size-5" />
             </div>
             <div>
               <p className="font-bold text-sidebar-foreground">影视森林</p>
@@ -62,66 +127,63 @@ export default function AdminSidebar() {
             </div>
           </div>
           <button
-            onClick={() => setMobileOpen(false)}
-            className="p-1 rounded text-sidebar-foreground/60 hover:text-sidebar-foreground"
-            aria-label="关闭菜单"
+            ref={closeRef}
+            type="button"
+            onClick={closeDrawer}
+            className="flex size-9 items-center justify-center rounded-xl text-sidebar-foreground/65 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            aria-label="关闭主导航"
           >
-            <X className="w-5 h-5" />
+            <X className="size-5" />
           </button>
         </div>
 
         {/* Desktop logo */}
-        <div className="hidden md:flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
-          <div className="w-9 h-9 rounded-xl bg-sidebar-primary/20 flex items-center justify-center shadow-sm">
-            <span className="text-lg">🌲</span>
+        <div className="hidden items-center gap-3 border-b border-sidebar-border px-5 py-5 md:flex">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-sidebar-primary text-sidebar-primary-foreground shadow-sm">
+            <TreePine className="size-5" />
           </div>
           <div>
-            <p className="font-bold text-sidebar-foreground tracking-tight">影视森林</p>
-            <p className="text-xs text-sidebar-foreground/40">管理后台 v0.5.0</p>
+            <p className="font-semibold tracking-tight text-sidebar-foreground">影视森林</p>
+            <p className="text-xs text-sidebar-foreground/55">运营控制台</p>
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          <p className="px-3 mb-2 text-[10px] font-semibold text-sidebar-foreground/30 uppercase tracking-widest">导航</p>
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+          <p className="mb-2 px-3 text-[11px] font-semibold tracking-[0.14em] text-sidebar-foreground/50">工作区</p>
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all relative group ${
+                onClick={closeDrawer}
+                aria-current={isActive ? 'page' : undefined}
+                className={`group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50'
+                    ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm'
+                    : 'text-sidebar-foreground/68 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground'
                 }`}
               >
                 {isActive && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary shadow-[0_0_8px_var(--sidebar-primary)]" />
+                  <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-sidebar-primary" />
                 )}
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                <span className={`flex size-8 items-center justify-center rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-sidebar-primary/15 text-sidebar-primary'
-                    : 'bg-transparent text-sidebar-foreground/50 group-hover:text-sidebar-foreground/70 group-hover:bg-sidebar-accent/60'
+                    ? 'bg-sidebar-primary/12 text-sidebar-primary'
+                    : 'text-sidebar-foreground/55 group-hover:text-sidebar-accent-foreground'
                 }`}>
-                  <item.icon className="w-[18px] h-[18px]" />
-                </div>
+                  <item.icon className="size-[18px]" strokeWidth={1.8} />
+                </span>
                 <span className="truncate">{item.label}</span>
-                {isActive && (
-                  <span className="ml-auto w-1.5 h-1.5 rounded-full bg-sidebar-primary shadow-[0_0_6px_var(--sidebar-primary)]" />
-                )}
               </Link>
             );
           })}
         </nav>
 
         {/* Footer */}
-        <div className="px-5 py-4 border-t border-sidebar-border">
-          <div className="flex items-center gap-2.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_6px_oklch(0.6_0.18_145)]" />
-            <p className="text-xs text-sidebar-foreground/30">运行中</p>
-          </div>
+        <div className="border-t border-sidebar-border px-5 py-4">
+          <p className="text-xs text-sidebar-foreground/55">影视森林 · 授权访问</p>
         </div>
       </aside>
     </>
