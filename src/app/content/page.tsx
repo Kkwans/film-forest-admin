@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -200,6 +200,7 @@ export default function ContentPage() {
     const timer = setTimeout(() => {
       setDebouncedKeyword(keyword);
       setPage(1);
+      setSelectedKeys(new Set());
     }, 300);
     return () => clearTimeout(timer);
   }, [keyword]);
@@ -271,6 +272,14 @@ export default function ContentPage() {
   }, [toast]);
 
   const filtered = items;
+  const visibleKeySet = useMemo(
+    () => new Set(filtered.map(item => `${item.type}-${item.id}`)),
+    [filtered]
+  );
+  const visibleSelectedKeys = useMemo(
+    () => new Set([...selectedKeys].filter(key => visibleKeySet.has(key))),
+    [selectedKeys, visibleKeySet]
+  );
 
   // Load tags for visible items (batch API)
   useEffect(() => {
@@ -572,25 +581,23 @@ export default function ContentPage() {
     const visibleKeys = filtered.map(i => `${i.type}-${i.id}`);
     setSelectedKeys(previous => {
       const allVisibleSelected = visibleKeys.length > 0 && visibleKeys.every(key => previous.has(key));
-      const next = new Set(previous);
-      visibleKeys.forEach(key => allVisibleSelected ? next.delete(key) : next.add(key));
-      return next;
+      return allVisibleSelected ? new Set() : new Set(visibleKeys);
     });
   };
 
   const handleBatchDelete = async () => {
-    if (selectedKeys.size === 0) return;
+    if (visibleSelectedKeys.size === 0) return;
     if (batchProcessing) return;
     const ok = await dialog.confirm({
       title: '批量删除',
-      content: `确定删除选中的 ${selectedKeys.size} 条内容？删除后不可恢复。`,
+      content: `确定删除当前页选中的 ${visibleSelectedKeys.size} 条内容？删除后不可恢复。`,
       confirmText: '删除',
       cancelText: '取消',
       variant: 'danger',
     });
     if (!ok) return;
     setBatchProcessing(true);
-    const entries = Array.from(selectedKeys).map(key => {
+    const entries = Array.from(visibleSelectedKeys).map(key => {
       const [type, idStr] = key.split('-');
       return { type: type as ContentType, id: Number(idStr) };
     });
@@ -612,7 +619,7 @@ export default function ContentPage() {
     // 清理已删除条目的标签缓存
     setContentTagMap(prev => {
       const next = { ...prev };
-      for (const key of selectedKeys) { delete next[key]; }
+      for (const key of visibleSelectedKeys) { delete next[key]; }
       return next;
     });
     setSelectedKeys(new Set());
@@ -621,10 +628,10 @@ export default function ContentPage() {
   };
 
   const handleBatchSetStatus = async (newStatus: number) => {
-    if (selectedKeys.size === 0) return;
+    if (visibleSelectedKeys.size === 0) return;
     if (batchProcessing) return;
     setBatchProcessing(true);
-    const entries = Array.from(selectedKeys)
+    const entries = Array.from(visibleSelectedKeys)
       .map(key => {
         const [type, idStr] = key.split('-');
         const id = Number(idStr);
@@ -701,9 +708,9 @@ export default function ContentPage() {
       </div>
 
       {/* Batch Action Bar */}
-      {selectedKeys.size > 0 && (
+      {visibleSelectedKeys.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
-          <span className="text-sm font-medium text-primary">已选 {selectedKeys.size} 项</span>
+          <span className="text-sm font-medium text-primary">已选 {visibleSelectedKeys.size} 项（仅当前页）</span>
           <div className="flex-1" />
           <button
             onClick={() => handleBatchSetStatus(1)}
@@ -767,19 +774,19 @@ export default function ContentPage() {
             </div>
             <Select
               value={typeFilter}
-              onChange={(v) => { setTypeFilter(v as FilterType); setPage(1); }}
+              onChange={(v) => { setTypeFilter(v as FilterType); setPage(1); setSelectedKeys(new Set()); }}
               options={[{ label: '全部分类', value: 'all' }, { label: '电影', value: 'movie' }, { label: '剧集', value: 'drama' }, { label: '综艺', value: 'variety' }, { label: '动漫', value: 'anime' }, { label: '短剧', value: 'short_drama' }]}
               className="w-36"
             />
             <Select
               value={statusFilter}
-              onChange={(v) => { setStatusFilter(v as StatusFilter); setPage(1); }}
+              onChange={(v) => { setStatusFilter(v as StatusFilter); setPage(1); setSelectedKeys(new Set()); }}
               options={[{ label: '全部状态', value: 'all' }, ...STATUS_OPTIONS]}
               className="w-36"
             />
             <Select
               value={sortField}
-              onChange={(v) => { setSortField(v as SortField); setPage(1); }}
+              onChange={(v) => { setSortField(v as SortField); setPage(1); setSelectedKeys(new Set()); }}
               options={[
                 { label: '最近更新', value: 'updatedAt' },
                 { label: '创建时间', value: 'createdAt' },
@@ -792,7 +799,7 @@ export default function ContentPage() {
             />
             <Select
               value={sortDirection}
-              onChange={(v) => { setSortDirection(v as SortDirection); setPage(1); }}
+              onChange={(v) => { setSortDirection(v as SortDirection); setPage(1); setSelectedKeys(new Set()); }}
               options={[{ label: '降序', value: 'desc' }, { label: '升序', value: 'asc' }]}
               className="w-28"
             />
@@ -826,6 +833,7 @@ export default function ContentPage() {
                       checked={filtered.length > 0 && filtered.every(item => selectedKeys.has(`${item.type}-${item.id}`))}
                       onChange={toggleSelectAll}
                       className="rounded border-border"
+                      aria-label={filtered.length > 0 && filtered.every(item => selectedKeys.has(`${item.type}-${item.id}`)) ? '取消选择当前页全部内容' : '选择当前页全部内容'}
                     />
                   </th>
                   <th className="text-left px-4 py-3 text-xs font-bold text-muted-foreground uppercase tracking-wider">内容</th>
@@ -870,6 +878,7 @@ export default function ContentPage() {
                           checked={isSelected}
                           onChange={() => toggleSelectItem(itemKey)}
                           className="rounded border-border"
+                          aria-label={`${isSelected ? '取消选择' : '选择'}《${item.title}》`}
                         />
                       </td>
                       <td className="px-4 py-3.5">
@@ -953,9 +962,19 @@ export default function ContentPage() {
                 )}
               </div>
             ) : (
-              filtered.map((item) => (
-                <div key={`${item.type}-${item.id}`} className="p-4 hover:bg-muted/30 transition-[background-color] duration-150 active:bg-muted/50">
+              filtered.map((item) => {
+                const itemKey = `${item.type}-${item.id}`;
+                const isSelected = selectedKeys.has(itemKey);
+                return (
+                <div key={itemKey} className={`p-4 transition-[background-color] duration-150 hover:bg-muted/30 active:bg-muted/50 ${isSelected ? 'bg-primary/5' : ''}`}>
                   <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelectItem(itemKey)}
+                      className="mt-1 size-4 shrink-0 rounded border-border"
+                      aria-label={`${isSelected ? '取消选择' : '选择'}《${item.title}》`}
+                    />
                     <ContentPoster url={item.posterUrl} title={item.title} className="h-[66px] w-12 shrink-0 rounded-lg" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{item.title}</p>
@@ -990,7 +1009,8 @@ export default function ContentPage() {
                     </div>
                   </div>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
         </CardContent>
@@ -1005,7 +1025,7 @@ export default function ContentPage() {
           <Pagination
             currentPage={page}
             totalPages={Math.ceil(total / pageSize)}
-            onPageChange={setPage}
+            onPageChange={(nextPage) => { setPage(nextPage); setSelectedKeys(new Set()); }}
           />
         </div>
       )}
