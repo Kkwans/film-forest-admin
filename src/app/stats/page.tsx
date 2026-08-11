@@ -179,7 +179,7 @@ export default function StatsPage() {
     { label: '平均耗时', value: `${((operations?.avgDurationMs || 0) / 1000).toFixed(1)}s`, note: `${operations?.jobs || 0} 个 Job`, icon: Timer, tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
     { label: '数据变更', value: ((operations?.added || 0) + (operations?.updated || 0)).toLocaleString(), note: `新增 ${operations?.added || 0} · 更新 ${operations?.updated || 0}`, icon: Activity, tone: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
     { label: '失败条目', value: (operations?.failedItems || 0).toLocaleString(), note: `失败 Job ${operations?.failed || 0}`, icon: AlertTriangle, tone: (operations?.failedItems || 0) > 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground' },
-    { label: '资源总量', value: Number(overview?.resources.total || 0).toLocaleString(), note: `在线 ${overview?.resources.online || 0} · 磁力 ${overview?.resources.magnet || 0}`, icon: Database, tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
+    { label: '可用资源', value: Number(overview?.resources.total || 0).toLocaleString(), note: `在线 ${overview?.resources.online || 0} · 磁力 ${overview?.resources.magnet || 0} · 网盘 ${overview?.resources.cloud || 0}`, icon: Database, tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
   ];
 
   return (
@@ -212,7 +212,7 @@ export default function StatsPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <ChartCard title="资源结构" note="当前库内资源数量；来源失效与禁用项在资源管理中筛选">
+        <ChartCard title="可用资源结构" note="仅统计已启用、未删除且未被来源判定失效的资源">
           <div className="grid grid-cols-3 gap-3">{[
             { label: '在线', value: overview?.resources.online || 0, icon: RadioTower, tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
             { label: '磁力', value: overview?.resources.magnet || 0, icon: Link2, tone: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
