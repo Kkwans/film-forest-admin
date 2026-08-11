@@ -662,7 +662,14 @@ export interface SmtpSettingView {
 }
 
 export const notificationApi = {
-  list: (params?: { unreadOnly?: boolean; page?: number; size?: number }) =>
+  list: (params?: {
+    unreadOnly?: boolean;
+    eventType?: string;
+    severity?: string;
+    keyword?: string;
+    page?: number;
+    size?: number;
+  }) =>
     adminClient.get('/api/admin/notifications', { params }),
   unreadCount: () => adminClient.get('/api/admin/notifications/unread-count'),
   markRead: (id: number) => adminClient.post(`/api/admin/notifications/${id}/read`),

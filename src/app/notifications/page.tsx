@@ -12,11 +12,14 @@ import {
   Info,
   Loader2,
   MailCheck,
+  RotateCcw,
+  Search,
   Settings,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select } from '@/components/ui/select';
 import Pagination from '@/components/Pagination';
 import { useToast } from '@/components/ui/toast';
 import {
@@ -32,6 +35,27 @@ const severityStyle = {
   SUCCESS: { icon: CheckCircle2, box: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300', label: '恢复' },
   INFO: { icon: Info, box: 'bg-sky-500/12 text-sky-700 dark:text-sky-300', label: '信息' },
 } as const;
+
+const EVENT_OPTIONS = [
+  { label: '全部事件', value: 'all' },
+  { label: '爬虫失败', value: 'CRAWLER_FAILED' },
+  { label: '爬虫中断', value: 'CRAWLER_INTERRUPTED' },
+  { label: '爬虫恢复', value: 'CRAWLER_RECOVERED' },
+  { label: '数据异常', value: 'DATA_ANOMALY' },
+  { label: '任务成功', value: 'CRAWLER_SUCCESS' },
+];
+
+const SEVERITY_OPTIONS = [
+  { label: '全部级别', value: 'all' },
+  { label: '错误', value: 'ERROR' },
+  { label: '警告', value: 'WARNING' },
+  { label: '恢复', value: 'SUCCESS' },
+  { label: '信息', value: 'INFO' },
+];
+
+const eventLabels: Record<string, string> = Object.fromEntries(
+  EVENT_OPTIONS.filter(option => option.value !== 'all').map(option => [option.value, option.label]),
+);
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
@@ -51,6 +75,10 @@ export default function NotificationsPage() {
   const [total, setTotal] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [eventType, setEventType] = useState('all');
+  const [severity, setSeverity] = useState('all');
+  const [keywordDraft, setKeywordDraft] = useState('');
+  const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(true);
   const [markingAll, setMarkingAll] = useState(false);
 
@@ -60,7 +88,14 @@ export default function NotificationsPage() {
     setLoading(true);
     try {
       const [listResponse, countResponse] = await Promise.all([
-        notificationApi.list({ page, size: 20, unreadOnly }),
+        notificationApi.list({
+          page,
+          size: 20,
+          unreadOnly,
+          eventType: eventType === 'all' ? undefined : eventType,
+          severity: severity === 'all' ? undefined : severity,
+          keyword: keyword || undefined,
+        }),
         notificationApi.unreadCount(),
       ]);
       if (listResponse.data?.code === 200) {
@@ -77,7 +112,17 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, toast, unreadOnly]);
+  }, [eventType, keyword, page, severity, toast, unreadOnly]);
+
+  const activeAdvancedFilters = eventType !== 'all' || severity !== 'all' || Boolean(keyword);
+
+  const resetAdvancedFilters = () => {
+    setEventType('all');
+    setSeverity('all');
+    setKeywordDraft('');
+    setKeyword('');
+    setPage(1);
+  };
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -184,6 +229,53 @@ export default function NotificationsPage() {
         ))}
       </div>
 
+      <form
+        className="grid gap-3 rounded-2xl border border-border bg-card/70 p-4 md:grid-cols-[minmax(0,1fr)_11rem_11rem_auto] md:items-end"
+        onSubmit={event => {
+          event.preventDefault();
+          setKeyword(keywordDraft.trim());
+          setPage(1);
+        }}
+      >
+        <label className="grid gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">通知内容</span>
+          <span className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={keywordDraft}
+              onChange={event => setKeywordDraft(event.target.value)}
+              placeholder="搜索标题或详情"
+              maxLength={100}
+              className="h-9 w-full rounded-xl border border-input bg-background pl-9 pr-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25"
+            />
+          </span>
+        </label>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">事件类型</span>
+          <Select
+            value={eventType}
+            options={EVENT_OPTIONS}
+            onChange={value => { setEventType(value); setPage(1); }}
+          />
+        </label>
+        <label className="grid gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground">通知级别</span>
+          <Select
+            value={severity}
+            options={SEVERITY_OPTIONS}
+            onChange={value => { setSeverity(value); setPage(1); }}
+          />
+        </label>
+        <div className="flex items-center gap-2">
+          <Button type="submit" size="sm"><Search />查询</Button>
+          {activeAdvancedFilters && (
+            <Button type="button" variant="ghost" size="sm" onClick={resetAdvancedFilters}>
+              <RotateCcw />重置
+            </Button>
+          )}
+        </div>
+      </form>
+
       <Card className="overflow-hidden">
         {loading ? (
           <div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -194,8 +286,12 @@ export default function NotificationsPage() {
             <span className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
               <Bell className="size-6" />
             </span>
-            <p className="font-semibold text-foreground">{unreadOnly ? '没有未读通知' : '还没有通知'}</p>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">爬虫出现失败、中断或恢复时会在这里留下可追踪记录。</p>
+            <p className="font-semibold text-foreground">
+              {activeAdvancedFilters ? '没有符合当前条件的通知' : unreadOnly ? '没有未读通知' : '还没有通知'}
+            </p>
+            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+              {activeAdvancedFilters ? '可调整事件、级别或关键词后重新查询。' : '爬虫出现失败、中断或恢复时会在这里留下可追踪记录。'}
+            </p>
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -217,6 +313,9 @@ export default function NotificationsPage() {
                       <h2 className="font-semibold text-foreground">{item.title}</h2>
                       {!item.readAt && <span className="size-2 rounded-full bg-primary" aria-label="未读" />}
                       <Badge variant="outline" className="font-normal">{style.label}</Badge>
+                      <Badge variant="secondary" className="font-normal">
+                        {eventLabels[item.eventType] || item.eventType}
+                      </Badge>
                     </div>
                     <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{item.message}</p>
                     <time className="mt-2 block text-xs text-muted-foreground/75" dateTime={item.createdAt}>
