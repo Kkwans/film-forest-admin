@@ -711,36 +711,20 @@ export default function ContentPage() {
 
     setBatchProcessing(true);
     try {
-      const results = await Promise.allSettled(
-        entries.map(entry => contentApi.toggleStatus(entry.type, entry.id, newStatus))
+      const response = await contentApi.batchUpdateStatus(
+        entries.map(entry => ({ type: entry.type, id: entry.id })),
+        newStatus,
       );
-      const succeededKeys = new Set<string>();
-      const failedKeys = new Set<string>();
-      let firstFailure = '';
-      results.forEach((result, index) => {
-        const entry = entries[index];
-        if (result.status === 'fulfilled' && isMutationSuccess(result.value)) {
-          succeededKeys.add(entry.key);
-          return;
-        }
-        failedKeys.add(entry.key);
-        if (!firstFailure) {
-          firstFailure = result.status === 'fulfilled'
-            ? mutationFailureMessage(result.value, '服务器拒绝更新状态')
-            : extractErrorMessage(result.reason, '状态更新请求失败');
-        }
-      });
-
-      setSelectedKeys(failedKeys);
-      if (succeededKeys.size > 0) await refreshContentData();
-
-      if (failedKeys.size === 0) {
-        toast.success(`已将 ${succeededKeys.size} 条内容设为“${STATUS_LABELS[newStatus]}”`);
-      } else if (succeededKeys.size > 0) {
-        toast.warning(`已更新 ${succeededKeys.size} 条，失败 ${failedKeys.size} 条：${firstFailure}`);
-      } else {
-        toast.error(`批量状态更新失败：${firstFailure}`);
+      if (!isMutationSuccess(response)) {
+        throw new Error(mutationFailureMessage(response, '服务器拒绝批量更新状态'));
       }
+      const updated = Number(response.data?.data?.updated);
+      if (updated !== entries.length) throw new Error('服务器返回的更新数量与请求不一致');
+      setSelectedKeys(new Set());
+      await refreshContentData();
+      toast.success(`已将 ${updated} 条内容设为“${STATUS_LABELS[newStatus]}”`);
+    } catch (error: unknown) {
+      toast.error(`批量状态更新失败：${extractErrorMessage(error, '请求失败，所选内容未变更')}`);
     } finally {
       setBatchProcessing(false);
     }

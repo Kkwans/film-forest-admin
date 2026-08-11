@@ -67,6 +67,12 @@ export interface ContentSubmitData {
   seriesOrder?: number | null;
 }
 
+export interface ContentStatusBatchResult {
+  requested: number;
+  updated: number;
+  status: number;
+}
+
 /** 保存爬虫配置请求体 */
 export type SaveScheduleData = { id?: number } & Partial<Omit<CrawlerSchedule, 'id' | 'status' | 'lastRunTime' | 'nextRunTime' | 'totalRuns' | 'totalItems' | 'createdAt' | 'updatedAt'>>;
 
@@ -477,6 +483,10 @@ export const contentApi = {
   // 状态切换（通用，只更新 status 字段）
   toggleStatus: (type: string, id: number, status: number) =>
     adminClient.patch(`/api/content/${type}/${id}/status?status=${status}`),
+
+  // 当前页跨类型原子批量状态更新；任何失效目标都会整批回滚
+  batchUpdateStatus: (items: Array<{ type: string; id: number }>, status: number) =>
+    adminClient.post<ApiEnvelope<ContentStatusBatchResult>>('/api/content/status/batch', { items, status }),
 
   // 合并列表
   listAll: (params: {
