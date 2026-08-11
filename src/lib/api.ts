@@ -122,6 +122,8 @@ export interface SaveOnlineData {
   sourceCode?: string;
   sourceName: string;
   sourceUrl: string;
+  sourcePageUrl?: string;
+  playbackType?: 'HLS' | 'VIDEO' | 'EMBED' | 'EXTERNAL_PAGE' | '';
   season?: number | null;
   episodeNumber?: number | null;
   episodeTitle?: string;

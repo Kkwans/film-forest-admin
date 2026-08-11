@@ -70,6 +70,8 @@ interface OnlineResource extends BaseResource {
   episodeTitle?: string;
   sourceName: string;
   sourceUrl: string;
+  sourcePageUrl?: string;
+  playbackType?: 'HLS' | 'VIDEO' | 'EMBED' | 'EXTERNAL_PAGE' | '';
 }
 
 interface MagnetResource extends BaseResource {
@@ -182,6 +184,18 @@ const DISK_TYPE_LABELS: Record<string, string> = Object.fromEntries(
   DISK_TYPE_OPTIONS.filter(option => option.value).map(option => [option.value, option.label]),
 );
 
+const PLAYBACK_TYPE_OPTIONS = [
+  { value: '', label: '自动识别' },
+  { value: 'HLS', label: 'HLS 串流（m3u8）' },
+  { value: 'VIDEO', label: '视频直链（mp4/webm）' },
+  { value: 'EMBED', label: '可嵌入播放器' },
+  { value: 'EXTERNAL_PAGE', label: '仅外部页面' },
+];
+
+const PLAYBACK_TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  PLAYBACK_TYPE_OPTIONS.filter(option => option.value).map(option => [option.value, option.label]),
+);
+
 const SORT_OPTIONS = [
   { value: 'createdAt:desc', label: '最近创建' },
   { value: 'updatedAt:desc', label: '最近更新' },
@@ -243,7 +257,11 @@ function resourceTitle(kind: ResourceKind, resource: ResourceRecord): string {
 }
 
 function resourceVariant(kind: ResourceKind, resource: ResourceRecord): string {
-  if (kind === 'online') return (resource as OnlineResource).sourceName || '在线播放';
+  if (kind === 'online') {
+    const online = resource as OnlineResource;
+    return [online.sourceName || '在线播放', PLAYBACK_TYPE_LABELS[online.playbackType || ''] || online.playbackType]
+      .filter(Boolean).join(' · ');
+  }
   if (kind === 'magnet') {
     const magnet = resource as MagnetResource;
     return [magnet.resolution, magnet.hasSubtitle ? '有字幕' : '', magnet.isSpecialSub ? '特效字幕' : ''].filter(Boolean).join(' · ') || '未标注';
@@ -400,7 +418,7 @@ export default function ResourcesPage() {
 
   const openAdd = () => {
     if (activeKind === 'online') {
-      setEditingOnline({ contentType: 'movie', contentId: 0, sourceCode: defaultSourceCode, sourceName: '', sourceUrl: '', season: 1, sort: 0, enabled: 1 });
+      setEditingOnline({ contentType: 'movie', contentId: 0, sourceCode: defaultSourceCode, sourceName: '', sourceUrl: '', sourcePageUrl: '', playbackType: undefined, season: 1, sort: 0, enabled: 1 });
     } else if (activeKind === 'magnet') {
       setEditingMagnet({ contentType: 'movie', contentId: 0, sourceCode: defaultSourceCode, title: '', magnetUrl: '', resolution: '', hasSubtitle: false, isSpecialSub: false, sort: 0, enabled: 1 });
     } else {
@@ -660,7 +678,31 @@ export default function ResourcesPage() {
       </section>
 
       <Modal open={!!editingOnline} onClose={() => setEditingOnline(null)} title={editingOnline?.id ? '编辑在线资源' : '新增在线资源'} description="关联内容、来源和具体剧集；保存后仅刷新当前资源页。" width="lg" footer={<><Button variant="outline" onClick={() => setEditingOnline(null)}>取消</Button><Button disabled={saving} onClick={() => void saveResource('online')}>{saving && <Loader2 className="animate-spin" />}保存</Button></>}>
-        {editingOnline && <div className="grid gap-4 sm:grid-cols-2"><Field label="内容类型"><Select value={editingOnline.contentType || 'movie'} onChange={contentType => setEditingOnline(current => ({ ...current, contentType }))} options={CONTENT_TYPE_OPTIONS.filter(option => option.value)} /></Field><Field label="内容 ID"><input type="number" min={1} value={editingOnline.contentId || ''} onChange={event => setEditingOnline(current => ({ ...current, contentId: Number(event.target.value) }))} className={INPUT_CLASS} /></Field><Field label="来源编码"><Select value={editingOnline.sourceCode || ''} onChange={sourceCode => setEditingOnline(current => ({ ...current, sourceCode }))} options={sourceOptions.filter(option => option.value)} searchable /></Field><Field label="来源显示名称"><input value={editingOnline.sourceName || ''} onChange={event => setEditingOnline(current => ({ ...current, sourceName: event.target.value }))} className={INPUT_CLASS} placeholder="例如：七味网" /></Field><div className="sm:col-span-2"><Field label="播放 URL"><input type="url" value={editingOnline.sourceUrl || ''} onChange={event => setEditingOnline(current => ({ ...current, sourceUrl: event.target.value }))} className={INPUT_CLASS} /></Field></div><Field label="季"><input type="number" min={1} value={editingOnline.season || ''} onChange={event => setEditingOnline(current => ({ ...current, season: Number(event.target.value) || undefined }))} className={INPUT_CLASS} /></Field><Field label="集 / 期"><input type="number" min={0} value={editingOnline.episodeNumber || ''} onChange={event => setEditingOnline(current => ({ ...current, episodeNumber: Number(event.target.value) || undefined }))} className={INPUT_CLASS} /></Field><Field label="集标题"><input value={editingOnline.episodeTitle || ''} onChange={event => setEditingOnline(current => ({ ...current, episodeTitle: event.target.value }))} className={INPUT_CLASS} /></Field><Field label="排序"><input type="number" value={editingOnline.sort ?? 0} onChange={event => setEditingOnline(current => ({ ...current, sort: Number(event.target.value) }))} className={INPUT_CLASS} /></Field></div>}
+        {editingOnline && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="内容类型"><Select value={editingOnline.contentType || 'movie'} onChange={contentType => setEditingOnline(current => ({ ...current, contentType }))} options={CONTENT_TYPE_OPTIONS.filter(option => option.value)} /></Field>
+            <Field label="内容 ID"><input type="number" min={1} value={editingOnline.contentId || ''} onChange={event => setEditingOnline(current => ({ ...current, contentId: Number(event.target.value) }))} className={INPUT_CLASS} /></Field>
+            <Field label="来源编码"><Select value={editingOnline.sourceCode || ''} onChange={sourceCode => setEditingOnline(current => ({ ...current, sourceCode }))} options={sourceOptions.filter(option => option.value)} searchable /></Field>
+            <Field label="来源显示名称"><input value={editingOnline.sourceName || ''} onChange={event => setEditingOnline(current => ({ ...current, sourceName: event.target.value }))} className={INPUT_CLASS} placeholder="例如：七味线路" /></Field>
+            <Field label="播放类型" hint="HLS/视频直链使用站内播放器；可嵌入播放器使用安全 iframe；外部页面仅作为降级跳转。">
+              <Select value={editingOnline.playbackType || ''} onChange={playbackType => setEditingOnline(current => ({ ...current, playbackType: playbackType as OnlineResource['playbackType'] }))} options={PLAYBACK_TYPE_OPTIONS} />
+            </Field>
+            <Field label="季"><input type="number" min={1} value={editingOnline.season || ''} onChange={event => setEditingOnline(current => ({ ...current, season: Number(event.target.value) || undefined }))} className={INPUT_CLASS} /></Field>
+            <div className="sm:col-span-2">
+              <Field label="真实播放 URL" hint="填写 m3u8、mp4/webm、可嵌入播放器地址或只能外跳的页面地址。">
+                <input type="url" value={editingOnline.sourceUrl || ''} onChange={event => setEditingOnline(current => ({ ...current, sourceUrl: event.target.value }))} className={INPUT_CLASS} placeholder="https://..." />
+              </Field>
+            </div>
+            <div className="sm:col-span-2">
+              <Field label="来源详情页 URL（可选）" hint="用于溯源和播放失败时降级；不要把来源详情页误填为真实媒体地址。">
+                <input type="url" value={editingOnline.sourcePageUrl || ''} onChange={event => setEditingOnline(current => ({ ...current, sourcePageUrl: event.target.value }))} className={INPUT_CLASS} placeholder="https://.../detail/..." />
+              </Field>
+            </div>
+            <Field label="集 / 期"><input type="number" min={0} value={editingOnline.episodeNumber || ''} onChange={event => setEditingOnline(current => ({ ...current, episodeNumber: Number(event.target.value) || undefined }))} className={INPUT_CLASS} /></Field>
+            <Field label="集标题"><input value={editingOnline.episodeTitle || ''} onChange={event => setEditingOnline(current => ({ ...current, episodeTitle: event.target.value }))} className={INPUT_CLASS} /></Field>
+            <Field label="排序"><input type="number" value={editingOnline.sort ?? 0} onChange={event => setEditingOnline(current => ({ ...current, sort: Number(event.target.value) }))} className={INPUT_CLASS} /></Field>
+          </div>
+        )}
       </Modal>
 
       <Modal open={!!editingMagnet} onClose={() => setEditingMagnet(null)} title={editingMagnet?.id ? '编辑磁力资源' : '新增磁力资源'} width="lg" footer={<><Button variant="outline" onClick={() => setEditingMagnet(null)}>取消</Button><Button disabled={saving} onClick={() => void saveResource('magnet')}>{saving && <Loader2 className="animate-spin" />}保存</Button></>}>
@@ -676,7 +718,41 @@ export default function ResourcesPage() {
       </Modal>
 
       <Modal open={!!detailResource} onClose={() => setDetailResource(null)} title="资源详情" width="lg">
-        {detailResource && <div className="space-y-4"><div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{KIND_META[detailResource.kind].label}</Badge><StatusBadge resource={detailResource.resource} /><Badge variant="outline">{CONTENT_TYPE_LABELS[detailResource.resource.contentType] || detailResource.resource.contentType} #{detailResource.resource.contentId}</Badge></div><div><h3 className="font-semibold text-foreground">{resourceTitle(detailResource.kind, detailResource.resource)}</h3><p className="mt-1 text-sm text-muted-foreground">{resourceVariant(detailResource.kind, detailResource.resource)}</p></div><dl className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4 text-sm sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">资源 ID</dt><dd className="mt-1 text-foreground">{detailResource.resource.id}</dd></div><div><dt className="text-xs text-muted-foreground">来源编码</dt><dd className="mt-1 text-foreground">{detailResource.resource.sourceCode || '手工录入'}</dd></div><div><dt className="text-xs text-muted-foreground">排序</dt><dd className="mt-1 text-foreground">{detailResource.resource.sort ?? 0}</dd></div><div><dt className="text-xs text-muted-foreground">最近更新</dt><dd className="mt-1 text-foreground">{formatDate(detailResource.resource.updatedAt || detailResource.resource.createdAt)}</dd></div></dl><div><p className="text-xs text-muted-foreground">资源链接</p><p className="mt-1 break-all rounded-xl border border-border bg-background p-3 font-mono text-xs text-foreground">{resourceLink(detailResource.kind, detailResource.resource)}</p></div>{detailResource.kind === 'cloud' && (detailResource.resource as CloudResource).password && <div><p className="text-xs text-muted-foreground">提取密码</p><p className="mt-1 font-mono text-sm text-foreground">{(detailResource.resource as CloudResource).password}</p></div>}</div>}
+        {detailResource && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{KIND_META[detailResource.kind].label}</Badge>
+              <StatusBadge resource={detailResource.resource} />
+              <Badge variant="outline">{CONTENT_TYPE_LABELS[detailResource.resource.contentType] || detailResource.resource.contentType} #{detailResource.resource.contentId}</Badge>
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">{resourceTitle(detailResource.kind, detailResource.resource)}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">{resourceVariant(detailResource.kind, detailResource.resource)}</p>
+            </div>
+            <dl className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4 text-sm sm:grid-cols-2">
+              <div><dt className="text-xs text-muted-foreground">资源 ID</dt><dd className="mt-1 text-foreground">{detailResource.resource.id}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">来源编码</dt><dd className="mt-1 text-foreground">{detailResource.resource.sourceCode || '手工录入'}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">排序</dt><dd className="mt-1 text-foreground">{detailResource.resource.sort ?? 0}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">最近更新</dt><dd className="mt-1 text-foreground">{formatDate(detailResource.resource.updatedAt || detailResource.resource.createdAt)}</dd></div>
+              {detailResource.kind === 'online' && <div><dt className="text-xs text-muted-foreground">播放类型</dt><dd className="mt-1 text-foreground">{PLAYBACK_TYPE_LABELS[(detailResource.resource as OnlineResource).playbackType || ''] || '自动识别'}</dd></div>}
+            </dl>
+            <div>
+              <p className="text-xs text-muted-foreground">{detailResource.kind === 'online' ? '真实播放 URL' : '资源链接'}</p>
+              <p className="mt-1 break-all rounded-xl border border-border bg-background p-3 font-mono text-xs text-foreground">{resourceLink(detailResource.kind, detailResource.resource)}</p>
+            </div>
+            {detailResource.kind === 'online' && (detailResource.resource as OnlineResource).sourcePageUrl && (
+              <div>
+                <p className="text-xs text-muted-foreground">来源详情页</p>
+                <a href={(detailResource.resource as OnlineResource).sourcePageUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex max-w-full items-center gap-1 break-all text-sm font-medium text-primary hover:underline">
+                  {(detailResource.resource as OnlineResource).sourcePageUrl}<ExternalLink className="size-3.5 shrink-0" />
+                </a>
+              </div>
+            )}
+            {detailResource.kind === 'cloud' && (detailResource.resource as CloudResource).password && (
+              <div><p className="text-xs text-muted-foreground">提取密码</p><p className="mt-1 font-mono text-sm text-foreground">{(detailResource.resource as CloudResource).password}</p></div>
+            )}
+          </div>
+        )}
       </Modal>
     </div>
   );
