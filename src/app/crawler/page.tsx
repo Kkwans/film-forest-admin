@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, BarChart3, FileClock, ListChecks } from 'lucide-react';
-import { crawlerApi, type CrawlerSchedule, type CrawlerSourceDescriptor, type CrawlerTaskLog } from '@/lib/api';
+import { crawlerApi, type CrawlerJobStartResult, type CrawlerSchedule, type CrawlerSourceDescriptor, type CrawlerTaskLog } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
 import { extractErrorMessage } from '@/lib/utils';
@@ -28,6 +28,7 @@ export default function CrawlerPage() {
   const [activeJobs, setActiveJobs] = useState<CrawlerTaskLog[]>([]);
   const [staticLoading, setStaticLoading] = useState(true);
   const [jobsLoading, setJobsLoading] = useState(true);
+  const [focusedJobId, setFocusedJobId] = useState<number | null>(null);
 
   const refreshSchedules = useCallback(async () => {
     const response = await crawlerApi.listSchedules();
@@ -55,6 +56,13 @@ export default function CrawlerPage() {
       toast.error(extractErrorMessage(error, '配置刷新失败'));
     }
   }, [refreshJobs, refreshSchedules, toast]);
+
+  const handleJobStarted = useCallback(async (result: CrawlerJobStartResult) => {
+    setSection('jobs');
+    setFocusedJobId(result.jobId);
+    await refreshConfiguration();
+  }, [refreshConfiguration]);
+  const clearFocusedJob = useCallback(() => setFocusedJobId(null), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,9 +118,9 @@ export default function CrawlerPage() {
         })}
       </nav>
 
-      {section === 'config' && <CrawlerConfigSection schedules={schedules} sources={sources} loading={staticLoading} onRefresh={refreshConfiguration} />}
-      {section === 'jobs' && <CrawlerJobsSection jobs={activeJobs} loading={jobsLoading} onRefresh={refreshJobs} />}
-      {section === 'logs' && <CrawlerLogsSection schedules={schedules} sources={sources} hasActiveJobs={activeJobs.length > 0} />}
+      {section === 'config' && <CrawlerConfigSection schedules={schedules} sources={sources} loading={staticLoading} onRefresh={refreshConfiguration} onJobStarted={handleJobStarted} />}
+      {section === 'jobs' && <CrawlerJobsSection jobs={activeJobs} loading={jobsLoading} onRefresh={refreshJobs} focusJobId={focusedJobId} onFocusHandled={clearFocusedJob} />}
+      {section === 'logs' && <CrawlerLogsSection schedules={schedules} sources={sources} hasActiveJobs={activeJobs.length > 0} onJobStarted={handleJobStarted} />}
       {section === 'stats' && <CrawlerStatsSection hasActiveJobs={activeJobs.length > 0} />}
     </div>
   );

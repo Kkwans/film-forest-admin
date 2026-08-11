@@ -2,20 +2,21 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Eye, Loader2, RefreshCw, RotateCcw, Search } from 'lucide-react';
-import { crawlerApi, type CrawlerSchedule, type CrawlerSourceDescriptor, type CrawlerTaskLog, type PageData } from '@/lib/api';
+import { crawlerApi, type CrawlerJobStartResult, type CrawlerSchedule, type CrawlerSourceDescriptor, type CrawlerTaskLog, type PageData } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import Pagination from '@/components/Pagination';
 import { useToast } from '@/components/ui/toast';
 import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
 import { extractErrorMessage } from '@/lib/utils';
 import { CONTENT_TYPES, JOB_STATUSES, StatusBadge, contentTypeLabel, elapsedFor, formatCrawlerTime, inputClass } from './crawler-ui';
+import { CrawlerJobDetailModal } from './CrawlerJobDetailModal';
 
 interface Props {
   schedules: CrawlerSchedule[];
   sources: CrawlerSourceDescriptor[];
   hasActiveJobs: boolean;
+  onJobStarted: (result: CrawlerJobStartResult) => void | Promise<void>;
 }
 
 const emptyPage: PageData<CrawlerTaskLog> = { records: [], total: 0, size: 20, current: 1, pages: 0 };
@@ -25,19 +26,20 @@ function shanghaiInputToIso(value: string) {
   return new Date(`${value}:00+08:00`).toISOString();
 }
 
-export function CrawlerLogsSection({ schedules, sources, hasActiveJobs }: Props) {
+export function CrawlerLogsSection({ schedules, sources, hasActiveJobs, onJobStarted }: Props) {
   const toast = useToast();
   const [pageData, setPageData] = useState<PageData<CrawlerTaskLog>>(emptyPage);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [retryingId, setRetryingId] = useState<number | null>(null);
-  const [detail, setDetail] = useState<CrawlerTaskLog | null>(null);
+  const [detailJobId, setDetailJobId] = useState<number | null>(null);
   const [status, setStatus] = useState('all');
   const [scheduleId, setScheduleId] = useState('all');
   const [source, setSource] = useState('all');
   const [type, setType] = useState('all');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
 
   const fetchLogs = useCallback(async () => {
@@ -67,6 +69,13 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs }: Props)
     const timer = window.setTimeout(() => void fetchLogs(), 0);
     return () => window.clearTimeout(timer);
   }, [fetchLogs]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setKeyword(keywordInput.trim());
+      setPage(1);
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [keywordInput]);
   useAdaptivePolling({ hasActiveJobs, onPoll: fetchLogs });
 
   const resetPage = () => setPage(1);
@@ -75,9 +84,10 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs }: Props)
     setRetryingId(job.id);
     try {
       const response = await crawlerApi.retry(job.id);
-      if (response.data?.code !== 200) throw new Error(response.data?.message || '重试被拒绝');
-      toast.success(`已基于 Job #${job.id} 创建重试任务`);
-      await fetchLogs();
+      const started = response.data?.data;
+      if (response.data?.code !== 200 || !started?.jobId) throw new Error(response.data?.message || '重试被拒绝');
+      toast.success(`重试 Job #${started.jobId} 已进入队列`);
+      await onJobStarted(started);
     } catch (error: unknown) {
       toast.error(extractErrorMessage(error, '重试 Job 失败'));
     } finally {
@@ -93,7 +103,7 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs }: Props)
       </div>
 
       <div className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="relative sm:col-span-2"><Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" /><input className={`${inputClass} pl-9`} value={keyword} placeholder="配置、当前项、来源或错误" onChange={event => { setKeyword(event.target.value); resetPage(); }} /></div>
+        <div className="relative sm:col-span-2"><Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" /><input className={`${inputClass} pl-9`} value={keywordInput} placeholder="配置、当前项、来源或错误" onChange={event => setKeywordInput(event.target.value)} /></div>
         <Select value={status} onChange={value => { setStatus(value); resetPage(); }} options={JOB_STATUSES} />
         <Select value={scheduleId} onChange={value => { setScheduleId(value); resetPage(); }} options={[{ label: '全部配置', value: 'all' }, ...schedules.map(item => ({ label: item.name, value: String(item.id) }))]} searchable />
         <Select value={source} onChange={value => { setSource(value); resetPage(); }} options={[{ label: '全部来源', value: 'all' }, ...sources.map(item => ({ label: item.name, value: item.code }))]} />
@@ -122,7 +132,7 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs }: Props)
                     <td className="p-3"><span className="text-primary">+{job.addedCount ?? 0}</span> / {job.updatedCount ?? 0} / <span className={(job.failedCount ?? 0) > 0 ? 'text-destructive' : 'text-muted-foreground'}>{job.failedCount ?? 0}</span></td>
                     <td className="p-3 text-muted-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</td>
                     <td className="p-3 text-xs text-muted-foreground">{formatCrawlerTime(job.startedAt || job.queuedAt)}</td>
-                    <td className="p-3"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="查看详情" onClick={() => setDetail(job)}><Eye /></Button>{retryableStatuses.has(job.status) && <Button variant="outline" size="icon" title="重试" disabled={retryingId === job.id} onClick={() => void retry(job)}>{retryingId === job.id ? <Loader2 className="animate-spin" /> : <RotateCcw />}</Button>}</div></td>
+                    <td className="p-3"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="查看详情" onClick={() => setDetailJobId(job.id)}><Eye /></Button>{retryableStatuses.has(job.status) && <Button variant="outline" size="icon" title="重试" disabled={retryingId === job.id} onClick={() => void retry(job)}>{retryingId === job.id ? <Loader2 className="animate-spin" /> : <RotateCcw />}</Button>}</div></td>
                   </tr>
                 ))}
               </tbody>
@@ -132,9 +142,7 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs }: Props)
         <div className="border-t border-border p-4"><Pagination currentPage={pageData.current} totalPages={pageData.pages} onPageChange={setPage} /></div>
       </div>
 
-      <Modal open={detail !== null} onClose={() => setDetail(null)} title={detail ? `Job #${detail.id} 日志详情` : '日志详情'} width="lg">
-        {detail && <div className="space-y-4"><div className="flex flex-wrap gap-2"><StatusBadge status={detail.status} /><span className="text-sm text-muted-foreground">{detail.scheduleName} · {detail.sourceCode} · {contentTypeLabel(detail.contentType)}</span></div><dl className="grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">当前项</dt><dd className="mt-1 break-all text-foreground">{detail.currentItem || '-'}</dd></div><div><dt className="text-xs text-muted-foreground">检查点</dt><dd className="mt-1 break-all text-foreground">{detail.checkpoint || '-'}</dd></div><div><dt className="text-xs text-muted-foreground">心跳</dt><dd className="mt-1 text-foreground">{formatCrawlerTime(detail.heartbeatAt)}</dd></div><div><dt className="text-xs text-muted-foreground">完成时间</dt><dd className="mt-1 text-foreground">{formatCrawlerTime(detail.finishedAt)}</dd></div></dl>{(detail.errorSummary || detail.errorMessage) && <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3"><p className="text-xs font-medium text-destructive">错误摘要</p><p className="mt-1 whitespace-pre-wrap break-all text-sm text-destructive">{detail.errorSummary || detail.errorMessage}</p></div>}</div>}
-      </Modal>
+      <CrawlerJobDetailModal key={detailJobId ?? 'closed'} jobId={detailJobId} onClose={() => setDetailJobId(null)} />
     </section>
   );
 }

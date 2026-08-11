@@ -155,7 +155,7 @@ export const crawlerApi = {
   deleteSchedule: (id: number) => adminClient.delete(`/api/crawler/schedule/${id}`),
 
   /** 启动爬虫 */
-  start: (id: number) => adminClient.post(`/api/crawler/start/${id}`, null, { timeout: 15000 }),
+  start: (id: number) => adminClient.post<ApiEnvelope<CrawlerJobStartResult>>(`/api/crawler/start/${id}`, null, { timeout: 15000 }),
 
   /** 停止爬虫 */
   stop: (id: number) => adminClient.post(`/api/crawler/stop/${id}`),
@@ -172,7 +172,11 @@ export const crawlerApi = {
   listActiveJobs: () => adminClient.get('/api/crawler/jobs/active'),
 
   /** 获取单个 Job 详情 */
-  getJob: (jobId: number) => adminClient.get(`/api/crawler/jobs/${jobId}`),
+  getJob: (jobId: number) => adminClient.get<ApiEnvelope<CrawlerTaskLog>>(`/api/crawler/jobs/${jobId}`),
+
+  /** 获取单个 Job 内的条目失败明细 */
+  listJobFailures: (jobId: number, params?: CrawlerJobFailureQuery) =>
+    adminClient.get<ApiEnvelope<PageData<CrawlerJobItemFailure>>>(`/api/crawler/jobs/${jobId}/failures`, { params: params || {} }),
 
   /** 请求取消 Job */
   cancelJob: (jobId: number) => adminClient.post(`/api/crawler/jobs/${jobId}/cancel`),
@@ -181,7 +185,7 @@ export const crawlerApi = {
   getLogStats: () => adminClient.get('/api/crawler/logs/stats'),
 
   /** 重试失败任务 */
-  retry: (logId: number) => adminClient.post(`/api/crawler/retry/${logId}`),
+  retry: (logId: number) => adminClient.post<ApiEnvelope<CrawlerJobStartResult>>(`/api/crawler/retry/${logId}`),
 
   /** 批量重试所有失败任务 */
   retryAll: () => adminClient.post('/api/crawler/retry-all'),
@@ -199,6 +203,18 @@ export const crawlerApi = {
   /** 获取资源来源列表 */
   listSources: () => adminClient.get('/api/crawler/sources'),
 };
+
+export interface ApiEnvelope<T> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+export interface CrawlerJobStartResult {
+  jobId: number;
+  status: string;
+  queuedAt: string;
+}
 
 export interface CrawlerSchedule {
   id: number;
@@ -307,6 +323,31 @@ export interface PageData<T> {
   size: number;
   current: number;
   pages: number;
+}
+
+export interface CrawlerJobFailureQuery {
+  stage?: 'fetch' | 'parse' | 'persistence';
+  category?: string;
+  retryExhausted?: boolean;
+  page?: number;
+  size?: number;
+}
+
+export interface CrawlerJobItemFailure {
+  id: number;
+  jobId: number;
+  sourceCode: string;
+  contentType: string;
+  externalId: string;
+  sourceUrl: string;
+  failureStage: 'fetch' | 'parse' | 'persistence';
+  errorCategory: string;
+  attemptCount: number;
+  retryExhausted: boolean;
+  diagnostic?: string | null;
+  failedAt: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CrawlerLogQuery {

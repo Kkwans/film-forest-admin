@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Loader2, Pencil, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react';
-import { crawlerApi, type CrawlerSchedule, type CrawlerSourceDescriptor } from '@/lib/api';
+import { crawlerApi, type CrawlerJobStartResult, type CrawlerSchedule, type CrawlerSourceDescriptor } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
@@ -15,9 +15,10 @@ interface Props {
   sources: CrawlerSourceDescriptor[];
   loading: boolean;
   onRefresh: () => Promise<void>;
+  onJobStarted: (result: CrawlerJobStartResult) => void | Promise<void>;
 }
 
-export function CrawlerConfigSection({ schedules, sources, loading, onRefresh }: Props) {
+export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, onJobStarted }: Props) {
   const toast = useToast();
   const dialog = useDialog();
   const [editorOpen, setEditorOpen] = useState(false);
@@ -32,12 +33,22 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh }:
   const runAction = async (id: number, action: 'start' | 'stop') => {
     setActionId(id);
     try {
-      const response = action === 'start' ? await crawlerApi.start(id) : await crawlerApi.stop(id);
-      if (response.data?.code !== 200 || response.data?.data !== true) {
-        throw new Error(response.data?.message || (action === 'start' ? '启动请求被拒绝' : '当前没有可取消的 Job'));
+      if (action === 'start') {
+        const response = await crawlerApi.start(id);
+        const started = response.data?.data;
+        if (response.data?.code !== 200 || !started?.jobId) {
+          throw new Error(response.data?.message || '启动请求被拒绝');
+        }
+        toast.success(`Job #${started.jobId} 已进入队列`);
+        await onJobStarted(started);
+      } else {
+        const response = await crawlerApi.stop(id);
+        if (response.data?.code !== 200 || response.data?.data !== true) {
+          throw new Error(response.data?.message || '当前没有可取消的 Job');
+        }
+        toast.success('已请求在安全边界取消');
+        await onRefresh();
       }
-      toast.success(action === 'start' ? '已创建手工 Job' : '已请求在安全边界取消');
-      await onRefresh();
     } catch (error: unknown) {
       toast.error(extractErrorMessage(error, action === 'start' ? '启动失败' : '取消失败'));
     } finally {

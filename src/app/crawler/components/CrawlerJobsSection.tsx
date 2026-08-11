@@ -4,16 +4,18 @@ import { useState } from 'react';
 import { Eye, Loader2, RefreshCw, Square } from 'lucide-react';
 import { crawlerApi, type CrawlerTaskLog } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Modal } from '@/components/ui/modal';
 import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { extractErrorMessage } from '@/lib/utils';
 import { StatusBadge, contentTypeLabel, elapsedFor, formatCrawlerTime } from './crawler-ui';
+import { CrawlerJobDetailModal } from './CrawlerJobDetailModal';
 
 interface Props {
   jobs: CrawlerTaskLog[];
   loading: boolean;
   onRefresh: () => Promise<void>;
+  focusJobId?: number | null;
+  onFocusHandled?: () => void;
 }
 
 const progressFields: Array<[keyof CrawlerTaskLog, string]> = [
@@ -27,11 +29,12 @@ const progressFields: Array<[keyof CrawlerTaskLog, string]> = [
   ['failedCount', '失败'],
 ];
 
-export function CrawlerJobsSection({ jobs, loading, onRefresh }: Props) {
+export function CrawlerJobsSection({ jobs, loading, onRefresh, focusJobId, onFocusHandled }: Props) {
   const toast = useToast();
   const dialog = useDialog();
-  const [detail, setDetail] = useState<CrawlerTaskLog | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<number | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const detailJobId = focusJobId ?? selectedJobId;
 
   const cancel = async (job: CrawlerTaskLog) => {
     const confirmed = await dialog.confirm({
@@ -78,7 +81,7 @@ export function CrawlerJobsSection({ jobs, loading, onRefresh }: Props) {
                   <p className="mt-1 text-sm text-muted-foreground">{job.scheduleName || `配置 #${job.scheduleId}`} · {job.sourceCode || '-'} · {contentTypeLabel(job.contentType)} · {job.triggerType || '-'}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setDetail(job)}><Eye />详情</Button>
+                  <Button variant="outline" size="sm" onClick={() => setSelectedJobId(job.id)}><Eye />详情</Button>
                   <Button variant="destructive" size="sm" disabled={cancellingId === job.id || job.status === 'cancel_requested'} onClick={() => void cancel(job)}>
                     {cancellingId === job.id ? <Loader2 className="animate-spin" /> : <Square />}{job.status === 'cancel_requested' ? '等待退出' : '取消'}
                   </Button>
@@ -99,19 +102,14 @@ export function CrawlerJobsSection({ jobs, loading, onRefresh }: Props) {
         </div>
       )}
 
-      <Modal open={detail !== null} onClose={() => setDetail(null)} title={detail ? `Job #${detail.id} 详情` : 'Job 详情'} width="lg">
-        {detail && (
-          <div className="grid gap-3 text-sm md:grid-cols-2">
-            {[
-              ['配置', detail.scheduleName || `#${detail.scheduleId}`], ['来源', detail.sourceCode || '-'], ['内容类型', contentTypeLabel(detail.contentType)],
-              ['抓取模式', detail.crawlMode || '-'], ['触发方式', detail.triggerType || '-'], ['状态', detail.status], ['当前页', detail.currentPage ?? '-'],
-              ['当前项', detail.currentItem || '-'], ['检查点', detail.checkpoint || '-'], ['排队时间', formatCrawlerTime(detail.queuedAt)],
-              ['开始时间', formatCrawlerTime(detail.startedAt)], ['心跳时间', formatCrawlerTime(detail.heartbeatAt)], ['最近进度', formatCrawlerTime(detail.progressUpdatedAt)],
-              ['错误摘要', detail.errorSummary || '-'],
-            ].map(([label, value]) => <div key={String(label)} className="rounded-lg border border-border p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 break-all text-foreground">{String(value)}</p></div>)}
-          </div>
-        )}
-      </Modal>
+      <CrawlerJobDetailModal
+        key={detailJobId ?? 'closed'}
+        jobId={detailJobId}
+        onClose={() => {
+          setSelectedJobId(null);
+          onFocusHandled?.();
+        }}
+      />
     </section>
   );
 }
