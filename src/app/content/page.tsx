@@ -89,6 +89,12 @@ interface ContentRecord {
   createdAt: string;
   updatedAt: string;
 }
+interface MutationResponse {
+  data?: {
+    code?: number;
+    message?: string;
+  };
+}
 type FilterType = 'all' | ContentType;
 type StatusFilter = 'all' | '0' | '1' | '2';
 type SortField = 'createdAt' | 'updatedAt' | 'year' | 'title' | 'score' | 'status';
@@ -134,6 +140,14 @@ function TypeLabel({ type }: { type: ContentType }) {
       <Icon className="size-3.5" />{TYPE_LABELS[type]}
     </span>
   );
+}
+
+function isMutationSuccess(response: MutationResponse | undefined): boolean {
+  return response?.data?.code === 200;
+}
+
+function mutationFailureMessage(response: MutationResponse | undefined, fallback: string): string {
+  return response?.data?.message?.trim() || fallback;
 }
 
 /** 渲染内容的标签 */
@@ -238,8 +252,16 @@ export default function ContentPage() {
         records?: ContentRecord[];
         total?: number;
       };
+      const nextTotal = Number(result.total) || 0;
+      const lastPage = Math.max(1, Math.ceil(nextTotal / pageSize));
+      setTotal(nextTotal);
+      if (page > lastPage) {
+        setItems([]);
+        setSelectedKeys(new Set());
+        setPage(lastPage);
+        return;
+      }
       setItems(Array.isArray(result.records) ? result.records : []);
-      setTotal(Number(result.total) || 0);
     } catch (e: unknown) {
       if (requestId === fetchRequestRef.current) {
         toast.error(extractErrorMessage(e, '数据加载失败'));
@@ -258,11 +280,26 @@ export default function ContentPage() {
 
   // Stats per type
   const [stats, setStats] = useState({ movies: 0, dramas: 0, varieties: 0, animes: 0, shortDramas: 0 });
-  useEffect(() => {
-    contentApi.getStats().then(res => {
-      if (res.data?.code === 200) setStats(res.data.data);
-    }).catch((e: unknown) => toast.error(extractErrorMessage(e, '加载统计数据失败')));
+  const fetchStats = useCallback(async () => {
+    try {
+      const response = await contentApi.getStats();
+      if (response.data?.code !== 200) {
+        throw new Error(response.data?.message || '加载统计数据失败');
+      }
+      setStats(response.data.data);
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, '加载统计数据失败'));
+    }
   }, [toast]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void fetchStats(), 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchStats]);
+
+  const refreshContentData = useCallback(async () => {
+    await Promise.all([fetchItems(), fetchStats()]);
+  }, [fetchItems, fetchStats]);
 
   // Load all tags
   useEffect(() => {
@@ -344,13 +381,21 @@ export default function ContentPage() {
         anime: () => contentApi.deleteAnime(id),
         short_drama: () => contentApi.deleteShortDrama(id),
       });
-      if (res?.data?.code === 200 || res?.data?.code === 0) {
-        setItems(items.filter(i => !(i.id === id && i.type === type)));
-        setTotal(t => t - 1);
-        toast.success('已删除');
-      } else {
-        toast.error(res?.data?.message || '删除失败');
+      if (!isMutationSuccess(res)) {
+        throw new Error(mutationFailureMessage(res, '删除失败'));
       }
+      setSelectedKeys(previous => {
+        const next = new Set(previous);
+        next.delete(key);
+        return next;
+      });
+      setContentTagMap(previous => {
+        const next = { ...previous };
+        delete next[key];
+        return next;
+      });
+      await refreshContentData();
+      toast.success('已删除');
     } catch (e: unknown) {
       toast.error(extractErrorMessage(e, '删除失败，请检查网络'));
     } finally {
@@ -411,20 +456,19 @@ export default function ContentPage() {
         anime: () => contentApi.createAnime(data),
         short_drama: () => contentApi.createShortDrama(data),
       });
-      if (res?.data?.code === 200 || res?.data?.code === 0) {
-        setCreatingNew(false);
-        setFormErrors({});
-        toast.success('创建成功');
-        await fetchItems();
-      } else {
-        toast.error(res?.data?.message || '创建失败');
+      if (!isMutationSuccess(res)) {
+        throw new Error(mutationFailureMessage(res, '创建失败'));
       }
+      setCreatingNew(false);
+      setFormErrors({});
+      await refreshContentData();
+      toast.success('创建成功');
     } catch (e: unknown) {
       toast.error(extractErrorMessage(e, '创建失败，请检查网络'));
     } finally {
       setSavingNew(false);
     }
-  }, [editForm, fetchItems, toast, validateForm]);
+  }, [editForm, refreshContentData, toast, validateForm]);
 
   useEffect(() => {
     handleSaveNewRef.current = handleSaveNew;
@@ -517,26 +561,25 @@ export default function ContentPage() {
         anime: () => contentApi.updateAnime(editingItem.id, data),
         short_drama: () => contentApi.updateShortDrama(editingItem.id, data),
       });
-      if (res?.data?.code === 200 || res?.data?.code === 0) {
-        const contentKey = `${editingItem.type}-${editingItem.id}`;
-        setContentTagMap(previous => {
-          const next = { ...previous };
-          delete next[contentKey];
-          return next;
-        });
-        setEditingItem(null);
-        setFormErrors({});
-        toast.success('已保存');
-        await fetchItems();
-      } else {
-        toast.error(res?.data?.message || '保存失败');
+      if (!isMutationSuccess(res)) {
+        throw new Error(mutationFailureMessage(res, '保存失败'));
       }
+      const contentKey = `${editingItem.type}-${editingItem.id}`;
+      setContentTagMap(previous => {
+        const next = { ...previous };
+        delete next[contentKey];
+        return next;
+      });
+      setEditingItem(null);
+      setFormErrors({});
+      await refreshContentData();
+      toast.success('已保存');
     } catch (e: unknown) {
       toast.error(extractErrorMessage(e, '保存失败，请检查网络'));
     } finally {
       setSavingEdit(false);
     }
-  }, [editForm, editingItem, fetchItems, toast, validateForm]);
+  }, [editForm, editingItem, refreshContentData, toast, validateForm]);
 
   useEffect(() => {
     handleSaveEditRef.current = handleSaveEdit;
@@ -545,22 +588,15 @@ export default function ContentPage() {
   const handleSetStatus = async (item: ContentRecord, newStatus: number) => {
     if (item.status === newStatus) return;
     const key = `${item.type}-${item.id}`;
-    // Optimistic update
-    setItems(prev => prev.map(i => (i.id === item.id && i.type === item.type) ? { ...i, status: newStatus } : i));
     setTogglingIds(prev => new Set(prev).add(key));
-    // Use dedicated status toggle API (only updates status field)
     try {
       const res = await contentApi.toggleStatus(item.type, item.id, newStatus);
-      if (res?.data?.code === 200 || res?.data?.code === 0) {
-        toast.success(`状态已更新为“${STATUS_LABELS[newStatus]}”`);
-      } else {
-        // Revert optimistic update
-        setItems(prev => prev.map(i => (i.id === item.id && i.type === item.type) ? { ...i, status: item.status } : i));
-        toast.error('更新状态失败');
+      if (!isMutationSuccess(res)) {
+        throw new Error(mutationFailureMessage(res, '更新状态失败'));
       }
+      await refreshContentData();
+      toast.success(`状态已更新为“${STATUS_LABELS[newStatus]}”`);
     } catch (e: unknown) {
-      // Revert optimistic update
-      setItems(prev => prev.map(i => (i.id === item.id && i.type === item.type) ? { ...i, status: item.status } : i));
       toast.error(extractErrorMessage(e, '更新状态失败'));
     } finally {
       setTogglingIds(prev => { const s = new Set(prev); s.delete(key); return s; });
@@ -597,65 +633,117 @@ export default function ContentPage() {
     });
     if (!ok) return;
     setBatchProcessing(true);
-    const entries = Array.from(visibleSelectedKeys).map(key => {
-      const [type, idStr] = key.split('-');
-      return { type: type as ContentType, id: Number(idStr) };
-    });
-    const results = await Promise.allSettled(
-      entries.map(e => dispatchByType(e.type, {
-        movie: () => contentApi.deleteMovie(e.id),
-        drama: () => contentApi.deleteDrama(e.id),
-        variety: () => contentApi.deleteVariety(e.id),
-        anime: () => contentApi.deleteAnime(e.id),
-        short_drama: () => contentApi.deleteShortDrama(e.id),
-      }))
-    );
-    const successCount = results.reduce((acc, r) => {
-      if (r.status === 'fulfilled' && (r.value?.data?.code === 200 || r.value?.data?.code === 0)) return acc + 1;
-      return acc;
-    }, 0);
-    setTotal(t => Math.max(0, t - successCount));
-    toast.success(`成功删除 ${successCount} 条内容`);
-    // 清理已删除条目的标签缓存
-    setContentTagMap(prev => {
-      const next = { ...prev };
-      for (const key of visibleSelectedKeys) { delete next[key]; }
-      return next;
-    });
-    setSelectedKeys(new Set());
-    setBatchProcessing(false);
-    fetchItems();
+    try {
+      const entries = Array.from(visibleSelectedKeys).map(key => {
+        const [type, idStr] = key.split('-');
+        return { key, type: type as ContentType, id: Number(idStr) };
+      });
+      const results = await Promise.allSettled(
+        entries.map(entry => dispatchByType(entry.type, {
+          movie: () => contentApi.deleteMovie(entry.id),
+          drama: () => contentApi.deleteDrama(entry.id),
+          variety: () => contentApi.deleteVariety(entry.id),
+          anime: () => contentApi.deleteAnime(entry.id),
+          short_drama: () => contentApi.deleteShortDrama(entry.id),
+        }))
+      );
+      const succeededKeys = new Set<string>();
+      const failedKeys = new Set<string>();
+      let firstFailure = '';
+      results.forEach((result, index) => {
+        const entry = entries[index];
+        if (result.status === 'fulfilled' && isMutationSuccess(result.value)) {
+          succeededKeys.add(entry.key);
+          return;
+        }
+        failedKeys.add(entry.key);
+        if (!firstFailure) {
+          firstFailure = result.status === 'fulfilled'
+            ? mutationFailureMessage(result.value, '服务器拒绝删除')
+            : extractErrorMessage(result.reason, '删除请求失败');
+        }
+      });
+
+      setContentTagMap(previous => {
+        const next = { ...previous };
+        succeededKeys.forEach(key => delete next[key]);
+        return next;
+      });
+      setSelectedKeys(failedKeys);
+      if (succeededKeys.size > 0) await refreshContentData();
+
+      if (failedKeys.size === 0) {
+        toast.success(`成功删除 ${succeededKeys.size} 条内容`);
+      } else if (succeededKeys.size > 0) {
+        toast.warning(`已删除 ${succeededKeys.size} 条，失败 ${failedKeys.size} 条：${firstFailure}`);
+      } else {
+        toast.error(`批量删除失败：${firstFailure}`);
+      }
+    } finally {
+      setBatchProcessing(false);
+    }
   };
 
   const handleBatchSetStatus = async (newStatus: number) => {
     if (visibleSelectedKeys.size === 0) return;
     if (batchProcessing) return;
-    setBatchProcessing(true);
     const entries = Array.from(visibleSelectedKeys)
       .map(key => {
         const [type, idStr] = key.split('-');
         const id = Number(idStr);
         const item = filtered.find(i => i.id === id && i.type === type);
-        return { type: type as ContentType, id, item };
+        return { key, type: type as ContentType, id, item };
       })
       .filter(e => e.item && e.item.status !== newStatus);
-    const results = await Promise.allSettled(
-      entries.map(e => contentApi.toggleStatus(e.type, e.id, newStatus))
-    );
-    const successCount = results.reduce((acc, r) => {
-      if (r.status === 'fulfilled' && (r.value?.data?.code === 200 || r.value?.data?.code === 0)) return acc + 1;
-      return acc;
-    }, 0);
-    toast.success(`已将 ${successCount} 条内容设为“${STATUS_LABELS[newStatus]}”`);
-    // 清理已操作条目的标签缓存，确保刷新后标签一致
-    setContentTagMap(prev => {
-      const next = { ...prev };
-      for (const e of entries) { delete next[`${e.type}-${e.id}`]; }
-      return next;
+    if (entries.length === 0) {
+      setSelectedKeys(new Set());
+      toast.info(`所选内容已经全部是“${STATUS_LABELS[newStatus]}”`);
+      return;
+    }
+    const ok = await dialog.confirm({
+      title: `批量设为${STATUS_LABELS[newStatus]}`,
+      content: `确定将当前页选中的 ${entries.length} 条内容设为“${STATUS_LABELS[newStatus]}”？`,
+      confirmText: '确认更新',
+      cancelText: '取消',
+      variant: newStatus === 1 ? 'default' : 'warning',
     });
-    setSelectedKeys(new Set());
-    setBatchProcessing(false);
-    fetchItems();
+    if (!ok) return;
+
+    setBatchProcessing(true);
+    try {
+      const results = await Promise.allSettled(
+        entries.map(entry => contentApi.toggleStatus(entry.type, entry.id, newStatus))
+      );
+      const succeededKeys = new Set<string>();
+      const failedKeys = new Set<string>();
+      let firstFailure = '';
+      results.forEach((result, index) => {
+        const entry = entries[index];
+        if (result.status === 'fulfilled' && isMutationSuccess(result.value)) {
+          succeededKeys.add(entry.key);
+          return;
+        }
+        failedKeys.add(entry.key);
+        if (!firstFailure) {
+          firstFailure = result.status === 'fulfilled'
+            ? mutationFailureMessage(result.value, '服务器拒绝更新状态')
+            : extractErrorMessage(result.reason, '状态更新请求失败');
+        }
+      });
+
+      setSelectedKeys(failedKeys);
+      if (succeededKeys.size > 0) await refreshContentData();
+
+      if (failedKeys.size === 0) {
+        toast.success(`已将 ${succeededKeys.size} 条内容设为“${STATUS_LABELS[newStatus]}”`);
+      } else if (succeededKeys.size > 0) {
+        toast.warning(`已更新 ${succeededKeys.size} 条，失败 ${failedKeys.size} 条：${firstFailure}`);
+      } else {
+        toast.error(`批量状态更新失败：${firstFailure}`);
+      }
+    } finally {
+      setBatchProcessing(false);
+    }
   };
 
   // Keyboard shortcut: Ctrl+Enter to save in modal, Escape to close
