@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UI_LAYER_CLASSES } from '@/components/ui/layers';
 
 type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -99,7 +100,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <section
-        className="pointer-events-none fixed inset-x-4 top-4 z-[90] ml-auto flex max-w-sm flex-col gap-2 md:left-auto md:right-4"
+        className={`pointer-events-none fixed inset-x-4 top-4 ${UI_LAYER_CLASSES.toast} ml-auto flex max-w-sm flex-col gap-2 md:left-auto md:right-4`}
         aria-label="系统通知"
         aria-live="polite"
         aria-relevant="additions text"

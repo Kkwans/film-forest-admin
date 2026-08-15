@@ -7,6 +7,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "test:ui": "node --experimental-strip-types --test src/components/ui/interaction-contracts.test.mjs",
     "analyze": "ANALYZE=true next build"
   },
   "dependencies": {

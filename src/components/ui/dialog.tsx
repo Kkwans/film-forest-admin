@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useRef, useState, type ReactNod
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { AlertTriangle, HelpCircle, Info, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UI_LAYER_CLASSES } from '@/components/ui/layers';
 
 interface DialogOptions {
   title?: string;
@@ -98,12 +99,12 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         }}
       >
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Backdrop className="fixed inset-0 z-[80] bg-black/45 backdrop-blur-[2px] transition-opacity duration-150 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-          <DialogPrimitive.Viewport className="fixed inset-0 z-[81] flex items-center justify-center p-4">
+          <DialogPrimitive.Backdrop className={`${UI_LAYER_CLASSES.dialogBackdrop} fixed inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity duration-150 motion-reduce:transition-none data-[starting-style]:opacity-0 data-[ending-style]:opacity-0`} />
+          <DialogPrimitive.Viewport className={`${UI_LAYER_CLASSES.dialog} fixed inset-0 flex items-center justify-center p-4`}>
             {dialog && (
               <DialogPrimitive.Popup
                 initialFocus={confirmButtonRef}
-                className="w-full max-w-md origin-center overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl outline-none transition-[transform,opacity] duration-150 data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.97] data-[ending-style]:opacity-0"
+                className="w-full max-w-md origin-center overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl outline-none transition-[transform,opacity] duration-150 motion-reduce:transition-none data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.97] data-[ending-style]:opacity-0"
               >
                 <div className="flex items-start gap-4 px-5 pb-5 pt-5 sm:px-6 sm:pt-6">
                   <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl', styles.iconClass)}>

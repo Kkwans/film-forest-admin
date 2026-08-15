@@ -4,6 +4,8 @@ import { type ReactNode } from 'react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UI_LAYER_CLASSES } from '@/components/ui/layers';
+import { MODAL_SHELL_GEOMETRY_CLASS } from '@/components/ui/interaction-contracts';
 
 interface ModalProps {
   open: boolean;
@@ -31,13 +33,13 @@ export function Modal({ open, onClose, title, description, children, width = 'md
       }}
     >
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="fixed inset-0 z-[75] bg-black/45 backdrop-blur-[2px] transition-opacity duration-150 data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-        <DialogPrimitive.Viewport className="fixed inset-0 z-[76] flex items-end justify-center md:items-center md:p-4">
+        <DialogPrimitive.Backdrop className={`${UI_LAYER_CLASSES.modalBackdrop} fixed inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity duration-150 motion-reduce:transition-none data-[starting-style]:opacity-0 data-[ending-style]:opacity-0`} />
+        <DialogPrimitive.Viewport className={`${UI_LAYER_CLASSES.modal} fixed inset-0 flex items-end justify-center md:items-center md:p-4`}>
           <DialogPrimitive.Popup
             className={cn(
-              'relative flex h-dvh w-full flex-col bg-popover text-popover-foreground shadow-2xl outline-none',
-              'transition-[transform,opacity] duration-200 data-[starting-style]:translate-y-4 data-[starting-style]:opacity-0 data-[ending-style]:translate-y-4 data-[ending-style]:opacity-0',
-              'md:h-auto md:max-h-[min(88dvh,56rem)] md:rounded-2xl md:border md:border-border md:data-[starting-style]:translate-y-0 md:data-[starting-style]:scale-[0.98] md:data-[ending-style]:translate-y-0 md:data-[ending-style]:scale-[0.98]',
+              `relative flex h-dvh w-full flex-col ${MODAL_SHELL_GEOMETRY_CLASS} border border-border bg-popover text-popover-foreground shadow-2xl outline-none`,
+              'transition-[transform,opacity] duration-200 motion-reduce:transition-none data-[starting-style]:translate-y-4 data-[starting-style]:opacity-0 data-[ending-style]:translate-y-4 data-[ending-style]:opacity-0',
+              'md:h-auto md:max-h-[min(88dvh,56rem)] md:data-[starting-style]:translate-y-0 md:data-[starting-style]:scale-[0.98] md:data-[ending-style]:translate-y-0 md:data-[ending-style]:scale-[0.98]',
               WIDTH_MAP[width],
             )}
           >

@@ -4,6 +4,8 @@ import { useMemo, useRef, useState } from 'react';
 import { Select as SelectPrimitive } from '@base-ui/react/select';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { UI_LAYER_CLASSES } from '@/components/ui/layers';
+import { filterSelectOptions, getNextOptionIndex } from '@/components/ui/interaction-contracts';
 
 export interface SelectOption {
   label: string;
@@ -25,6 +27,7 @@ interface SelectProps {
 
 interface OptionsPopupProps {
   options: SelectOption[];
+  selectedValues: string[];
   searchable: boolean;
   search: string;
   onSearchChange: (value: string) => void;
@@ -32,13 +35,23 @@ interface OptionsPopupProps {
   size: 'sm' | 'default';
 }
 
-function OptionsPopup({ options, searchable, search, onSearchChange, searchRef, size }: OptionsPopupProps) {
-  const filtered = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase('zh-CN');
-    return query
-      ? options.filter(option => option.label.toLocaleLowerCase('zh-CN').includes(query))
-      : options;
-  }, [options, search]);
+function OptionsPopup({ options, selectedValues, searchable, search, onSearchChange, searchRef, size }: OptionsPopupProps) {
+  const filtered = useMemo(
+    () => filterSelectOptions(options, search, selectedValues),
+    [options, search, selectedValues],
+  );
+
+  const popupRef = useRef<HTMLDivElement>(null);
+
+  const focusOption = (direction: 'next' | 'previous') => {
+    const items = Array.from(
+      popupRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [],
+    ).filter(item => item.getAttribute('aria-disabled') !== 'true');
+    if (items.length === 0) return;
+    const activeIndex = items.findIndex(item => item.dataset.highlighted !== undefined || item.tabIndex === 0);
+    const nextIndex = getNextOptionIndex(items.length, activeIndex, direction);
+    items[nextIndex]?.focus();
+  };
 
   return (
     <SelectPrimitive.Portal>
@@ -46,9 +59,9 @@ function OptionsPopup({ options, searchable, search, onSearchChange, searchRef, 
         sideOffset={6}
         align="start"
         alignItemWithTrigger={false}
-        className="z-[70] w-[var(--anchor-width)] min-w-44 max-w-[calc(100vw-1.5rem)]"
+        className={`${UI_LAYER_CLASSES.popover} w-[var(--anchor-width)] min-w-44 max-w-[calc(100vw-1.5rem)]`}
       >
-        <SelectPrimitive.Popup className="origin-[var(--transform-origin)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl outline-none transition-[transform,opacity] duration-150 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0">
+        <SelectPrimitive.Popup ref={popupRef} className="origin-[var(--transform-origin)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl outline-none transition-[transform,opacity] duration-150 motion-reduce:transition-none data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0">
           {searchable && (
             <div className="border-b border-border p-2">
               <label className="relative block">
@@ -59,7 +72,17 @@ function OptionsPopup({ options, searchable, search, onSearchChange, searchRef, 
                   value={search}
                   onChange={event => onSearchChange(event.target.value)}
                   onKeyDown={event => {
-                    if (event.key !== 'Escape') event.stopPropagation();
+                    if (event.key === 'ArrowDown') {
+                      event.preventDefault();
+                      focusOption('next');
+                      return;
+                    }
+                    if (event.key === 'ArrowUp') {
+                      event.preventDefault();
+                      focusOption('previous');
+                      return;
+                    }
+                    if (event.key !== 'Escape' && event.key !== 'Tab') event.stopPropagation();
                   }}
                   placeholder="搜索选项"
                   className="h-8 w-full rounded-lg border border-input bg-background pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
@@ -149,6 +172,7 @@ export function Select({
         </SelectPrimitive.Trigger>
         <OptionsPopup
           options={options}
+          selectedValues={value ? [value] : []}
           searchable={searchable}
           search={search}
           onSearchChange={setSearch}
@@ -230,6 +254,7 @@ export function MultiSelect({
         </SelectPrimitive.Trigger>
         <OptionsPopup
           options={options}
+          selectedValues={value}
           searchable={searchable}
           search={search}
           onSearchChange={setSearch}

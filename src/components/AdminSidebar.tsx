@@ -7,6 +7,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { layoutApi } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
+import { UI_LAYER_CLASSES } from '@/components/ui/layers';
 
 const NAV_ITEMS = [
   { href: '/', label: '仪表盘', icon: LayoutDashboard },
@@ -107,7 +108,7 @@ export default function AdminSidebar() {
         ref={triggerRef}
         type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed top-3 left-3 z-50 flex size-10 items-center justify-center rounded-xl border border-border bg-popover text-foreground shadow-md transition-colors hover:bg-accent md:hidden"
+        className={`fixed top-3 left-3 ${UI_LAYER_CLASSES.sidebarTrigger} flex size-10 items-center justify-center rounded-xl border border-border bg-popover text-foreground shadow-md transition-colors hover:bg-accent md:hidden`}
         aria-label="打开主导航"
         aria-controls={drawerId}
         aria-expanded={mobileOpen}
@@ -119,7 +120,7 @@ export default function AdminSidebar() {
       {mobileOpen && (
         <button
           type="button"
-          className="fixed inset-0 z-50 cursor-default bg-black/45 backdrop-blur-[2px] md:hidden"
+          className={`fixed inset-0 ${UI_LAYER_CLASSES.sidebarTrigger} cursor-default bg-black/45 backdrop-blur-[2px] md:hidden`}
           onClick={closeDrawer}
           aria-label="关闭主导航"
         />
@@ -134,8 +135,8 @@ export default function AdminSidebar() {
         aria-modal={isMobile && mobileOpen ? true : undefined}
         inert={isMobile && !mobileOpen ? true : undefined}
         className={`
-          fixed inset-y-0 left-0 z-[51] flex w-64 flex-col border-r border-sidebar-border bg-sidebar
-          transform shadow-2xl transition-[width,transform] duration-200 ease-out
+          fixed inset-y-0 left-0 flex w-64 flex-col border-r border-sidebar-border bg-sidebar
+          ${UI_LAYER_CLASSES.sidebar} transform shadow-2xl transition-transform duration-200 ease-out motion-reduce:transition-none
           md:relative md:z-auto md:translate-x-0 md:shadow-none
           ${desktopCollapsed ? 'md:w-20' : 'md:w-64'}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}

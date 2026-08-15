@@ -16,6 +16,7 @@ import { Modal } from '@/components/ui/modal';
 import { MultiSelect, Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 import { extractErrorMessage } from '@/lib/utils';
+import { getAccordionPanelClass } from '@/components/ui/interaction-contracts';
 import { CONTENT_TYPES, Field, formatCrawlerTime, inputClass } from './crawler-ui';
 
 type FormState = {
@@ -395,7 +396,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
             <>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
                 {SCHEDULE_MODES.map(option => (
-                  <button key={option.mode} type="button" onClick={() => changeMode(option.mode)} className={`rounded-xl border p-3 text-left transition-[border-color,background-color,box-shadow] ${mode === option.mode ? 'border-primary bg-primary/10 ring-2 ring-primary/15' : 'border-border bg-card hover:border-primary/45 hover:bg-muted/35'}`}>
+                  <button key={option.mode} type="button" onClick={() => changeMode(option.mode)} className={`rounded-xl border p-3 text-left outline-none transition-[border-color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-ring/35 ${mode === option.mode ? 'border-primary bg-primary/10 ring-2 ring-primary/15' : 'border-border bg-card hover:border-primary/45 hover:bg-muted/35'}`}>
                     <span className="block text-sm font-medium text-foreground">{option.label}</span><span className="mt-1 block text-xs text-muted-foreground">{option.description}</span>
                   </button>
                 ))}
@@ -410,8 +411,36 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
           )}
 
           {form.crawlMode !== 'full' && <div className="rounded-xl border border-border bg-card">
-            <button type="button" onClick={() => setAdvancedOpen(value => !value)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"><span><span className="block text-sm font-medium text-foreground">高级 Cron</span><span className="block text-xs text-muted-foreground">图形向导会自动生成；也可粘贴 Cron 反向识别</span></span><ChevronDown className={`size-4 text-muted-foreground transition-transform ${advancedOpen ? 'rotate-180' : ''}`} /></button>
-            {advancedOpen && <div className="grid gap-3 border-t border-border p-4 md:grid-cols-[1fr_auto]"><input className={inputClass} value={cronDraft} placeholder="例如：0 0 2 * * *" onChange={event => setCronDraft(event.target.value)} /><Button variant="outline" onClick={() => void applyCron()} disabled={previewing}>{previewing ? <Loader2 className="animate-spin" /> : <TimerReset />}识别并应用</Button></div>}
+            <button
+              type="button"
+              onClick={() => setAdvancedOpen(value => !value)}
+              aria-expanded={advancedOpen}
+              aria-controls="crawler-advanced-cron-panel"
+              className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+            >
+              <span>
+                <span className="block text-sm font-medium text-foreground">高级 Cron</span>
+                <span className="block text-xs text-muted-foreground">图形向导会自动生成；也可粘贴 Cron 反向识别</span>
+              </span>
+              <ChevronDown className={`size-4 text-muted-foreground transition-transform motion-reduce:transition-none ${advancedOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <div
+              id="crawler-advanced-cron-panel"
+              role="region"
+              aria-label="高级 Cron 设置"
+              aria-hidden={!advancedOpen}
+              inert={!advancedOpen}
+              className={getAccordionPanelClass(advancedOpen)}
+            >
+              <div className="min-h-0 overflow-hidden border-t border-border">
+                <div className="grid gap-3 p-4 md:grid-cols-[1fr_auto]">
+                  <input className={inputClass} value={cronDraft} placeholder="例如：0 0 2 * * *" onChange={event => setCronDraft(event.target.value)} />
+                  <Button variant="outline" onClick={() => void applyCron()} disabled={previewing}>
+                    {previewing ? <Loader2 className="animate-spin" /> : <TimerReset />}识别并应用
+                  </Button>
+                </div>
+              </div>
+            </div>
           </div>}
 
           <div aria-live="polite" className={`rounded-xl border p-4 ${previewError ? 'border-destructive/35 bg-destructive/10' : 'border-primary/25 bg-primary/5'}`}>
