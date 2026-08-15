@@ -47,18 +47,28 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const resolveRef = useRef<((value: boolean) => void) | null>(null);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
+  const finalFocusRef = useRef<HTMLElement | null>(null);
+
+  const rememberFocus = useCallback(() => {
+    const activeElement = document.activeElement;
+    finalFocusRef.current = activeElement instanceof HTMLElement && activeElement !== document.body
+      ? activeElement
+      : null;
+  }, []);
 
   const confirm = useCallback((options: DialogOptions): Promise<boolean> => new Promise(resolve => {
+    rememberFocus();
     setDialog(options);
     setIsOpen(true);
     resolveRef.current = resolve;
-  }), []);
+  }), [rememberFocus]);
 
   const alert = useCallback((message: string, title?: string): Promise<void> => new Promise(resolve => {
+    rememberFocus();
     setDialog({ content: message, title, confirmText: '确定' });
     setIsOpen(true);
     resolveRef.current = () => resolve();
-  }), []);
+  }), [rememberFocus]);
 
   const finishClose = useCallback((confirmed: boolean) => {
     const current = dialog;
@@ -104,11 +114,12 @@ export function DialogProvider({ children }: { children: ReactNode }) {
             {dialog && (
               <DialogPrimitive.Popup
                 initialFocus={confirmButtonRef}
-                className="w-full max-w-md origin-center overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl outline-none transition-[transform,opacity] duration-150 motion-reduce:transition-none data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.97] data-[ending-style]:opacity-0"
+                finalFocus={() => finalFocusRef.current ?? true}
+                className="w-full max-w-md origin-center overflow-hidden overscroll-contain rounded-2xl border border-border bg-popover text-popover-foreground shadow-2xl outline-none transition-[transform,opacity] duration-150 motion-reduce:transition-none data-[starting-style]:scale-[0.97] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.97] data-[ending-style]:opacity-0"
               >
                 <div className="flex items-start gap-4 px-5 pb-5 pt-5 sm:px-6 sm:pt-6">
                   <div className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl', styles.iconClass)}>
-                    <Icon className="size-5" />
+                    <Icon aria-hidden="true" className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <DialogPrimitive.Title className="text-base font-semibold tracking-tight text-foreground">
@@ -125,7 +136,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
                     className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
                     aria-label="关闭对话框"
                   >
-                    <X className="size-4" />
+                    <X aria-hidden="true" className="size-4" />
                   </button>
                 </div>
                 <div className="flex flex-col-reverse gap-2 border-t border-border bg-muted/35 px-5 py-4 sm:flex-row sm:justify-end sm:px-6">

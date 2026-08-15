@@ -4,6 +4,7 @@ import {
   ACCORDION_PANEL_BASE_CLASS,
   MODAL_SHELL_GEOMETRY_CLASS,
   REDUCED_MOTION_TRANSITION_CLASS,
+  STABLE_POPUP_TRANSITION_CLASS,
   STABLE_TRIGGER_TRANSITION_CLASS,
   filterSelectOptions,
   getAccordionPanelClass,
@@ -45,6 +46,7 @@ test('accordion animation preserves layout and reduced motion contract', () => {
   const closedClass = getAccordionPanelClass(false);
 
   assert.match(ACCORDION_PANEL_BASE_CLASS, /transition-\[grid-template-rows,opacity\]/);
+  assert.match(ACCORDION_PANEL_BASE_CLASS, /min-w-0/);
   assert.match(openClass, /grid-rows-\[1fr\]/);
   assert.match(closedClass, /grid-rows-\[0fr\]/);
   assert.match(openClass, new RegExp(REDUCED_MOTION_TRANSITION_CLASS.replace(':', '\\:')));
@@ -53,6 +55,8 @@ test('accordion animation preserves layout and reduced motion contract', () => {
 
 test('trigger and modal geometry contracts avoid press resizing and clip corners', () => {
   assert.doesNotMatch(STABLE_TRIGGER_TRANSITION_CLASS, /width|transform|scale/);
+  assert.match(STABLE_POPUP_TRANSITION_CLASS, /transition-opacity/);
+  assert.doesNotMatch(STABLE_POPUP_TRANSITION_CLASS, /width|transform|scale/);
   assert.match(MODAL_SHELL_GEOMETRY_CLASS, /overflow-hidden/);
   assert.match(MODAL_SHELL_GEOMETRY_CLASS, /rounded-2xl/);
 });

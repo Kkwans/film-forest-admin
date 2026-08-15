@@ -379,13 +379,13 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
           <div className="flex items-center gap-2 border-b border-border pb-2"><CheckCircle2 className="size-4 text-primary" /><h3 className="text-sm font-semibold text-foreground">任务范围</h3></div>
           <div className="grid gap-4 md:grid-cols-2">
             <Field label="配置名称"><input className={inputClass} value={form.name} maxLength={100} placeholder="例如：每日电影增量" onChange={event => setForm(current => ({ ...current, name: event.target.value }))} /></Field>
-            <Field label="资源来源"><Select value={form.sourceId} onChange={changeSource} options={sources.map(source => ({ label: `${source.name} · ${source.code}`, value: String(source.id) }))} /></Field>
-            <Field label="内容类型"><Select value={form.contentType} onChange={changeContentType} options={CONTENT_TYPES.map(option => ({ ...option, disabled: !selectedSource?.adapters.some(item => item.contentType === option.value) }))} /></Field>
+            <Field label="资源来源"><Select label="资源来源" value={form.sourceId} onChange={changeSource} options={sources.map(source => ({ label: `${source.name} · ${source.code}`, value: String(source.id) }))} /></Field>
+            <Field label="内容类型"><Select label="内容类型" value={form.contentType} onChange={changeContentType} options={CONTENT_TYPES.map(option => ({ ...option, disabled: !selectedSource?.adapters.some(item => item.contentType === option.value) }))} /></Field>
             <Field label="来源适配器"><div className="flex h-9 items-center rounded-lg border border-border bg-muted/35 px-3 text-sm text-foreground">{form.adapterCode || '当前组合不可用'}</div></Field>
-            <Field label="抓取模式"><Select value={form.crawlMode} onChange={value => setForm(current => ({ ...current, crawlMode: value as 'latest' | 'full', scheduleMode: value === 'full' ? 'MANUAL' : current.scheduleMode, enabled: value === 'full' ? 0 : current.enabled }))} options={[{ label: '最新增量（推荐）', value: 'latest' }, { label: '全量手工', value: 'full' }]} /></Field>
-            <Field label="优先策略"><Select value={form.priority} onChange={value => setForm(current => ({ ...current, priority: value }))} options={[{ label: '评分优先', value: 'by_score' }, { label: '热度优先', value: 'by_hot' }]} /></Field>
+            <Field label="抓取模式"><Select label="抓取模式" value={form.crawlMode} onChange={value => setForm(current => ({ ...current, crawlMode: value as 'latest' | 'full', scheduleMode: value === 'full' ? 'MANUAL' : current.scheduleMode, enabled: value === 'full' ? 0 : current.enabled }))} options={[{ label: '最新增量（推荐）', value: 'latest' }, { label: '全量手工', value: 'full' }]} /></Field>
+            <Field label="优先策略"><Select label="优先策略" value={form.priority} onChange={value => setForm(current => ({ ...current, priority: value }))} options={[{ label: '评分优先', value: 'by_score' }, { label: '热度优先', value: 'by_hot' }]} /></Field>
           </div>
-          <Field label="标准题材（可多选）"><MultiSelect value={form.genreTagIds} onChange={genreTagIds => setForm(current => ({ ...current, genreTagIds }))} options={genres.map(tag => ({ label: tag.name, value: String(tag.id) }))} searchable disabled={genresLoading} placeholder={genresLoading ? '正在加载标准题材' : genres.length ? '不限题材' : '当前类型暂无标准题材'} /></Field>
+          <Field label="标准题材（可多选）"><MultiSelect label="标准题材（可多选）" value={form.genreTagIds} onChange={genreTagIds => setForm(current => ({ ...current, genreTagIds }))} options={genres.map(tag => ({ label: tag.name, value: String(tag.id) }))} searchable disabled={genresLoading} placeholder={genresLoading ? '正在加载标准题材' : genres.length ? '不限题材' : '当前类型暂无标准题材'} /></Field>
         </section>
 
         <section className="space-y-4">
@@ -402,9 +402,9 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                 ))}
               </div>
 
-              {mode === 'INTERVAL' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="间隔单位"><Select value={String(form.scheduleConfig.unit || 'hours')} onChange={unit => updateConfig({ unit })} options={[{ label: '分钟', value: 'minutes' }, { label: '小时', value: 'hours' }]} /></Field><Field label="每隔多少"><input className={inputClass} type="number" min={1} max={form.scheduleConfig.unit === 'minutes' ? 59 : 23} value={numberConfig(form.scheduleConfig, 'interval', 1)} onChange={event => updateConfig({ interval: Number(event.target.value) })} /></Field></div>}
+              {mode === 'INTERVAL' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="间隔单位"><Select label="间隔单位" value={String(form.scheduleConfig.unit || 'hours')} onChange={unit => updateConfig({ unit })} options={[{ label: '分钟', value: 'minutes' }, { label: '小时', value: 'hours' }]} /></Field><Field label="每隔多少"><input className={inputClass} type="number" min={1} max={form.scheduleConfig.unit === 'minutes' ? 59 : 23} value={numberConfig(form.scheduleConfig, 'interval', 1)} onChange={event => updateConfig({ interval: Number(event.target.value) })} /></Field></div>}
               {mode === 'DAILY' && <div className="rounded-xl border border-border bg-muted/20 p-4"><Field label="每天执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
-              {mode === 'WEEKLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-[1fr_12rem]"><Field label="执行星期"><MultiSelect value={selectedDays} onChange={days => updateConfig({ days })} options={WEEKDAYS} /></Field><Field label="执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
+              {mode === 'WEEKLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-[minmax(0,1fr)_12rem]"><Field label="执行星期"><MultiSelect label="执行星期" value={selectedDays} onChange={days => updateConfig({ days })} options={WEEKDAYS} /></Field><Field label="执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
               {mode === 'MONTHLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="每月日期"><input className={inputClass} type="number" min={1} max={31} value={numberConfig(form.scheduleConfig, 'day', 1)} onChange={event => updateConfig({ day: Number(event.target.value) })} /></Field><Field label="执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
               {mode === 'MANUAL' && <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">计划只保留配置，需要时点击列表中的“手工启动”。</div>}
             </>
@@ -432,8 +432,8 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
               inert={!advancedOpen}
               className={getAccordionPanelClass(advancedOpen)}
             >
-              <div className="min-h-0 overflow-hidden border-t border-border">
-                <div className="grid gap-3 p-4 md:grid-cols-[1fr_auto]">
+              <div className="min-h-0 min-w-0 overflow-hidden border-t border-border">
+                <div className="grid min-w-0 gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto]">
                   <input className={inputClass} value={cronDraft} placeholder="例如：0 0 2 * * *" onChange={event => setCronDraft(event.target.value)} />
                   <Button variant="outline" onClick={() => void applyCron()} disabled={previewing}>
                     {previewing ? <Loader2 className="animate-spin" /> : <TimerReset />}识别并应用

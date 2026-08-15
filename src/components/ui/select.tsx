@@ -1,11 +1,15 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Select as SelectPrimitive } from '@base-ui/react/select';
 import { Check, ChevronDown, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UI_LAYER_CLASSES } from '@/components/ui/layers';
-import { filterSelectOptions, getNextOptionIndex } from '@/components/ui/interaction-contracts';
+import {
+  filterSelectOptions,
+  getNextOptionIndex,
+  STABLE_POPUP_TRANSITION_CLASS,
+} from '@/components/ui/interaction-contracts';
 
 export interface SelectOption {
   label: string;
@@ -23,6 +27,7 @@ interface SelectProps {
   disabled?: boolean;
   className?: string;
   size?: 'sm' | 'default';
+  label?: string;
 }
 
 interface OptionsPopupProps {
@@ -32,10 +37,11 @@ interface OptionsPopupProps {
   search: string;
   onSearchChange: (value: string) => void;
   searchRef: React.RefObject<HTMLInputElement | null>;
+  finalFocus: React.RefObject<HTMLElement | null>;
   size: 'sm' | 'default';
 }
 
-function OptionsPopup({ options, selectedValues, searchable, search, onSearchChange, searchRef, size }: OptionsPopupProps) {
+function OptionsPopup({ options, selectedValues, searchable, search, onSearchChange, searchRef, finalFocus, size }: OptionsPopupProps) {
   const filtered = useMemo(
     () => filterSelectOptions(options, search, selectedValues),
     [options, search, selectedValues],
@@ -61,12 +67,16 @@ function OptionsPopup({ options, selectedValues, searchable, search, onSearchCha
         alignItemWithTrigger={false}
         className={`${UI_LAYER_CLASSES.popover} w-[var(--anchor-width)] min-w-44 max-w-[calc(100vw-1.5rem)]`}
       >
-        <SelectPrimitive.Popup ref={popupRef} className="origin-[var(--transform-origin)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl outline-none transition-[transform,opacity] duration-150 motion-reduce:transition-none data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0 data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0">
+        <SelectPrimitive.Popup
+          ref={popupRef}
+          finalFocus={finalFocus}
+          className={`origin-[var(--transform-origin)] overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-xl outline-none ${STABLE_POPUP_TRANSITION_CLASS} data-[starting-style]:opacity-0 data-[ending-style]:opacity-0`}
+        >
           {searchable && (
             <div className="border-b border-border p-2">
               <label className="relative block">
                 <span className="sr-only">搜索选项</span>
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
                 <input
                   ref={searchRef}
                   value={search}
@@ -101,14 +111,14 @@ function OptionsPopup({ options, selectedValues, searchable, search, onSearchCha
                   label={option.label}
                   disabled={option.disabled}
                   className={cn(
-                    'grid cursor-default grid-cols-[1fr_auto] items-center gap-3 rounded-lg px-2.5 outline-none select-none',
+                    'grid min-w-0 cursor-default grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2.5 outline-none select-none',
                     size === 'sm' ? 'min-h-8 text-xs' : 'min-h-9 text-sm',
                     'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[selected]:font-medium data-[disabled]:pointer-events-none data-[disabled]:opacity-45',
                   )}
                 >
-                  <SelectPrimitive.ItemText className="truncate">{option.label}</SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemText className="min-w-0 truncate">{option.label}</SelectPrimitive.ItemText>
                   <SelectPrimitive.ItemIndicator className="text-primary">
-                    <Check className="size-4" strokeWidth={2.2} />
+                    <Check aria-hidden="true" className="size-4" strokeWidth={2.2} />
                   </SelectPrimitive.ItemIndicator>
                 </SelectPrimitive.Item>
               ))
@@ -130,18 +140,24 @@ export function Select({
   disabled = false,
   className,
   size = 'default',
+  label,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const selected = options.find(option => option.value === value);
+
+  useEffect(() => {
+    if (!open || !searchable) return undefined;
+    const frame = requestAnimationFrame(() => searchRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, searchable]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
     if (!nextOpen) {
       setSearch('');
-    } else if (searchable) {
-      requestAnimationFrame(() => searchRef.current?.focus());
     }
   };
 
@@ -155,7 +171,9 @@ export function Select({
         onOpenChange={handleOpenChange}
         disabled={disabled}
       >
+        {label && <SelectPrimitive.Label className="sr-only">{label}</SelectPrimitive.Label>}
         <SelectPrimitive.Trigger
+          ref={triggerRef}
           className={cn(
             'flex w-full items-center justify-between gap-2 rounded-xl border border-input bg-background px-3 text-left text-foreground outline-none transition-[border-color,box-shadow,background-color]',
             size === 'sm' ? 'h-8 text-xs' : 'h-9 text-sm',
@@ -166,8 +184,8 @@ export function Select({
           <SelectPrimitive.Value placeholder={placeholder} className="min-w-0 truncate data-[placeholder]:text-muted-foreground">
             {() => selected?.label ?? placeholder}
           </SelectPrimitive.Value>
-          <SelectPrimitive.Icon className="ml-auto shrink-0 text-muted-foreground transition-transform data-[popup-open]:rotate-180">
-            <ChevronDown className="size-4" />
+          <SelectPrimitive.Icon className="ml-auto shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none data-[popup-open]:rotate-180">
+            <ChevronDown aria-hidden="true" className="size-4" />
           </SelectPrimitive.Icon>
         </SelectPrimitive.Trigger>
         <OptionsPopup
@@ -177,6 +195,7 @@ export function Select({
           search={search}
           onSearchChange={setSearch}
           searchRef={searchRef}
+          finalFocus={triggerRef}
           size={size}
         />
       </SelectPrimitive.Root>
@@ -203,6 +222,7 @@ interface MultiSelectProps {
   disabled?: boolean;
   className?: string;
   maxDisplay?: number;
+  label?: string;
 }
 
 export function MultiSelect({
@@ -214,20 +234,26 @@ export function MultiSelect({
   disabled = false,
   className,
   maxDisplay = 3,
+  label,
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const selected = options.filter(option => value.includes(option.value));
   const visibleLabels = selected.slice(0, maxDisplay).map(option => option.label);
   const hiddenCount = Math.max(0, selected.length - maxDisplay);
+
+  useEffect(() => {
+    if (!open || !searchable) return undefined;
+    const frame = requestAnimationFrame(() => searchRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open, searchable]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     setOpen(nextOpen);
     if (!nextOpen) {
       setSearch('');
-    } else if (searchable) {
-      requestAnimationFrame(() => searchRef.current?.focus());
     }
   };
 
@@ -242,14 +268,15 @@ export function MultiSelect({
         onOpenChange={handleOpenChange}
         disabled={disabled}
       >
-        <SelectPrimitive.Trigger className="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-input bg-background px-3 py-1.5 text-left text-sm text-foreground outline-none transition-[border-color,box-shadow,background-color] hover:border-muted-foreground/55 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 data-[popup-open]:border-ring data-[popup-open]:ring-3 data-[popup-open]:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-55">
+        {label && <SelectPrimitive.Label className="sr-only">{label}</SelectPrimitive.Label>}
+        <SelectPrimitive.Trigger ref={triggerRef} className="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-input bg-background px-3 py-1.5 text-left text-sm text-foreground outline-none transition-[border-color,box-shadow,background-color] hover:border-muted-foreground/55 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 data-[popup-open]:border-ring data-[popup-open]:ring-3 data-[popup-open]:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-55">
           <SelectPrimitive.Value placeholder={placeholder} className="min-w-0 flex-1 truncate data-[placeholder]:text-muted-foreground">
             {() => selected.length === 0
               ? placeholder
               : `${visibleLabels.join('、')}${hiddenCount > 0 ? `，另 ${hiddenCount} 项` : ''}`}
           </SelectPrimitive.Value>
-          <SelectPrimitive.Icon className="shrink-0 text-muted-foreground transition-transform data-[popup-open]:rotate-180">
-            <ChevronDown className="size-4" />
+          <SelectPrimitive.Icon className="shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none data-[popup-open]:rotate-180">
+            <ChevronDown aria-hidden="true" className="size-4" />
           </SelectPrimitive.Icon>
         </SelectPrimitive.Trigger>
         <OptionsPopup
@@ -259,6 +286,7 @@ export function MultiSelect({
           search={search}
           onSearchChange={setSearch}
           searchRef={searchRef}
+          finalFocus={triggerRef}
           size="default"
         />
       </SelectPrimitive.Root>

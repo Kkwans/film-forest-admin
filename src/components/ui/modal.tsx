@@ -1,6 +1,6 @@
 'use client';
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useLayoutEffect, useRef } from 'react';
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,16 @@ const WIDTH_MAP = {
 };
 
 export function Modal({ open, onClose, title, description, children, width = 'md', footer }: ModalProps) {
+  const finalFocusRef = useRef<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    const activeElement = document.activeElement;
+    finalFocusRef.current = activeElement instanceof HTMLElement && activeElement !== document.body
+      ? activeElement
+      : null;
+  }, [open]);
+
   return (
     <DialogPrimitive.Root
       open={open}
@@ -36,6 +46,7 @@ export function Modal({ open, onClose, title, description, children, width = 'md
         <DialogPrimitive.Backdrop className={`${UI_LAYER_CLASSES.modalBackdrop} fixed inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity duration-150 motion-reduce:transition-none data-[starting-style]:opacity-0 data-[ending-style]:opacity-0`} />
         <DialogPrimitive.Viewport className={`${UI_LAYER_CLASSES.modal} fixed inset-0 flex items-end justify-center md:items-center md:p-4`}>
           <DialogPrimitive.Popup
+            finalFocus={() => finalFocusRef.current ?? true}
             className={cn(
               `relative flex h-dvh w-full flex-col ${MODAL_SHELL_GEOMETRY_CLASS} border border-border bg-popover text-popover-foreground shadow-2xl outline-none`,
               'transition-[transform,opacity] duration-200 motion-reduce:transition-none data-[starting-style]:translate-y-4 data-[starting-style]:opacity-0 data-[ending-style]:translate-y-4 data-[ending-style]:opacity-0',

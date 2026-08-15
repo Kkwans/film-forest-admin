@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Film, Upload, BarChart3, Settings, Database, Users, FileText, Tags, Menu, X, TreePine, Bell, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { layoutApi } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
@@ -35,7 +35,7 @@ export default function AdminSidebar() {
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
-  const closeDrawer = () => setMobileOpen(false);
+  const closeDrawer = useCallback(() => setMobileOpen(false), []);
 
   const toggleCollapsed = async () => {
     if (savingPreference) return;
@@ -78,11 +78,14 @@ export default function AdminSidebar() {
       if (event.key !== 'Tab' || !drawerRef.current) return;
       const focusable = Array.from(drawerRef.current.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ));
+      )).filter(element => element.getClientRects().length > 0);
       if (focusable.length === 0) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      if (!drawerRef.current.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -97,7 +100,7 @@ export default function AdminSidebar() {
       window.removeEventListener('keydown', handleKeyDown);
       trigger?.focus();
     };
-  }, [isMobile, mobileOpen]);
+  }, [closeDrawer, isMobile, mobileOpen]);
 
   const desktopCollapsed = collapsed && !isMobile;
 
@@ -120,6 +123,7 @@ export default function AdminSidebar() {
       {mobileOpen && (
         <button
           type="button"
+          tabIndex={-1}
           className={`fixed inset-0 ${UI_LAYER_CLASSES.sidebarTrigger} cursor-default bg-black/45 backdrop-blur-[2px] md:hidden`}
           onClick={closeDrawer}
           aria-label="关闭主导航"
