@@ -5,6 +5,7 @@ import { ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import {
   crawlerApi,
   type CrawlerJobItemFailure,
+  type CrawlerScheduleCursor,
   type CrawlerTaskLog,
   type PageData,
 } from '@/lib/api';
@@ -48,6 +49,18 @@ const stageLabels: Record<string, string> = {
   persistence: '写入数据',
 };
 
+const outcomeLabels: Record<string, string> = {
+  COMPLETED: '已完成',
+  PARTIAL: '部分完成',
+  SOURCE_UNAVAILABLE: '来源不可用',
+  RATE_LIMITED: '触发限速',
+  NETWORK_FAILED: '网络失败',
+  STRUCTURE_CHANGED: '来源结构变化',
+  RECOVERY_REQUIRED: '需要恢复',
+  ITEM_FAILED: '条目失败',
+  CANCELLED: '已取消',
+};
+
 export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
   const [job, setJob] = useState<CrawlerTaskLog | null>(null);
   const [jobLoading, setJobLoading] = useState(false);
@@ -60,6 +73,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
   const [exhausted, setExhausted] = useState('all');
   const [categoryInput, setCategoryInput] = useState('');
   const [category, setCategory] = useState('');
+  const [cursor, setCursor] = useState<CrawlerScheduleCursor | null>(null);
 
   const fetchJob = useCallback(async () => {
     if (!jobId) return;
@@ -70,6 +84,12 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
         throw new Error(response.data?.message || 'Job 详情加载失败');
       }
       setJob(response.data.data);
+      try {
+        const cursorResponse = await crawlerApi.getCursor(response.data.data.scheduleId);
+        setCursor(cursorResponse.data?.code === 200 ? cursorResponse.data.data || null : null);
+      } catch {
+        setCursor(null);
+      }
       setJobError('');
     } catch (error: unknown) {
       setJobError(extractErrorMessage(error, 'Job 详情加载失败'));
@@ -143,6 +163,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {job && <StatusBadge status={job.status} />}
+            {job?.outcomeCode && <span className="rounded-full bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">{outcomeLabels[job.outcomeCode] || job.outcomeCode}</span>}
             {job && <span className="text-sm text-muted-foreground">{job.scheduleName || `配置 #${job.scheduleId}`} · {job.sourceCode || '-'} · {contentTypeLabel(job.contentType)}</span>}
           </div>
           <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={jobLoading || failuresLoading}>
@@ -159,11 +180,13 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
 
         {job ? (
           <>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
               {[
                 ['发现', job.discoveredCount], ['获取', job.fetchSucceededCount], ['解析', job.parseSucceededCount],
                 ['新增', job.addedCount], ['更新', job.updatedCount], ['未变化', job.unchangedCount],
-                ['过滤', job.filteredCount], ['失败', job.failedCount],
+                ['过滤', job.filteredCount], ['失败', job.failedCount], ['扫描页', job.pagesScanned],
+                ['列表项', job.listItemsScanned], ['详情尝试', job.detailAttempted], ['游标推进', job.cursorAdvanced],
+                ['新内容', job.newItems], ['历史回填', job.backfillItems],
               ].map(([label, value]) => (
                 <div key={String(label)} className="rounded-xl border border-border bg-muted/35 p-3">
                   <p className="text-xs text-muted-foreground">{label}</p>
@@ -175,9 +198,12 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
             <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               {[
                 ['当前页', job.currentPage ?? '-'], ['当前项', job.currentItem || '-'],
+                ['来源排序', job.sourceSort || '-'], ['遍历模式', job.traversalMode || '-'],
                 ['排队时间', formatCrawlerTime(job.queuedAt)], ['开始时间', formatCrawlerTime(job.startedAt)],
                 ['最近心跳', formatCrawlerTime(job.heartbeatAt)], ['完成时间', formatCrawlerTime(job.finishedAt)],
                 ['累计耗时', elapsedFor(job.startedAt, job.queuedAt, job.durationMs)], ['检查点', job.checkpoint || '-'],
+                ['游标状态', cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '-'],
+                ['游标锚点', cursor?.nextExternalId || cursor?.lastCommittedExternalId || '-'],
               ].map(([label, value]) => (
                 <div key={String(label)} className="min-w-0 rounded-xl border border-border p-3">
                   <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -185,6 +211,17 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 </div>
               ))}
             </dl>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className="min-w-0 rounded-xl border border-border bg-muted/20 p-3">
+                <p className="text-xs font-medium text-muted-foreground">查询快照</p>
+                <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.querySnapshot || '未记录'}</pre>
+              </div>
+              <div className="min-w-0 rounded-xl border border-border bg-muted/20 p-3">
+                <p className="text-xs font-medium text-muted-foreground">配置快照</p>
+                <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.configSnapshot || '未记录'}</pre>
+              </div>
+            </div>
 
             {(job.errorSummary || job.errorMessage) && (
               <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4">

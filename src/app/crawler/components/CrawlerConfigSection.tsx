@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { Loader2, Pencil, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react';
-import { crawlerApi, type CrawlerJobStartResult, type CrawlerSchedule, type CrawlerSourceDescriptor } from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { Loader2, Pencil, Play, Plus, RefreshCw, RotateCcw, Square, Trash2 } from 'lucide-react';
+import { crawlerApi, type CrawlerJobStartResult, type CrawlerSchedule, type CrawlerScheduleCursor, type CrawlerSourceDescriptor } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
@@ -24,6 +24,28 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CrawlerSchedule | null>(null);
   const [actionId, setActionId] = useState<number | null>(null);
+  const [cursors, setCursors] = useState<Record<number, CrawlerScheduleCursor>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadCursors = async () => {
+      const entries = await Promise.all(schedules.map(async schedule => {
+        try {
+          const response = await crawlerApi.getCursor(schedule.id);
+          return response.data?.code === 200 && response.data.data
+            ? [schedule.id, response.data.data] as const
+            : null;
+        } catch {
+          return null;
+        }
+      }));
+      if (!cancelled) {
+        setCursors(Object.fromEntries(entries.filter((entry): entry is readonly [number, CrawlerScheduleCursor] => entry !== null)));
+      }
+    };
+    void loadCursors();
+    return () => { cancelled = true; };
+  }, [schedules]);
 
   const startCreate = () => {
     setEditing(null);
@@ -68,6 +90,27 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
     }
   };
 
+  const resetCursor = async (schedule: CrawlerSchedule) => {
+    const confirmed = await dialog.confirm({
+      title: '重置续爬游标',
+      content: `将把“${schedule.name}”的下一页恢复为第 1 页，不删除历史 Job 或内容数据。当前没有活动 Job 时才能重置。确定继续吗？`,
+      confirmText: '确认重置',
+      variant: 'warning',
+    });
+    if (!confirmed) return;
+    try {
+      const response = await crawlerApi.resetCursor(schedule.id);
+      if (response.data?.code !== 200 || !response.data.data) {
+        throw new Error(response.data?.message || '游标重置失败');
+      }
+      setCursors(current => ({ ...current, [schedule.id]: response.data.data }));
+      toast.success('续爬游标已重置，历史数据未删除');
+      await onRefresh();
+    } catch (error: unknown) {
+      toast.error(extractErrorMessage(error, '游标重置失败'));
+    }
+  };
+
   const remove = async (schedule: CrawlerSchedule) => {
     const confirmed = await dialog.confirm({
       title: '删除任务配置',
@@ -108,28 +151,34 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
           <div className="divide-y divide-border">
             {schedules.map(schedule => {
               const active = schedule.status === 'running';
+              const cursor = cursors[schedule.id];
+              const needsReview = schedule.configurationStatus === 'NEEDS_REVIEW';
               return (
                 <article key={schedule.id} className="grid gap-4 p-4 lg:grid-cols-[minmax(13rem,1.3fr)_minmax(22rem,2fr)_auto] lg:items-center">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate font-medium text-foreground">{schedule.name}</h3>
                       <StatusBadge status={schedule.latestResult} />
+                      {needsReview && <span className="rounded-full bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">待复核</span>}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">#{schedule.id} · {sources.find(source => source.id === schedule.sourceId)?.name || schedule.sourceSite} · {contentTypeLabel(schedule.contentType)}</p>
                   </div>
                   <dl className="grid grid-cols-2 gap-x-5 gap-y-2 text-xs sm:grid-cols-4">
                     <div><dt className="text-muted-foreground">运行规则</dt><dd className="mt-0.5 text-foreground">{schedule.crawlMode === 'full' ? '全量手工' : schedule.scheduleMode === 'MANUAL' ? '仅手工' : schedule.scheduleMode === 'CUSTOM_CRON' ? '高级 Cron' : schedule.scheduleMode}</dd></div>
-                    <div><dt className="text-muted-foreground">批次 / 限速</dt><dd className="mt-0.5 text-foreground">{schedule.batchSize} / {schedule.rateLimitMs}ms</dd></div>
+                    <div><dt className="text-muted-foreground">来源排序</dt><dd className="mt-0.5 text-foreground">{schedule.sourceSort || 'TIME'}</dd></div>
+                    <div><dt className="text-muted-foreground">新内容 / 回填</dt><dd className="mt-0.5 text-foreground">{schedule.newItemLimit ?? schedule.batchSize} / {schedule.backfillItemLimit ?? schedule.batchSize}</dd></div>
+                    <div><dt className="text-muted-foreground">游标</dt><dd className="mt-0.5 text-foreground">{cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '尚未建立'}</dd></div>
                     <div><dt className="text-muted-foreground">上次运行</dt><dd className="mt-0.5 text-foreground">{formatCrawlerTime(schedule.lastRunTime)}</dd></div>
                     <div><dt className="text-muted-foreground">下次运行</dt><dd className="mt-0.5 text-foreground">{schedule.enabled === 1 ? formatCrawlerTime(schedule.nextRunTime) : '自动调度关闭'}</dd></div>
                   </dl>
                   <div className="flex flex-wrap justify-end gap-1.5">
-                    <Button variant="outline" size="sm" onClick={() => void toggle(schedule)} disabled={schedule.crawlMode === 'full'}>
+                    <Button variant="outline" size="sm" onClick={() => void toggle(schedule)} disabled={schedule.crawlMode === 'full' || needsReview}>
                       {schedule.enabled === 1 ? '关闭自动' : '启用自动'}
                     </Button>
-                    <Button variant="outline" size="icon" title={active ? '取消 Job' : '手工启动'} disabled={actionId === schedule.id} onClick={() => void runAction(schedule.id, active ? 'stop' : 'start')}>
+                    <Button variant="outline" size="icon" title={active ? '取消 Job' : needsReview ? '来源待复核' : '手工启动'} disabled={actionId === schedule.id || (!active && needsReview)} onClick={() => void runAction(schedule.id, active ? 'stop' : 'start')}>
                       {actionId === schedule.id ? <Loader2 className="animate-spin" /> : active ? <Square /> : <Play />}
                     </Button>
+                    <Button variant="ghost" size="icon" title="重置续爬游标" disabled={active || !cursor} onClick={() => void resetCursor(schedule)}><RotateCcw /></Button>
                     <Button variant="ghost" size="icon" title="编辑" onClick={() => { setEditing(schedule); setEditorOpen(true); }}><Pencil /></Button>
                     <Button variant="destructive" size="icon" title="删除" onClick={() => void remove(schedule)}><Trash2 /></Button>
                   </div>

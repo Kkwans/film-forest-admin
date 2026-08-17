@@ -210,6 +210,18 @@ export const crawlerApi = {
 
   /** 获取资源来源列表 */
   listSources: () => adminClient.get('/api/crawler/sources'),
+
+  /** 预览来源查询；只读取少量列表样本，不创建 Job 或推进游标 */
+  previewSourceQuery: (data: CrawlerSourceQueryPreviewRequest) =>
+    adminClient.post<ApiEnvelope<CrawlerSourceQueryPreview>>('/api/crawler/source-query/preview', data),
+
+  /** 获取跨 Job 续爬游标 */
+  getCursor: (scheduleId: number) =>
+    adminClient.get<ApiEnvelope<CrawlerScheduleCursor>>(`/api/crawler/schedules/${scheduleId}/cursor`),
+
+  /** 人工重置跨 Job 续爬游标 */
+  resetCursor: (scheduleId: number) =>
+    adminClient.post<ApiEnvelope<CrawlerScheduleCursor>>(`/api/crawler/schedules/${scheduleId}/cursor/reset`),
 };
 
 export interface ApiEnvelope<T> {
@@ -239,6 +251,16 @@ export interface CrawlerSchedule {
   timezone: string;
   batchSize: number;
   rateLimitMs: number;
+  sourceSort: CrawlerSourceSort;
+  sourceFilters: Record<string, string>;
+  traversalMode: CrawlerTraversalMode;
+  endPolicy: CrawlerEndPolicy;
+  newItemLimit: number;
+  backfillItemLimit: number;
+  manualRunLimit: number;
+  configurationStatus: CrawlerConfigurationStatus;
+  configurationIssue: string | null;
+  queryProfileHash: string | null;
   priority: string;
   genreFilter: string | null;
   genreTagIds: number[];
@@ -288,6 +310,64 @@ export interface CrawlerSourceDescriptor {
   name: string;
   url: string;
   adapters: CrawlerAdapterDescriptor[];
+  capabilities: Record<string, CrawlerSourceCapabilities>;
+}
+
+export type CrawlerSourceSort = 'TIME' | 'POPULARITY' | 'RATING';
+export type CrawlerTraversalMode = 'CONTINUOUS_SYNC' | 'BACKFILL_CONTINUE' | 'MANUAL_FULL';
+export type CrawlerEndPolicy = 'HOLD_COMPLETED' | 'RESTART_CYCLE';
+export type CrawlerConfigurationStatus = 'VALIDATED' | 'NEEDS_REVIEW';
+
+export interface CrawlerSourceCapabilities {
+  sourceCode: string;
+  contentType: string;
+  supportedSorts: CrawlerSourceSort[];
+  supportedFilters: string[];
+  verified: boolean;
+  availability: string;
+  message: string;
+}
+
+export interface CrawlerSourceQueryPreviewRequest {
+  sourceCode: string;
+  contentType: string;
+  sort?: CrawlerSourceSort;
+  sourceFilters?: Record<string, string>;
+  page?: number;
+}
+
+export interface CrawlerSourceQueryPreview {
+  status: 'VALIDATED' | 'UNSUPPORTED' | 'SOURCE_UNAVAILABLE' | 'NEEDS_REVIEW';
+  sourceCode: string;
+  contentType: string;
+  sort: CrawlerSourceSort;
+  normalizedUri: string | null;
+  message: string;
+  sampleExternalIds: string[];
+  sampleCount: number;
+}
+
+export interface CrawlerScheduleCursor {
+  id: number;
+  scheduleId: number;
+  profileHash: string;
+  sourceCode: string;
+  contentType: string;
+  sourceSort: CrawlerSourceSort;
+  traversalMode: CrawlerTraversalMode;
+  querySnapshot: string | null;
+  nextPage: number;
+  nextItemIndex: number;
+  nextExternalId: string | null;
+  lastCommittedExternalId: string | null;
+  headWatermark: string | null;
+  state: 'ACTIVE' | 'COMPLETE' | 'INVALIDATED' | 'RECOVERY_REQUIRED' | 'SOURCE_UNAVAILABLE';
+  cycle: number;
+  version: number;
+  lastError: string | null;
+  lastRunAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface CrawlerTaskLog {
@@ -296,6 +376,13 @@ export interface CrawlerTaskLog {
   scheduleName: string;
   contentType: string;
   sourceCode?: string | null;
+  sourceSort?: CrawlerSourceSort | null;
+  traversalMode?: CrawlerTraversalMode | null;
+  queryProfileHash?: string | null;
+  querySnapshot?: string | null;
+  sourceFilterSnapshot?: string | null;
+  configSnapshot?: string | null;
+  outcomeCode?: string | null;
   crawlMode?: 'latest' | 'full';
   status: string;
   triggerType?: string;
@@ -311,6 +398,12 @@ export interface CrawlerTaskLog {
   unchangedCount?: number;
   filteredCount?: number;
   failedCount?: number;
+  pagesScanned?: number;
+  listItemsScanned?: number;
+  detailAttempted?: number;
+  cursorAdvanced?: number;
+  newItems?: number;
+  backfillItems?: number;
   checkpoint?: string | null;
   heartbeatAt?: string | null;
   progressUpdatedAt?: string | null;

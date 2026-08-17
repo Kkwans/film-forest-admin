@@ -1,14 +1,18 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CheckCircle2, ChevronDown, Clock3, Loader2, TimerReset } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CheckCircle2, ChevronDown, Clock3, Loader2, TimerReset } from 'lucide-react';
 import {
   crawlerApi,
   tagApi,
   type CrawlerSchedule,
   type CrawlerScheduleMode,
   type CrawlerSchedulePreview,
+  type CrawlerSourceCapabilities,
   type CrawlerSourceDescriptor,
+  type CrawlerSourceQueryPreview,
+  type CrawlerSourceSort,
+  type CrawlerEndPolicy,
   type TagItem,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -32,7 +36,12 @@ type FormState = {
   timezone: string;
   batchSize: number;
   rateLimitMs: number;
-  priority: string;
+  sourceSort: CrawlerSourceSort;
+  sourceFilters: Record<string, string>;
+  endPolicy: CrawlerEndPolicy;
+  newItemLimit: number;
+  backfillItemLimit: number;
+  manualRunLimit: number;
   genreTagIds: string[];
   enabled: number;
 };
@@ -80,7 +89,12 @@ function defaultForm(sources: CrawlerSourceDescriptor[]): FormState {
     timezone: 'Asia/Shanghai',
     batchSize: 20,
     rateLimitMs: 2000,
-    priority: 'by_score',
+    sourceSort: 'TIME',
+    sourceFilters: {},
+    endPolicy: 'HOLD_COMPLETED',
+    newItemLimit: 10,
+    backfillItemLimit: 10,
+    manualRunLimit: 100,
     genreTagIds: [],
     enabled: 0,
   };
@@ -102,7 +116,12 @@ function fromSchedule(schedule: CrawlerSchedule, sources: CrawlerSourceDescripto
     timezone: schedule.timezone || 'Asia/Shanghai',
     batchSize: schedule.batchSize,
     rateLimitMs: schedule.rateLimitMs,
-    priority: schedule.priority,
+    sourceSort: schedule.sourceSort || 'TIME',
+    sourceFilters: schedule.sourceFilters || {},
+    endPolicy: schedule.endPolicy || 'HOLD_COMPLETED',
+    newItemLimit: schedule.newItemLimit || schedule.batchSize || 10,
+    backfillItemLimit: schedule.backfillItemLimit || schedule.batchSize || 10,
+    manualRunLimit: schedule.manualRunLimit || 100,
     genreTagIds: (schedule.genreTagIds || []).map(String),
     enabled: schedule.enabled,
   };
@@ -129,6 +148,23 @@ function modeLabel(mode: CrawlerScheduleMode) {
   return SCHEDULE_MODES.find(item => item.mode === mode)?.label ?? mode;
 }
 
+const SOURCE_SORT_LABELS: Record<CrawlerSourceSort, string> = {
+  TIME: '按更新时间',
+  POPULARITY: '按人气',
+  RATING: '按评分',
+};
+
+const SOURCE_FILTER_LABELS: Record<string, string> = {
+  year: '年份',
+  region: '地区',
+  language: '语言',
+  genre: '来源题材',
+};
+
+function capabilityFor(source: CrawlerSourceDescriptor | null, contentType: string): CrawlerSourceCapabilities | null {
+  return source?.capabilities?.[contentType] ?? null;
+}
+
 export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSaved }: Props) {
   const toast = useToast();
   const [form, setForm] = useState<FormState>(() => schedule
@@ -144,11 +180,40 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
   );
   const [cronDraft, setCronDraft] = useState(schedule?.cronExpression || '');
   const [saving, setSaving] = useState(false);
+  const [sourcePreview, setSourcePreview] = useState<CrawlerSourceQueryPreview | null>(null);
+  const [sourcePreviewError, setSourcePreviewError] = useState('');
+  const [sourcePreviewing, setSourcePreviewing] = useState(false);
 
   const selectedSource = useMemo(
     () => sources.find(item => String(item.id) === form.sourceId) ?? null,
     [form.sourceId, sources],
   );
+  const selectedCapabilities = useMemo(
+    () => capabilityFor(selectedSource, form.contentType),
+    [form.contentType, selectedSource],
+  );
+  const supportedSorts = useMemo(
+    () => selectedCapabilities?.supportedSorts?.length
+      ? selectedCapabilities.supportedSorts
+      : ['TIME' as CrawlerSourceSort],
+    [selectedCapabilities],
+  );
+  const supportedFilters = useMemo(
+    () => selectedCapabilities?.supportedFilters ?? [],
+    [selectedCapabilities],
+  );
+  const effectiveSourceSort = supportedSorts.includes(form.sourceSort)
+    ? form.sourceSort : supportedSorts[0];
+  const effectiveSourceFilters = useMemo(
+    () => Object.fromEntries(
+      Object.entries(form.sourceFilters).filter(([key]) => supportedFilters.includes(key)),
+    ),
+    [form.sourceFilters, supportedFilters],
+  );
+  const sourceNeedsReview = Boolean(selectedCapabilities && (
+    !selectedCapabilities.verified
+      || ['CHALLENGE', 'UNAVAILABLE'].includes(selectedCapabilities.availability?.toUpperCase())
+  ));
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
@@ -232,11 +297,15 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
       setGenres([]);
       setGenresLoading(true);
     }
+    setSourcePreview(null);
+    setSourcePreviewError('');
     setForm(current => ({
       ...current,
       sourceId,
       contentType: binding?.contentType ?? current.contentType,
       adapterCode: binding?.code ?? '',
+      sourceSort: 'TIME',
+      sourceFilters: {},
       genreTagIds: binding?.contentType === current.contentType ? current.genreTagIds : [],
     }));
   };
@@ -245,10 +314,14 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
     const binding = selectedSource?.adapters.find(item => item.contentType === contentType);
     setGenres([]);
     setGenresLoading(true);
+    setSourcePreview(null);
+    setSourcePreviewError('');
     setForm(current => ({
       ...current,
       contentType,
       adapterCode: binding?.code ?? '',
+      sourceSort: 'TIME',
+      sourceFilters: {},
       genreTagIds: [],
     }));
   };
@@ -303,6 +376,37 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
     }
   };
 
+  const previewSource = async () => {
+    if (!form.adapterCode || !form.contentType) return null;
+    setSourcePreviewing(true);
+    setSourcePreviewError('');
+    try {
+      const response = await crawlerApi.previewSourceQuery({
+        sourceCode: form.adapterCode,
+        contentType: form.contentType,
+        sort: effectiveSourceSort,
+        sourceFilters: effectiveSourceFilters,
+        page: 1,
+      });
+      if (response.data?.code !== 200 || !response.data.data) {
+        throw new Error(response.data?.message || '来源查询预览失败');
+      }
+      const result = response.data.data;
+      setSourcePreview(result);
+      if (result.status === 'UNSUPPORTED') {
+        setSourcePreviewError(result.message);
+      }
+      return result;
+    } catch (error: unknown) {
+      const message = extractErrorMessage(error, '来源查询预览失败');
+      setSourcePreview(null);
+      setSourcePreviewError(message);
+      throw new Error(message);
+    } finally {
+      setSourcePreviewing(false);
+    }
+  };
+
   const save = async () => {
     if (!form.name.trim()) {
       toast.warning('请输入配置名称');
@@ -314,6 +418,10 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
     }
     setSaving(true);
     try {
+      const sourceResult = await previewSource();
+      if (sourceResult?.status === 'UNSUPPORTED') {
+        throw new Error(sourceResult.message || '来源不支持当前查询');
+      }
       const normalizedResponse = await crawlerApi.previewSchedule({
         scheduleMode: form.crawlMode === 'full' ? 'MANUAL' : form.scheduleMode,
         scheduleConfig: form.scheduleMode === 'CUSTOM_CRON'
@@ -340,10 +448,15 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
         timezone: normalized.timezone,
         batchSize: form.batchSize,
         rateLimitMs: form.rateLimitMs,
-        priority: form.priority,
+        sourceSort: effectiveSourceSort,
+        sourceFilters: effectiveSourceFilters,
+        endPolicy: form.endPolicy,
+        newItemLimit: form.newItemLimit,
+        backfillItemLimit: form.backfillItemLimit,
+        manualRunLimit: form.manualRunLimit,
         genreFilter: null,
         genreTagIds: form.genreTagIds.map(Number),
-        enabled: form.crawlMode === 'latest' && normalized.cronExpression
+        enabled: form.crawlMode === 'latest' && normalized.cronExpression && sourceResult?.status === 'VALIDATED'
           ? form.enabled
           : 0,
       });
@@ -383,9 +496,48 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
             <Field label="内容类型"><Select label="内容类型" value={form.contentType} onChange={changeContentType} options={CONTENT_TYPES.map(option => ({ ...option, disabled: !selectedSource?.adapters.some(item => item.contentType === option.value) }))} /></Field>
             <Field label="来源适配器"><div className="flex h-9 items-center rounded-lg border border-border bg-muted/35 px-3 text-sm text-foreground">{form.adapterCode || '当前组合不可用'}</div></Field>
             <Field label="抓取模式"><Select label="抓取模式" value={form.crawlMode} onChange={value => setForm(current => ({ ...current, crawlMode: value as 'latest' | 'full', scheduleMode: value === 'full' ? 'MANUAL' : current.scheduleMode, enabled: value === 'full' ? 0 : current.enabled }))} options={[{ label: '最新增量（推荐）', value: 'latest' }, { label: '全量手工', value: 'full' }]} /></Field>
-            <Field label="优先策略"><Select label="优先策略" value={form.priority} onChange={value => setForm(current => ({ ...current, priority: value }))} options={[{ label: '评分优先', value: 'by_score' }, { label: '热度优先', value: 'by_hot' }]} /></Field>
+            <Field label="来源排序"><Select label="来源排序" value={effectiveSourceSort} onChange={value => setForm(current => ({ ...current, sourceSort: value as CrawlerSourceSort }))} options={supportedSorts.map(sort => ({ label: SOURCE_SORT_LABELS[sort], value: sort }))} /></Field>
           </div>
-          <Field label="标准题材（可多选）"><MultiSelect label="标准题材（可多选）" value={form.genreTagIds} onChange={genreTagIds => setForm(current => ({ ...current, genreTagIds }))} options={genres.map(tag => ({ label: tag.name, value: String(tag.id) }))} searchable disabled={genresLoading} placeholder={genresLoading ? '正在加载标准题材' : genres.length ? '不限题材' : '当前类型暂无标准题材'} /></Field>
+          {supportedFilters.length > 0 && (
+            <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <p className="text-xs font-medium text-muted-foreground">来源原生筛选</p>
+                <p className="mt-1 text-xs text-muted-foreground">仅显示适配器已声明并可预览验证的筛选；这些字段会进入来源 URL。</p>
+              </div>
+              {supportedFilters.map(key => (
+                <Field key={key} label={SOURCE_FILTER_LABELS[key] || key}>
+                  <input
+                    className={inputClass}
+                    value={effectiveSourceFilters[key] || ''}
+                    placeholder={`输入${SOURCE_FILTER_LABELS[key] || key}`}
+                    onChange={event => setForm(current => ({
+                      ...current,
+                      sourceFilters: { ...current.sourceFilters, [key]: event.target.value },
+                    }))}
+                  />
+                </Field>
+              ))}
+            </div>
+          )}
+          <Field label="标准题材（入库后过滤，可多选）"><MultiSelect label="标准题材（入库后过滤，可多选）" value={form.genreTagIds} onChange={genreTagIds => setForm(current => ({ ...current, genreTagIds }))} options={genres.map(tag => ({ label: tag.name, value: String(tag.id) }))} searchable disabled={genresLoading} placeholder={genresLoading ? '正在加载标准题材' : genres.length ? '不限题材' : '当前类型暂无标准题材'} /></Field>
+          <div className={`rounded-xl border p-4 ${sourceNeedsReview || sourcePreview?.status === 'SOURCE_UNAVAILABLE' ? 'border-amber-500/35 bg-amber-500/10' : 'border-primary/25 bg-primary/5'}`}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex min-w-0 gap-2">
+                {sourceNeedsReview || sourcePreview?.status === 'SOURCE_UNAVAILABLE' ? <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" /> : <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />}
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground">来源能力与查询预览</p>
+                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                    {sourcePreviewError || sourcePreview?.message || selectedCapabilities?.message || '保存前预览当前来源排序和原生筛选。'}
+                  </p>
+                  {sourcePreview?.normalizedUri && <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">{sourcePreview.normalizedUri}</p>}
+                </div>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={() => void previewSource()} disabled={sourcePreviewing || !form.adapterCode}>
+                {sourcePreviewing ? <Loader2 className="animate-spin" /> : <TimerReset />}预览来源查询
+              </Button>
+            </div>
+            {sourceNeedsReview && <p className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-300">当前来源未验证或不可用：配置可以保存为“待复核”，但不能启用或启动。</p>}
+          </div>
         </section>
 
         <section className="space-y-4">
@@ -451,12 +603,20 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
         <section className="space-y-4">
           <div className="flex items-center gap-2 border-b border-border pb-2"><Clock3 className="size-4 text-primary" /><h3 className="text-sm font-semibold text-foreground">执行边界</h3></div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="单次最多处理"><input className={inputClass} type="number" min={1} max={500} value={form.batchSize} onChange={event => setForm(current => ({ ...current, batchSize: Number(event.target.value) }))} /></Field>
-            <Field label="每次请求间隔（毫秒）"><input className={inputClass} type="number" min={500} max={60000} value={form.rateLimitMs} onChange={event => setForm(current => ({ ...current, rateLimitMs: Number(event.target.value) }))} /></Field>
+            {form.crawlMode === 'full' ? (
+              <Field label="人工全量执行上限"><input className={inputClass} type="number" min={1} max={5000} value={form.manualRunLimit} onChange={event => setForm(current => ({ ...current, manualRunLimit: Number(event.target.value) }))} /></Field>
+            ) : (
+              <>
+                <Field label="新内容上限"><input className={inputClass} type="number" min={1} max={500} value={form.newItemLimit} onChange={event => setForm(current => ({ ...current, newItemLimit: Number(event.target.value) }))} /></Field>
+                <Field label="历史回填上限"><input className={inputClass} type="number" min={1} max={500} value={form.backfillItemLimit} onChange={event => setForm(current => ({ ...current, backfillItemLimit: Number(event.target.value) }))} /></Field>
+              </>
+            )}
+            <Field label="每次请求间隔（毫秒）"><input className={inputClass} type="number" min={2000} max={60000} value={form.rateLimitMs} onChange={event => setForm(current => ({ ...current, rateLimitMs: Number(event.target.value) }))} /></Field>
+            {form.crawlMode !== 'full' && <Field label="到达末尾后"><Select label="到达末尾后" value={form.endPolicy} onChange={value => setForm(current => ({ ...current, endPolicy: value as CrawlerEndPolicy }))} options={[{ label: '保持完成，等待人工重置', value: 'HOLD_COMPLETED' }, { label: '人工启动时开启新周期', value: 'RESTART_CYCLE' }]} /></Field>}
           </div>
           <label className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
-            <input type="checkbox" className="mt-1 size-4 accent-primary" checked={form.enabled === 1} disabled={form.crawlMode === 'full' || !preview?.cronExpression} onChange={event => setForm(current => ({ ...current, enabled: event.target.checked ? 1 : 0 }))} />
-            <span><span className="block text-sm font-medium text-foreground">保存后启用自动调度</span><span className="mt-1 block text-xs text-muted-foreground">未勾选时只保存规则；手工启动仍可随时使用。全量与仅手工模式不会自动运行。</span></span>
+            <input type="checkbox" className="mt-1 size-4 accent-primary" checked={form.enabled === 1} disabled={form.crawlMode === 'full' || !preview?.cronExpression || sourceNeedsReview || sourcePreview?.status !== 'VALIDATED'} onChange={event => setForm(current => ({ ...current, enabled: event.target.checked ? 1 : 0 }))} />
+            <span><span className="block text-sm font-medium text-foreground">保存后启用自动调度</span><span className="mt-1 block text-xs text-muted-foreground">未勾选时只保存规则；全量与待复核来源不会自动运行。来源预览通过后才可启用。</span></span>
           </label>
         </section>
       </div>
