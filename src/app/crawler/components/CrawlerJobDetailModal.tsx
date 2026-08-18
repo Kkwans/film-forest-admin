@@ -21,6 +21,7 @@ import {
   elapsedFor,
   formatCrawlerTime,
   inputClass,
+  sourceSortLabel,
 } from './crawler-ui';
 
 interface Props {
@@ -198,7 +199,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
             <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               {[
                 ['当前页', job.currentPage ?? '-'], ['当前项', job.currentItem || '-'],
-                ['来源排序', job.sourceSort || '-'], ['遍历模式', job.traversalMode || '-'],
+                ['来源排序', sourceSortLabel(job.sourceSort)], ['遍历模式', job.traversalMode || '-'],
                 ['排队时间', formatCrawlerTime(job.queuedAt)], ['开始时间', formatCrawlerTime(job.startedAt)],
                 ['最近心跳', formatCrawlerTime(job.heartbeatAt)], ['完成时间', formatCrawlerTime(job.finishedAt)],
                 ['累计耗时', elapsedFor(job.startedAt, job.queuedAt, job.durationMs)], ['检查点', job.checkpoint || '-'],

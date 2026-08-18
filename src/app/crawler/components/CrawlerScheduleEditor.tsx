@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CalendarDays, CheckCircle2, ChevronDown, Clock3, Loader2, TimerReset } from 'lucide-react';
+import { AlertTriangle, CalendarDays, CheckCircle2, ChevronDown, Clock3, ExternalLink, Loader2, SearchCheck, TimerReset } from 'lucide-react';
 import {
   crawlerApi,
   tagApi,
@@ -21,7 +21,7 @@ import { MultiSelect, Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 import { extractErrorMessage } from '@/lib/utils';
 import { getAccordionPanelClass } from '@/components/ui/interaction-contracts';
-import { CONTENT_TYPES, Field, formatCrawlerTime, inputClass } from './crawler-ui';
+import { CONTENT_TYPES, Field, formatCrawlerTime, inputClass, SOURCE_SORT_LABELS as SHARED_SOURCE_SORT_LABELS } from './crawler-ui';
 
 type FormState = {
   id?: number;
@@ -148,10 +148,14 @@ function modeLabel(mode: CrawlerScheduleMode) {
   return SCHEDULE_MODES.find(item => item.mode === mode)?.label ?? mode;
 }
 
-const SOURCE_SORT_LABELS: Record<CrawlerSourceSort, string> = {
-  TIME: '按更新时间',
-  POPULARITY: '按人气',
-  RATING: '按评分',
+const SOURCE_SORT_LABELS: Record<CrawlerSourceSort, string> = SHARED_SOURCE_SORT_LABELS;
+
+const SOURCE_SORT_OPTIONS: CrawlerSourceSort[] = ['TIME', 'RATING', 'POPULARITY'];
+
+const SOURCE_SORT_DESCRIPTIONS: Record<CrawlerSourceSort, string> = {
+  TIME: '优先发现来源站最近更新的内容',
+  RATING: '按来源站评分从高到低回填',
+  POPULARITY: '按来源站热度从高到低回填',
 };
 
 const SOURCE_FILTER_LABELS: Record<string, string> = {
@@ -163,6 +167,26 @@ const SOURCE_FILTER_LABELS: Record<string, string> = {
 
 function capabilityFor(source: CrawlerSourceDescriptor | null, contentType: string): CrawlerSourceCapabilities | null {
   return source?.capabilities?.[contentType] ?? null;
+}
+
+function previewStatusLabel(status?: CrawlerSourceQueryPreview['status'] | null) {
+  switch (status) {
+    case 'VALIDATED': return '已验证';
+    case 'SOURCE_UNAVAILABLE': return '来源不可用';
+    case 'UNSUPPORTED': return '不支持';
+    case 'NEEDS_REVIEW': return '待复核';
+    default: return '尚未验证';
+  }
+}
+
+function previewStatusClass(status?: CrawlerSourceQueryPreview['status'] | null) {
+  switch (status) {
+    case 'VALIDATED': return 'border-primary/25 bg-primary/10 text-primary';
+    case 'UNSUPPORTED': return 'border-destructive/25 bg-destructive/10 text-destructive';
+    case 'SOURCE_UNAVAILABLE':
+    case 'NEEDS_REVIEW': return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+    default: return 'border-border bg-muted/55 text-muted-foreground';
+  }
 }
 
 export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSaved }: Props) {
@@ -193,24 +217,30 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
     [form.contentType, selectedSource],
   );
   const supportedSorts = useMemo(
-    () => selectedCapabilities?.supportedSorts?.length
-      ? selectedCapabilities.supportedSorts
-      : ['TIME' as CrawlerSourceSort],
+    () => selectedCapabilities?.supportedSorts ?? [],
     [selectedCapabilities],
   );
   const supportedFilters = useMemo(
     () => selectedCapabilities?.supportedFilters ?? [],
     [selectedCapabilities],
   );
-  const effectiveSourceSort = supportedSorts.includes(form.sourceSort)
-    ? form.sourceSort : supportedSorts[0];
+  const effectiveSourceSort = SOURCE_SORT_OPTIONS.includes(form.sourceSort)
+    ? form.sourceSort : 'TIME';
+  const sourceSortOptions = useMemo(
+    () => SOURCE_SORT_OPTIONS.map(sort => ({
+      label: SOURCE_SORT_LABELS[sort],
+      value: sort,
+      disabled: Boolean(selectedCapabilities?.verified && !supportedSorts.includes(sort)),
+    })),
+    [selectedCapabilities?.verified, supportedSorts],
+  );
   const effectiveSourceFilters = useMemo(
     () => Object.fromEntries(
       Object.entries(form.sourceFilters).filter(([key]) => supportedFilters.includes(key)),
     ),
     [form.sourceFilters, supportedFilters],
   );
-  const sourceNeedsReview = Boolean(selectedCapabilities && (
+  const sourceNeedsReview = Boolean(!selectedCapabilities || (
     !selectedCapabilities.verified
       || ['CHALLENGE', 'UNAVAILABLE'].includes(selectedCapabilities.availability?.toUpperCase())
   ));
@@ -253,22 +283,6 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
         const normalized = response.data.data as CrawlerSchedulePreview;
         setPreview(normalized);
         setPreviewError('');
-        setForm(current => {
-          if (current.scheduleMode !== form.scheduleMode || current.crawlMode !== form.crawlMode) {
-            return current;
-          }
-          const nextConfig = normalized.scheduleConfig || {};
-          const sameConfig = JSON.stringify(current.scheduleConfig) === JSON.stringify(nextConfig);
-          const sameCron = (current.cronExpression || '') === (normalized.cronExpression || '');
-          if (sameConfig && sameCron && current.timezone === normalized.timezone) return current;
-          return {
-            ...current,
-            scheduleConfig: nextConfig,
-            cronExpression: normalized.cronExpression || '',
-            timezone: normalized.timezone,
-          };
-        });
-        if (mode !== 'CUSTOM_CRON') setCronDraft(normalized.cronExpression || '');
       } catch (error: unknown) {
         if (!cancelled) {
           setPreview(null);
@@ -496,7 +510,22 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
             <Field label="内容类型"><Select label="内容类型" value={form.contentType} onChange={changeContentType} options={CONTENT_TYPES.map(option => ({ ...option, disabled: !selectedSource?.adapters.some(item => item.contentType === option.value) }))} /></Field>
             <Field label="来源适配器"><div className="flex h-9 items-center rounded-lg border border-border bg-muted/35 px-3 text-sm text-foreground">{form.adapterCode || '当前组合不可用'}</div></Field>
             <Field label="抓取模式"><Select label="抓取模式" value={form.crawlMode} onChange={value => setForm(current => ({ ...current, crawlMode: value as 'latest' | 'full', scheduleMode: value === 'full' ? 'MANUAL' : current.scheduleMode, enabled: value === 'full' ? 0 : current.enabled }))} options={[{ label: '最新增量（推荐）', value: 'latest' }, { label: '全量手工', value: 'full' }]} /></Field>
-            <Field label="来源排序"><Select label="来源排序" value={effectiveSourceSort} onChange={value => setForm(current => ({ ...current, sourceSort: value as CrawlerSourceSort }))} options={supportedSorts.map(sort => ({ label: SOURCE_SORT_LABELS[sort], value: sort }))} /></Field>
+            <Field label="来源排序">
+              <Select
+                label="来源排序"
+                value={effectiveSourceSort}
+                onChange={value => {
+                  setSourcePreview(null);
+                  setSourcePreviewError('');
+                  setForm(current => ({ ...current, sourceSort: value as CrawlerSourceSort }));
+                }}
+                options={sourceSortOptions}
+              />
+              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
+                {SOURCE_SORT_DESCRIPTIONS[effectiveSourceSort]}
+                {sourceNeedsReview ? ' · 当前来源待验证，保存后保持待复核' : ''}
+              </p>
+            </Field>
           </div>
           {supportedFilters.length > 0 && (
             <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-2">
@@ -510,34 +539,86 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                     className={inputClass}
                     value={effectiveSourceFilters[key] || ''}
                     placeholder={`输入${SOURCE_FILTER_LABELS[key] || key}`}
-                    onChange={event => setForm(current => ({
-                      ...current,
-                      sourceFilters: { ...current.sourceFilters, [key]: event.target.value },
-                    }))}
+                    onChange={event => {
+                      setSourcePreview(null);
+                      setSourcePreviewError('');
+                      setForm(current => ({
+                        ...current,
+                        sourceFilters: { ...current.sourceFilters, [key]: event.target.value },
+                      }));
+                    }}
                   />
                 </Field>
               ))}
             </div>
           )}
-          <Field label="标准题材（入库后过滤，可多选）"><MultiSelect label="标准题材（入库后过滤，可多选）" value={form.genreTagIds} onChange={genreTagIds => setForm(current => ({ ...current, genreTagIds }))} options={genres.map(tag => ({ label: tag.name, value: String(tag.id) }))} searchable disabled={genresLoading} placeholder={genresLoading ? '正在加载标准题材' : genres.length ? '不限题材' : '当前类型暂无标准题材'} /></Field>
-          <div className={`rounded-xl border p-4 ${sourceNeedsReview || sourcePreview?.status === 'SOURCE_UNAVAILABLE' ? 'border-amber-500/35 bg-amber-500/10' : 'border-primary/25 bg-primary/5'}`}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex min-w-0 gap-2">
-                {sourceNeedsReview || sourcePreview?.status === 'SOURCE_UNAVAILABLE' ? <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" /> : <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-primary" />}
+          <Field label="标准题材筛选">
+            <MultiSelect
+              label="标准题材筛选（入库后过滤，可多选）"
+              value={form.genreTagIds}
+              onChange={genreTagIds => setForm(current => ({ ...current, genreTagIds }))}
+              options={genres.map(tag => ({ label: tag.name, value: String(tag.id) }))}
+              searchable
+              disabled={genresLoading}
+              placeholder={genresLoading ? '正在加载标准题材' : genres.length ? '选择入库后过滤的题材' : '当前类型暂无标准题材'}
+            />
+            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">只影响入库后的本地过滤，不会拼接到来源网址。</p>
+          </Field>
+
+          <section className="rounded-2xl border border-border bg-card p-4 shadow-sm shadow-black/[0.03]" aria-live="polite" aria-busy={sourcePreviewing}>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex min-w-0 items-start gap-3">
+                <span className={`mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl ${sourceNeedsReview ? 'bg-amber-500/12 text-amber-700 dark:text-amber-300' : 'bg-primary/10 text-primary'}`}>
+                  {sourceNeedsReview ? <AlertTriangle className="size-4" /> : <SearchCheck className="size-4" />}
+                </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">来源能力与查询预览</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold text-foreground">验证来源查询</h3>
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${previewStatusClass(sourcePreview?.status)}`}>
+                      {previewStatusLabel(sourcePreview?.status)}
+                    </span>
+                  </div>
                   <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {sourcePreviewError || sourcePreview?.message || selectedCapabilities?.message || '保存前预览当前来源排序和原生筛选。'}
+                    预览只读取第 1 页少量列表，不创建 Job、不写入内容，也不会推进续爬游标。
                   </p>
-                  {sourcePreview?.normalizedUri && <p className="mt-2 break-all font-mono text-[11px] text-muted-foreground">{sourcePreview.normalizedUri}</p>}
                 </div>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => void previewSource()} disabled={sourcePreviewing || !form.adapterCode}>
-                {sourcePreviewing ? <Loader2 className="animate-spin" /> : <TimerReset />}预览来源查询
+                {sourcePreviewing ? <Loader2 className="animate-spin" /> : <TimerReset />}验证当前查询
               </Button>
             </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <div className="rounded-xl border border-border bg-muted/25 px-3 py-2.5">
+                <p className="text-[11px] text-muted-foreground">排序</p>
+                <p className="mt-1 text-sm font-medium text-foreground">{SOURCE_SORT_LABELS[effectiveSourceSort]}</p>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/25 px-3 py-2.5">
+                <p className="text-[11px] text-muted-foreground">来源能力</p>
+                <p className="mt-1 text-sm font-medium text-foreground">{selectedCapabilities?.verified ? '已验证' : '待验证'}</p>
+                <p className="mt-1 truncate text-[11px] text-muted-foreground" title={supportedSorts.map(sort => SOURCE_SORT_LABELS[sort] ?? sort).join('、')}>
+                  已声明：{supportedSorts.length ? supportedSorts.map(sort => SOURCE_SORT_LABELS[sort] ?? sort).join('、') : '暂无'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/25 px-3 py-2.5">
+                <p className="text-[11px] text-muted-foreground">样本</p>
+                <p className="mt-1 text-sm font-medium text-foreground">{sourcePreview ? `${sourcePreview.sampleCount} 条列表项` : '点击验证后显示'}</p>
+              </div>
+            </div>
+
+            <div className={`mt-3 rounded-xl border px-3 py-2.5 text-xs leading-5 ${previewStatusClass(sourcePreview?.status)}`}>
+              <p>{sourcePreviewError || sourcePreview?.message || selectedCapabilities?.message || '选择排序后点击“验证当前查询”，结果会显示在这里。'}</p>
+              {sourcePreview?.normalizedUri && (
+                <p className="mt-1 flex items-start gap-1 break-all font-mono text-[11px] opacity-80">
+                  <ExternalLink className="mt-0.5 size-3 shrink-0" />{sourcePreview.normalizedUri}
+                </p>
+              )}
+              {sourcePreview && sourcePreview.sampleExternalIds.length > 0 && (
+                <p className="mt-1 opacity-80">样本外部 ID：{sourcePreview.sampleExternalIds.join('、')}</p>
+              )}
+            </div>
             {sourceNeedsReview && <p className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-300">当前来源未验证或不可用：配置可以保存为“待复核”，但不能启用或启动。</p>}
-          </div>
+          </section>
         </section>
 
         <section className="space-y-4">
@@ -595,8 +676,45 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
             </div>
           </div>}
 
-          <div aria-live="polite" className={`rounded-xl border p-4 ${previewError ? 'border-destructive/35 bg-destructive/10' : 'border-primary/25 bg-primary/5'}`}>
-            {previewing ? <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin" />正在校验并计算未来执行时间</div> : previewError ? <p className="text-sm text-destructive">{previewError}</p> : preview ? <div className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-2"><div><p className="text-sm font-medium text-foreground">{preview.description}</p><p className="mt-1 font-mono text-xs text-muted-foreground">{preview.cronExpression || '无自动 Cron'} · {preview.timezone}</p></div><span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{modeLabel(preview.scheduleMode)}</span></div>{preview.nextRuns.length > 0 && <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">{preview.nextRuns.map((run, index) => <div key={run} className="rounded-lg border border-border bg-background px-3 py-2"><p className="text-[11px] text-muted-foreground">第 {index + 1} 次</p><p className="mt-1 text-xs font-medium text-foreground">{formatCrawlerTime(run)}</p></div>)}</div>}</div> : <p className="text-sm text-muted-foreground">请选择定时规则。</p>}
+          <div aria-live="polite" aria-busy={previewing} className={`rounded-xl border p-4 ${previewError ? 'border-destructive/35 bg-destructive/10' : 'border-primary/25 bg-primary/5'}`}>
+            <div className="relative min-h-[7.5rem]">
+              <div className={`transition-opacity duration-150 motion-reduce:transition-none ${previewing ? 'opacity-55' : 'opacity-100'}`}>
+                {previewError ? (
+                  <p className="text-sm text-destructive">{previewError}</p>
+                ) : preview ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{preview.description}</p>
+                        <p className="mt-1 font-mono text-xs text-muted-foreground">{preview.cronExpression || '无自动 Cron'} · {preview.timezone}</p>
+                      </div>
+                      <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{modeLabel(preview.scheduleMode)}</span>
+                    </div>
+                    {preview.nextRuns.length > 0 ? (
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                        {preview.nextRuns.map((run, index) => (
+                          <div key={run} className="rounded-lg border border-border bg-background px-3 py-2">
+                            <p className="text-[11px] text-muted-foreground">第 {index + 1} 次</p>
+                            <p className="mt-1 text-xs font-medium text-foreground">{formatCrawlerTime(run)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">仅手工启动，不自动运行。</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">请选择定时规则，系统会在这里显示实际执行说明。</p>
+                )}
+              </div>
+              {previewing && (
+                <div className="absolute inset-0 flex items-start justify-end pt-0.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-background/85 px-2.5 py-1 text-xs text-muted-foreground shadow-sm">
+                    <Loader2 className="size-3.5 animate-spin" />正在更新
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </section>
 

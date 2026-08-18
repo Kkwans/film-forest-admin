@@ -34,6 +34,7 @@ interface OptionsPopupProps {
   options: SelectOption[];
   selectedValues: string[];
   searchable: boolean;
+  compact?: boolean;
   search: string;
   onSearchChange: (value: string) => void;
   searchRef: React.RefObject<HTMLInputElement | null>;
@@ -41,7 +42,7 @@ interface OptionsPopupProps {
   size: 'sm' | 'default';
 }
 
-function OptionsPopup({ options, selectedValues, searchable, search, onSearchChange, searchRef, finalFocus, size }: OptionsPopupProps) {
+function OptionsPopup({ options, selectedValues, searchable, compact = false, search, onSearchChange, searchRef, finalFocus, size }: OptionsPopupProps) {
   const filtered = useMemo(
     () => filterSelectOptions(options, search, selectedValues),
     [options, search, selectedValues],
@@ -100,9 +101,12 @@ function OptionsPopup({ options, selectedValues, searchable, search, onSearchCha
               </label>
             </div>
           )}
-          <SelectPrimitive.List className="max-h-[min(18rem,var(--available-height))] overflow-y-auto p-1.5">
+          <SelectPrimitive.List className={cn(
+            'max-h-[min(18rem,var(--available-height))] overflow-y-auto p-1.5',
+            compact && 'grid grid-cols-2 gap-1 sm:grid-cols-3',
+          )}>
             {filtered.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">没有匹配选项</p>
+              <p className={cn('px-3 py-6 text-center text-sm text-muted-foreground', compact && 'col-span-full')}>没有匹配选项</p>
             ) : (
               filtered.map(option => (
                 <SelectPrimitive.Item
@@ -111,8 +115,8 @@ function OptionsPopup({ options, selectedValues, searchable, search, onSearchCha
                   label={option.label}
                   disabled={option.disabled}
                   className={cn(
-                    'grid min-w-0 cursor-default grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg px-2.5 outline-none select-none',
-                    size === 'sm' ? 'min-h-8 text-xs' : 'min-h-9 text-sm',
+                    'grid min-w-0 cursor-default grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 outline-none select-none',
+                    compact ? 'min-h-8 text-xs' : size === 'sm' ? 'min-h-8 text-xs' : 'min-h-9 text-sm',
                     'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[selected]:font-medium data-[disabled]:pointer-events-none data-[disabled]:opacity-45',
                   )}
                 >
@@ -221,7 +225,6 @@ interface MultiSelectProps {
   searchable?: boolean;
   disabled?: boolean;
   className?: string;
-  maxDisplay?: number;
   label?: string;
 }
 
@@ -233,16 +236,13 @@ export function MultiSelect({
   searchable = false,
   disabled = false,
   className,
-  maxDisplay = 3,
   label,
 }: MultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
   const selected = options.filter(option => value.includes(option.value));
-  const visibleLabels = selected.slice(0, maxDisplay).map(option => option.label);
-  const hiddenCount = Math.max(0, selected.length - maxDisplay);
 
   useEffect(() => {
     if (!open || !searchable) return undefined;
@@ -269,13 +269,38 @@ export function MultiSelect({
         disabled={disabled}
       >
         {label && <SelectPrimitive.Label className="sr-only">{label}</SelectPrimitive.Label>}
-        <SelectPrimitive.Trigger ref={triggerRef} className="flex min-h-9 w-full items-center justify-between gap-2 rounded-xl border border-input bg-background px-3 py-1.5 text-left text-sm text-foreground outline-none transition-[border-color,box-shadow,background-color] hover:border-muted-foreground/55 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 data-[popup-open]:border-ring data-[popup-open]:ring-3 data-[popup-open]:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-55">
-          <SelectPrimitive.Value placeholder={placeholder} className="min-w-0 flex-1 truncate data-[placeholder]:text-muted-foreground">
-            {() => selected.length === 0
-              ? placeholder
-              : `${visibleLabels.join('、')}${hiddenCount > 0 ? `，另 ${hiddenCount} 项` : ''}`}
-          </SelectPrimitive.Value>
-          <SelectPrimitive.Icon className="shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none data-[popup-open]:rotate-180">
+        <SelectPrimitive.Trigger
+          ref={element => { triggerRef.current = element; }}
+          nativeButton={false}
+          render={<div />}
+          className="flex min-h-10 w-full items-start justify-between gap-2 rounded-xl border border-input bg-background px-3 py-1.5 text-left text-sm text-foreground outline-none transition-[border-color,box-shadow,background-color] hover:border-muted-foreground/55 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 data-[popup-open]:border-ring data-[popup-open]:ring-3 data-[popup-open]:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-55"
+        >
+          <div className="flex max-h-20 min-w-0 flex-1 flex-wrap content-start items-center gap-1.5 overflow-y-auto pr-1">
+            {selected.length === 0 ? (
+              <span className="py-1 text-muted-foreground">{placeholder}</span>
+            ) : selected.map(option => (
+              <span key={option.value} className="inline-flex max-w-full items-center gap-1 rounded-lg border border-primary/15 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                <span className="truncate">{option.label}</span>
+                {!disabled && (
+                  <button
+                    type="button"
+                    onPointerDown={event => event.stopPropagation()}
+                    onClick={event => {
+                      event.stopPropagation();
+                      onChange?.(value.filter(item => item !== option.value));
+                    }}
+                    onKeyDown={event => event.stopPropagation()}
+                    className="shrink-0 rounded-md p-0.5 text-primary/65 transition-colors hover:bg-primary/15 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35"
+                    aria-label={`移除${option.label}`}
+                    title={`移除${option.label}`}
+                  >
+                    <X className="size-3" />
+                  </button>
+                )}
+              </span>
+            ))}
+          </div>
+          <SelectPrimitive.Icon className="mt-1 shrink-0 text-muted-foreground transition-transform motion-reduce:transition-none data-[popup-open]:rotate-180">
             <ChevronDown aria-hidden="true" className="size-4" />
           </SelectPrimitive.Icon>
         </SelectPrimitive.Trigger>
@@ -283,6 +308,7 @@ export function MultiSelect({
           options={options}
           selectedValues={value}
           searchable={searchable}
+          compact
           search={search}
           onSearchChange={setSearch}
           searchRef={searchRef}
@@ -290,25 +316,6 @@ export function MultiSelect({
           size="default"
         />
       </SelectPrimitive.Root>
-      {selected.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1.5" aria-label="已选择项目">
-          {selected.map(option => (
-            <span key={option.value} className="inline-flex items-center gap-1 rounded-lg bg-accent px-2 py-1 text-xs font-medium text-accent-foreground">
-              {option.label}
-              {!disabled && (
-                <button
-                  type="button"
-                  onClick={() => onChange?.(value.filter(item => item !== option.value))}
-                  className="rounded text-accent-foreground/65 transition-colors hover:text-accent-foreground"
-                  aria-label={`移除${option.label}`}
-                >
-                  <X className="size-3" />
-                </button>
-              )}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

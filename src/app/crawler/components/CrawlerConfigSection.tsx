@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { extractErrorMessage } from '@/lib/utils';
-import { StatusBadge, contentTypeLabel, formatCrawlerTime } from './crawler-ui';
+import { StatusBadge, contentTypeLabel, formatCrawlerTime, sourceSortLabel } from './crawler-ui';
 import { CrawlerScheduleEditor } from './CrawlerScheduleEditor';
 
 interface Props {
@@ -24,6 +24,7 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CrawlerSchedule | null>(null);
   const [actionId, setActionId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const [cursors, setCursors] = useState<Record<number, CrawlerScheduleCursor>>({});
 
   useEffect(() => {
@@ -119,13 +120,21 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
       variant: 'danger',
     });
     if (!confirmed) return;
+    setDeletingId(schedule.id);
     try {
       const response = await crawlerApi.deleteSchedule(schedule.id);
       if (response.data?.data !== true) throw new Error(response.data?.message || '存在活动 Job，不能删除');
+      setCursors(current => {
+        const next = { ...current };
+        delete next[schedule.id];
+        return next;
+      });
       toast.success('配置已删除，历史 Job 已保留');
       await onRefresh();
     } catch (error: unknown) {
       toast.error(extractErrorMessage(error, '删除配置失败'));
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -165,7 +174,7 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
                   </div>
                   <dl className="grid grid-cols-2 gap-x-5 gap-y-2 text-xs sm:grid-cols-4">
                     <div><dt className="text-muted-foreground">运行规则</dt><dd className="mt-0.5 text-foreground">{schedule.crawlMode === 'full' ? '全量手工' : schedule.scheduleMode === 'MANUAL' ? '仅手工' : schedule.scheduleMode === 'CUSTOM_CRON' ? '高级 Cron' : schedule.scheduleMode}</dd></div>
-                    <div><dt className="text-muted-foreground">来源排序</dt><dd className="mt-0.5 text-foreground">{schedule.sourceSort || 'TIME'}</dd></div>
+                    <div><dt className="text-muted-foreground">来源排序</dt><dd className="mt-0.5 text-foreground">{sourceSortLabel(schedule.sourceSort || 'TIME')}</dd></div>
                     <div><dt className="text-muted-foreground">新内容 / 回填</dt><dd className="mt-0.5 text-foreground">{schedule.newItemLimit ?? schedule.batchSize} / {schedule.backfillItemLimit ?? schedule.batchSize}</dd></div>
                     <div><dt className="text-muted-foreground">游标</dt><dd className="mt-0.5 text-foreground">{cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '尚未建立'}</dd></div>
                     <div><dt className="text-muted-foreground">上次运行</dt><dd className="mt-0.5 text-foreground">{formatCrawlerTime(schedule.lastRunTime)}</dd></div>
@@ -180,7 +189,9 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
                     </Button>
                     <Button variant="ghost" size="icon" title="重置续爬游标" disabled={active || !cursor} onClick={() => void resetCursor(schedule)}><RotateCcw /></Button>
                     <Button variant="ghost" size="icon" title="编辑" onClick={() => { setEditing(schedule); setEditorOpen(true); }}><Pencil /></Button>
-                    <Button variant="destructive" size="icon" title="删除" onClick={() => void remove(schedule)}><Trash2 /></Button>
+                    <Button variant="destructive" size="icon" title="删除" disabled={deletingId === schedule.id} onClick={() => void remove(schedule)}>
+                      {deletingId === schedule.id ? <Loader2 className="animate-spin" /> : <Trash2 />}
+                    </Button>
                   </div>
                 </article>
               );

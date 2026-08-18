@@ -46,6 +46,16 @@ export function contentTypeLabel(value?: string | null) {
   return CONTENT_TYPES.find(item => item.value === value)?.label ?? value ?? '-';
 }
 
+export const SOURCE_SORT_LABELS: Record<string, string> = {
+  TIME: '按更新时间',
+  RATING: '按评分',
+  POPULARITY: '按热度',
+};
+
+export function sourceSortLabel(value?: string | null) {
+  return value ? SOURCE_SORT_LABELS[value] ?? value : '-';
+}
+
 export function parseCrawlerTime(value: string) {
   return new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`);
 }
