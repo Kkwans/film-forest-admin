@@ -109,7 +109,7 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         }}
       >
         <DialogPrimitive.Portal>
-          <DialogPrimitive.Backdrop className={`${UI_LAYER_CLASSES.dialogBackdrop} fixed inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity duration-150 motion-reduce:transition-none data-[starting-style]:opacity-0 data-[ending-style]:opacity-0`} />
+          <DialogPrimitive.Backdrop className={`${UI_LAYER_CLASSES.dialogBackdrop} fixed inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity duration-150 motion-reduce:transition-none data-[starting-style]:opacity-0 data-[ending-style]:opacity-0 data-[closed]:pointer-events-none data-[ending-style]:pointer-events-none`} />
           <DialogPrimitive.Viewport className={`${UI_LAYER_CLASSES.dialog} fixed inset-0 flex items-center justify-center p-4`}>
             {dialog && (
               <DialogPrimitive.Popup
