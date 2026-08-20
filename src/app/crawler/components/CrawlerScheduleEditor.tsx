@@ -204,6 +204,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
   );
   const [cronDraft, setCronDraft] = useState(schedule?.cronExpression || '');
   const [saving, setSaving] = useState(false);
+  const [cronApplying, setCronApplying] = useState(false);
   const [sourcePreview, setSourcePreview] = useState<CrawlerSourceQueryPreview | null>(null);
   const [sourcePreviewError, setSourcePreviewError] = useState('');
   const [sourcePreviewing, setSourcePreviewing] = useState(false);
@@ -360,7 +361,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
   };
 
   const applyCron = async () => {
-    setPreviewing(true);
+    setCronApplying(true);
     try {
       const response = await crawlerApi.previewSchedule({
         cronExpression: cronDraft,
@@ -386,7 +387,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
       setPreviewError(extractErrorMessage(error, 'Cron 无法识别'));
       setPreview(null);
     } finally {
-      setPreviewing(false);
+      setCronApplying(false);
     }
   };
 
@@ -499,7 +500,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
       title={form.id ? '编辑爬虫计划' : '新建爬虫计划'}
       description="选择来源、标准题材和易读的定时规则；保存不会立即启动任务。"
       width="xl"
-      footer={<><Button variant="outline" onClick={onClose}>取消</Button><Button onClick={() => void save()} disabled={saving || previewing || genresLoading}>{saving && <Loader2 className="animate-spin" />}{saving ? '保存中' : '保存计划'}</Button></>}
+      footer={<><Button variant="outline" onClick={onClose}>取消</Button><Button onClick={() => void save()} disabled={saving || genresLoading}>{saving && <Loader2 className="animate-spin" />}{saving ? '保存中' : '保存计划'}</Button></>}
     >
       <div className="space-y-6">
         <section className="space-y-4">
@@ -668,8 +669,8 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
               <div className="min-h-0 min-w-0 overflow-hidden border-t border-border">
                 <div className="grid min-w-0 gap-3 p-4 md:grid-cols-[minmax(0,1fr)_auto]">
                   <input className={inputClass} value={cronDraft} placeholder="例如：0 0 2 * * *" onChange={event => setCronDraft(event.target.value)} />
-                  <Button variant="outline" onClick={() => void applyCron()} disabled={previewing}>
-                    {previewing ? <Loader2 className="animate-spin" /> : <TimerReset />}识别并应用
+                  <Button variant="outline" onClick={() => void applyCron()} disabled={cronApplying}>
+                    {cronApplying ? <Loader2 className="animate-spin" /> : <TimerReset />}识别并应用
                   </Button>
                 </div>
               </div>
@@ -678,7 +679,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
 
           <div aria-live="polite" aria-busy={previewing} className={`rounded-xl border p-4 ${previewError ? 'border-destructive/35 bg-destructive/10' : 'border-primary/25 bg-primary/5'}`}>
             <div className="relative min-h-[7.5rem]">
-              <div className={`transition-opacity duration-150 motion-reduce:transition-none ${previewing ? 'opacity-55' : 'opacity-100'}`}>
+              <div>
                 {previewError ? (
                   <p className="text-sm text-destructive">{previewError}</p>
                 ) : preview ? (
@@ -686,7 +687,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
                         <p className="text-sm font-medium text-foreground">{preview.description}</p>
-                        <p className="mt-1 font-mono text-xs text-muted-foreground">{preview.cronExpression || '无自动 Cron'} · {preview.timezone}</p>
+                        <p className="mt-1 font-mono text-xs text-muted-foreground">{preview.cronExpression || '仅手工启动'} · {preview.timezone}</p>
                       </div>
                       <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{modeLabel(preview.scheduleMode)}</span>
                     </div>
@@ -700,20 +701,13 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground">仅手工启动，不自动运行。</p>
+                      <p className="text-xs text-muted-foreground">不会自动运行，仅在任务列表点击“手工启动”时执行。</p>
                     )}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">请选择定时规则，系统会在这里显示实际执行说明。</p>
                 )}
               </div>
-              {previewing && (
-                <div className="absolute inset-0 flex items-start justify-end pt-0.5">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-background/85 px-2.5 py-1 text-xs text-muted-foreground shadow-sm">
-                    <Loader2 className="size-3.5 animate-spin" />正在更新
-                  </span>
-                </div>
-              )}
             </div>
           </div>
         </section>
@@ -730,7 +724,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
               </>
             )}
             <Field label="每次请求间隔（毫秒）"><input className={inputClass} type="number" min={2000} max={60000} value={form.rateLimitMs} onChange={event => setForm(current => ({ ...current, rateLimitMs: Number(event.target.value) }))} /></Field>
-            {form.crawlMode !== 'full' && <Field label="到达末尾后"><Select label="到达末尾后" value={form.endPolicy} onChange={value => setForm(current => ({ ...current, endPolicy: value as CrawlerEndPolicy }))} options={[{ label: '保持完成，等待人工重置', value: 'HOLD_COMPLETED' }, { label: '人工启动时开启新周期', value: 'RESTART_CYCLE' }]} /></Field>}
+            {form.crawlMode !== 'full' && <Field label="本轮抓完后"><div className="space-y-1.5"><Select label="本轮抓完后" value={form.endPolicy} onChange={value => setForm(current => ({ ...current, endPolicy: value as CrawlerEndPolicy }))} options={[{ label: '标记已完成，不再重复抓取（推荐）', value: 'HOLD_COMPLETED' }, { label: '下一次运行重新从第 1 页开始', value: 'RESTART_CYCLE' }]} /><p className="text-xs leading-5 text-muted-foreground">当来源列表没有更多页面时，决定下一次是否从头再扫。</p></div></Field>}
           </div>
           <label className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
             <input type="checkbox" className="mt-1 size-4 accent-primary" checked={form.enabled === 1} disabled={form.crawlMode === 'full' || !preview?.cronExpression || sourceNeedsReview || sourcePreview?.status !== 'VALIDATED'} onChange={event => setForm(current => ({ ...current, enabled: event.target.checked ? 1 : 0 }))} />
