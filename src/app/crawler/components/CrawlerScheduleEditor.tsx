@@ -553,7 +553,14 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
               ))}
             </div>
           )}
-          <Field label="标准题材筛选">
+          <div className="rounded-2xl border border-border bg-muted/15 p-3.5">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium text-foreground">标准题材筛选</p>
+                <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">入库后过滤，不会拼接到来源网址</p>
+              </div>
+              <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">已选 {form.genreTagIds.length} 项</span>
+            </div>
             <MultiSelect
               label="标准题材筛选（入库后过滤，可多选）"
               value={form.genreTagIds}
@@ -561,10 +568,9 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
               options={genres.map(tag => ({ label: tag.name, value: String(tag.id) }))}
               searchable
               disabled={genresLoading}
-              placeholder={genresLoading ? '正在加载标准题材' : genres.length ? '选择入库后过滤的题材' : '当前类型暂无标准题材'}
+              placeholder={genresLoading ? '正在加载标准题材' : genres.length ? '点击选择题材；已选项显示在框内' : '当前类型暂无标准题材'}
             />
-            <p className="mt-1 text-[11px] leading-4 text-muted-foreground">只影响入库后的本地过滤，不会拼接到来源网址。</p>
-          </Field>
+          </div>
 
           <section className="rounded-2xl border border-border bg-card p-4 shadow-sm shadow-black/[0.03]" aria-live="polite" aria-busy={sourcePreviewing}>
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -574,7 +580,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                 </span>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-semibold text-foreground">验证来源查询</h3>
+                    <h3 className="text-sm font-semibold text-foreground">来源查询预览</h3>
                     <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${previewStatusClass(sourcePreview?.status)}`}>
                       {previewStatusLabel(sourcePreview?.status)}
                     </span>
@@ -585,7 +591,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                 </div>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={() => void previewSource()} disabled={sourcePreviewing || !form.adapterCode}>
-                {sourcePreviewing ? <Loader2 className="animate-spin" /> : <TimerReset />}验证当前查询
+                {sourcePreviewing ? <Loader2 className="animate-spin" /> : <TimerReset />}验证并查看样本
               </Button>
             </div>
 
@@ -608,14 +614,16 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
             </div>
 
             <div className={`mt-3 rounded-xl border px-3 py-2.5 text-xs leading-5 ${previewStatusClass(sourcePreview?.status)}`}>
-              <p>{sourcePreviewError || sourcePreview?.message || selectedCapabilities?.message || '选择排序后点击“验证当前查询”，结果会显示在这里。'}</p>
+              <p>{sourcePreviewError || sourcePreview?.message || selectedCapabilities?.message || '选择来源排序或筛选后，点击“验证并查看样本”，结果会显示在这里。'}</p>
               {sourcePreview?.normalizedUri && (
                 <p className="mt-1 flex items-start gap-1 break-all font-mono text-[11px] opacity-80">
                   <ExternalLink className="mt-0.5 size-3 shrink-0" />{sourcePreview.normalizedUri}
                 </p>
               )}
               {sourcePreview && sourcePreview.sampleExternalIds.length > 0 && (
-                <p className="mt-1 opacity-80">样本外部 ID：{sourcePreview.sampleExternalIds.join('、')}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {sourcePreview.sampleExternalIds.map(id => <span key={id} className="rounded-md bg-background/70 px-1.5 py-0.5 font-mono text-[11px]">{id}</span>)}
+                </div>
               )}
             </div>
             {sourceNeedsReview && <p className="mt-3 text-xs font-medium text-amber-700 dark:text-amber-300">当前来源未验证或不可用：配置可以保存为“待复核”，但不能启用或启动。</p>}
@@ -636,11 +644,13 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                 ))}
               </div>
 
-              {mode === 'INTERVAL' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="间隔单位"><Select label="间隔单位" value={String(form.scheduleConfig.unit || 'hours')} onChange={unit => updateConfig({ unit })} options={[{ label: '分钟', value: 'minutes' }, { label: '小时', value: 'hours' }]} /></Field><Field label="每隔多少"><input className={inputClass} type="number" min={1} max={form.scheduleConfig.unit === 'minutes' ? 59 : 23} value={numberConfig(form.scheduleConfig, 'interval', 1)} onChange={event => updateConfig({ interval: Number(event.target.value) })} /></Field></div>}
-              {mode === 'DAILY' && <div className="rounded-xl border border-border bg-muted/20 p-4"><Field label="每天执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
-              {mode === 'WEEKLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-[minmax(0,1fr)_12rem]"><Field label="执行星期"><MultiSelect label="执行星期" value={selectedDays} onChange={days => updateConfig({ days })} options={WEEKDAYS} /></Field><Field label="执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
-              {mode === 'MONTHLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="每月日期"><input className={inputClass} type="number" min={1} max={31} value={numberConfig(form.scheduleConfig, 'day', 1)} onChange={event => updateConfig({ day: Number(event.target.value) })} /></Field><Field label="执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
-              {mode === 'MANUAL' && <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">计划只保留配置，需要时点击列表中的“手工启动”。</div>}
+              <div className="min-h-[5.75rem]">
+                {mode === 'INTERVAL' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="间隔单位"><Select label="间隔单位" value={String(form.scheduleConfig.unit || 'hours')} onChange={unit => updateConfig({ unit })} options={[{ label: '分钟', value: 'minutes' }, { label: '小时', value: 'hours' }]} /></Field><Field label="每隔多少"><input className={inputClass} type="number" min={1} max={form.scheduleConfig.unit === 'minutes' ? 59 : 23} value={numberConfig(form.scheduleConfig, 'interval', 1)} onChange={event => updateConfig({ interval: Number(event.target.value) })} /></Field></div>}
+                {mode === 'DAILY' && <div className="rounded-xl border border-border bg-muted/20 p-4"><Field label="每天执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
+                {mode === 'WEEKLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-[minmax(0,1fr)_12rem]"><Field label="执行星期"><MultiSelect label="执行星期" value={selectedDays} onChange={days => updateConfig({ days })} options={WEEKDAYS} /></Field><Field label="执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
+                {mode === 'MONTHLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="每月日期"><input className={inputClass} type="number" min={1} max={31} value={numberConfig(form.scheduleConfig, 'day', 1)} onChange={event => updateConfig({ day: Number(event.target.value) })} /></Field><Field label="执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
+                {mode === 'MANUAL' && <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">计划只保留配置，需要时点击列表中的“手工启动”。</div>}
+              </div>
             </>
           )}
 
@@ -677,8 +687,8 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
             </div>
           </div>}
 
-          <div aria-live="polite" aria-busy={previewing} className={`rounded-xl border p-4 ${previewError ? 'border-destructive/35 bg-destructive/10' : 'border-primary/25 bg-primary/5'}`}>
-            <div className="relative min-h-[7.5rem]">
+          <div aria-live="polite" aria-busy={previewing} className={`min-h-[10.5rem] rounded-xl border p-4 ${previewError ? 'border-destructive/35 bg-destructive/10' : 'border-primary/25 bg-primary/5'}`}>
+            <div className="relative min-h-[8rem]">
               <div>
                 {previewError ? (
                   <p className="text-sm text-destructive">{previewError}</p>

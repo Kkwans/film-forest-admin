@@ -5,6 +5,7 @@ import { ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import {
   crawlerApi,
   type CrawlerJobItemFailure,
+  type CrawlerJobItemSuccess,
   type CrawlerScheduleCursor,
   type CrawlerTaskLog,
   type PageData,
@@ -31,6 +32,9 @@ interface Props {
 
 const emptyFailures: PageData<CrawlerJobItemFailure> = {
   records: [], total: 0, size: 10, current: 1, pages: 0,
+};
+const emptySuccesses: PageData<CrawlerJobItemSuccess> = {
+  records: [], total: 0, size: 8, current: 1, pages: 0,
 };
 const activeStatuses = new Set(['queued', 'running', 'cancel_requested']);
 const stageOptions = [
@@ -62,6 +66,21 @@ const outcomeLabels: Record<string, string> = {
   CANCELLED: '已取消',
 };
 
+function listText(value?: string | null): string {
+  if (!value) return '—';
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.filter(item => typeof item === 'string' && item.trim()).join(' / ') || '—';
+  } catch {
+    // 历史数据可能是未编码的单值字符串，直接展示。
+  }
+  return value;
+}
+
+function scoreText(value?: number | null): string {
+  return value === null || value === undefined ? '—' : String(value);
+}
+
 export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
   const [job, setJob] = useState<CrawlerTaskLog | null>(null);
   const [jobLoading, setJobLoading] = useState(false);
@@ -74,6 +93,12 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
   const [exhausted, setExhausted] = useState('all');
   const [categoryInput, setCategoryInput] = useState('');
   const [category, setCategory] = useState('');
+  const [successes, setSuccesses] = useState<PageData<CrawlerJobItemSuccess>>(emptySuccesses);
+  const [successesLoading, setSuccessesLoading] = useState(false);
+  const [successesError, setSuccessesError] = useState('');
+  const [successPage, setSuccessPage] = useState(1);
+  const [successKeywordInput, setSuccessKeywordInput] = useState('');
+  const [successKeyword, setSuccessKeyword] = useState('');
   const [cursor, setCursor] = useState<CrawlerScheduleCursor | null>(null);
 
   const fetchJob = useCallback(async () => {
@@ -122,6 +147,27 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
     }
   }, [category, exhausted, failurePage, jobId, stage]);
 
+  const fetchSuccesses = useCallback(async () => {
+    if (!jobId) return;
+    setSuccessesLoading(true);
+    try {
+      const response = await crawlerApi.listJobSuccesses(jobId, {
+        keyword: successKeyword || undefined,
+        page: successPage,
+        size: 8,
+      });
+      if (response.data?.code !== 200 || !response.data.data) {
+        throw new Error(response.data?.message || '成功明细加载失败');
+      }
+      setSuccesses(response.data.data);
+      setSuccessesError('');
+    } catch (error: unknown) {
+      setSuccessesError(extractErrorMessage(error, '成功明细加载失败'));
+    } finally {
+      setSuccessesLoading(false);
+    }
+  }, [jobId, successKeyword, successPage]);
+
   useEffect(() => {
     if (!jobId) return;
     const timer = window.setTimeout(() => void fetchJob(), 0);
@@ -135,6 +181,12 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
   }, [fetchFailures, jobId]);
 
   useEffect(() => {
+    if (!jobId) return;
+    const timer = window.setTimeout(() => void fetchSuccesses(), 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchSuccesses, jobId]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
       setCategory(categoryInput.trim());
       setFailurePage(1);
@@ -144,8 +196,8 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
 
   const active = Boolean(job && activeStatuses.has(job.status));
   const refreshAll = useCallback(async () => {
-    await Promise.all([fetchJob(), fetchFailures()]);
-  }, [fetchFailures, fetchJob]);
+    await Promise.all([fetchJob(), fetchFailures(), fetchSuccesses()]);
+  }, [fetchFailures, fetchJob, fetchSuccesses]);
   useAdaptivePolling({
     enabled: Boolean(jobId) && active,
     hasActiveJobs: active,
@@ -167,8 +219,8 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
             {job?.outcomeCode && <span className="rounded-full bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">{outcomeLabels[job.outcomeCode] || job.outcomeCode}</span>}
             {job && <span className="text-sm text-muted-foreground">{job.scheduleName || `配置 #${job.scheduleId}`} · {job.sourceCode || '-'} · {contentTypeLabel(job.contentType)}</span>}
           </div>
-          <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={jobLoading || failuresLoading}>
-            {jobLoading || failuresLoading ? <Loader2 className="animate-spin" /> : <RefreshCw />}刷新
+          <Button variant="outline" size="sm" onClick={() => void refreshAll()} disabled={jobLoading || failuresLoading || successesLoading}>
+            {jobLoading || failuresLoading || successesLoading ? <Loader2 className="animate-spin" /> : <RefreshCw />}刷新
           </Button>
         </div>
 
@@ -234,6 +286,79 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
         ) : jobLoading ? (
           <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="animate-spin" />读取权威 Job</div>
         ) : null}
+
+        <section className="space-y-3 border-t border-border pt-5" aria-labelledby="success-detail-title">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h3 id="success-detail-title" className="font-semibold text-foreground">爬取成功明细</h3>
+              <p className="mt-1 text-xs text-muted-foreground">共 {successes.total} 条；展示本次 Job 实际处理的内容摘要，不混入其他任务。</p>
+            </div>
+            <div className="flex w-full gap-2 sm:w-auto">
+              <input
+                className={`${inputClass} min-w-0 sm:w-56`}
+                value={successKeywordInput}
+                placeholder="搜索标题、别名或来源 ID"
+                onChange={event => setSuccessKeywordInput(event.target.value)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter') {
+                    setSuccessKeyword(successKeywordInput.trim());
+                    setSuccessPage(1);
+                  }
+                }}
+              />
+              <Button variant="outline" size="sm" onClick={() => { setSuccessKeyword(successKeywordInput.trim()); setSuccessPage(1); }}>
+                搜索
+              </Button>
+            </div>
+          </div>
+
+          {successesError ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+              <p>{successesError}</p>
+              <Button variant="outline" size="sm" className="mt-3" onClick={() => void fetchSuccesses()}>重试成功明细</Button>
+            </div>
+          ) : successesLoading && successes.records.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="animate-spin" />读取成功明细</div>
+          ) : successes.records.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">当前 Job 没有可展示的成功明细。</div>
+          ) : (
+            <div className="space-y-2">
+              {successes.records.map(success => (
+                <article key={success.id} className="grid gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[3.5rem_minmax(0,1fr)]">
+                  <div className="flex h-20 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-[10px] text-muted-foreground">
+                    {success.posterUrl ? <img src={success.posterUrl} alt="" className="h-full w-full object-cover" /> : '无海报'}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-foreground">{success.title}{success.year ? `（${success.year}）` : ''}</p>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">别名：{listText(success.alias)}</p>
+                      </div>
+                      <a href={success.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline">
+                        查看来源 <ExternalLink className="size-3" />
+                      </a>
+                    </div>
+                    <dl className="mt-2 grid gap-x-4 gap-y-1.5 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+                      <div><dt className="inline text-foreground/60">类型：</dt><dd className="inline">{contentTypeLabel(success.contentType)}</dd></div>
+                      <div><dt className="inline text-foreground/60">评分：</dt><dd className="inline">豆瓣 {scoreText(success.scoreDouban)} · IMDb {scoreText(success.scoreImdb)} · 烂番茄 {scoreText(success.scoreRt)}</dd></div>
+                      <div className="min-w-0 truncate" title={listText(success.directors)}><dt className="inline text-foreground/60">导演：</dt><dd className="inline">{listText(success.directors)}</dd></div>
+                      <div className="min-w-0 truncate" title={listText(success.writers)}><dt className="inline text-foreground/60">编剧：</dt><dd className="inline">{listText(success.writers)}</dd></div>
+                      <div className="min-w-0 truncate" title={listText(success.actors)}><dt className="inline text-foreground/60">主演：</dt><dd className="inline">{listText(success.actors)}</dd></div>
+                      <div className="min-w-0 truncate" title={listText(success.genres)}><dt className="inline text-foreground/60">题材：</dt><dd className="inline">{listText(success.genres)}</dd></div>
+                      <div className="min-w-0 truncate" title={listText(success.regions)}><dt className="inline text-foreground/60">地区：</dt><dd className="inline">{listText(success.regions)}</dd></div>
+                      <div className="min-w-0 truncate" title={listText(success.languages)}><dt className="inline text-foreground/60">语言：</dt><dd className="inline">{listText(success.languages)}</dd></div>
+                      <div><dt className="inline text-foreground/60">日期：</dt><dd className="inline">{success.releaseDate || '—'}</dd></div>
+                      <div><dt className="inline text-foreground/60">时长：</dt><dd className="inline">{success.duration ? `${success.duration} 分钟` : '—'}</dd></div>
+                      <div><dt className="inline text-foreground/60">来源条目：</dt><dd className="inline">{success.externalId}</dd></div>
+                      <div><dt className="inline text-foreground/60">内容：</dt><dd className="inline">{contentTypeLabel(success.contentType)} #{success.contentId}</dd></div>
+                    </dl>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+          <Pagination currentPage={successes.current} totalPages={successes.pages} onPageChange={setSuccessPage} />
+        </section>
 
         <section className="space-y-3 border-t border-border pt-5" aria-labelledby="failure-detail-title">
           <div>

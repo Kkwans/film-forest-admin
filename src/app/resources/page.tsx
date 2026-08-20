@@ -62,6 +62,14 @@ interface BaseResource {
   sort?: number;
   createdAt?: string;
   updatedAt?: string;
+  resourceKey?: string;
+  rawText?: string;
+  lastSeenAt?: string;
+  contentTitle?: string | null;
+  contentAlias?: string | null;
+  contentPosterUrl?: string | null;
+  contentYear?: number | null;
+  contentReleaseDate?: string | null;
 }
 
 interface OnlineResource extends BaseResource {
@@ -274,6 +282,39 @@ function resourceLink(kind: ResourceKind, resource: ResourceRecord): string {
   if (kind === 'online') return (resource as OnlineResource).sourceUrl;
   if (kind === 'magnet') return (resource as MagnetResource).magnetUrl;
   return (resource as CloudResource).url;
+}
+
+function contentAssociation(resource: BaseResource): string {
+  const title = resource.contentTitle?.trim();
+  if (!title) return `${CONTENT_TYPE_LABELS[resource.contentType] || resource.contentType} #${resource.contentId}`;
+  return resource.contentYear ? `${title}（${resource.contentYear}）` : title;
+}
+
+function contentAlias(value?: string | null): string {
+  if (!value) return '—';
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (Array.isArray(parsed)) return parsed.filter(item => typeof item === 'string' && item.trim()).join(' / ') || '—';
+  } catch {
+    // 兼容历史单值别名。
+  }
+  return value;
+}
+
+function ContentAssociation({ resource }: { resource: Partial<BaseResource> }) {
+  return (
+    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3">
+      <p className="text-xs font-medium text-primary">关联内容</p>
+      <p className="mt-1 truncate font-medium text-foreground">
+        {resource.contentTitle || '尚未读取内容名称'}
+        {resource.contentYear ? `（${resource.contentYear}）` : ''}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {CONTENT_TYPE_LABELS[resource.contentType || ''] || resource.contentType || '未选择类型'} · 内容 #{resource.contentId || '—'}
+      </p>
+      {resource.contentAlias && <p className="mt-1 truncate text-xs text-muted-foreground">别名：{contentAlias(resource.contentAlias)}</p>}
+    </div>
+  );
 }
 
 export default function ResourcesPage() {
@@ -659,11 +700,11 @@ export default function ResourcesPage() {
               <>
                 <div className="hidden overflow-x-auto md:block">
                   <table className="w-full min-w-[860px] text-sm">
-                    <thead><tr className="border-b border-border bg-muted/30 text-left text-xs text-muted-foreground"><th className="px-3 py-2.5">内容</th><th className="px-3 py-2.5">来源</th><th className="px-3 py-2.5">标题 / 剧集</th><th className="px-3 py-2.5">规格</th><th className="px-3 py-2.5">状态</th><th className="px-3 py-2.5">更新时间</th><th className="px-3 py-2.5 text-right">操作</th></tr></thead>
-                    <tbody>{activePage.records.map(resource => <tr key={resource.id} className="border-b border-border/60 hover:bg-muted/25"><td className="px-3 py-3"><p className="font-medium text-foreground">{CONTENT_TYPE_LABELS[resource.contentType] || resource.contentType}</p><p className="text-xs text-muted-foreground">#{resource.contentId} · 资源 #{resource.id}</p></td><td className="px-3 py-3"><Badge variant="outline">{resource.sourceCode || '手工录入'}</Badge></td><td className="max-w-72 px-3 py-3"><p className="truncate font-medium text-foreground" title={resourceTitle(activeKind, resource)}>{resourceTitle(activeKind, resource)}</p><p className="mt-1 truncate text-xs text-muted-foreground" title={resourceLink(activeKind, resource)}>{resourceLink(activeKind, resource)}</p></td><td className="px-3 py-3 text-xs text-muted-foreground">{resourceVariant(activeKind, resource)}</td><td className="px-3 py-3"><StatusBadge resource={resource} /></td><td className="px-3 py-3 text-xs text-muted-foreground">{formatDate(resource.updatedAt || resource.createdAt)}</td><td className="px-3 py-3"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="查看详情" onClick={() => setDetailResource({ kind: activeKind, resource })}><Eye /></Button><Button variant="ghost" size="icon" title="复制链接" onClick={() => void copyResourceLink(activeKind, resource)}><Copy /></Button><Button variant="ghost" size="icon" title="编辑" onClick={() => editResource(activeKind, resource)}><Pencil /></Button><Button variant="ghost" size="icon" title={resourceStatus(resource) === 'ACTIVE' ? '禁用' : '恢复'} disabled={actionId === resource.id} onClick={() => void toggleResource(activeKind, resource)}>{resourceStatus(resource) === 'ACTIVE' ? <Ban /> : <CheckCircle2 />}</Button><Button variant="destructive" size="icon" title="删除" disabled={actionId === resource.id} onClick={() => void deleteResource(activeKind, resource)}><Trash2 /></Button></div></td></tr>)}</tbody>
+                    <thead><tr className="border-b border-border bg-muted/30 text-left text-xs text-muted-foreground"><th className="px-3 py-2.5">关联内容</th><th className="px-3 py-2.5">来源</th><th className="px-3 py-2.5">资源 / 剧集</th><th className="px-3 py-2.5">规格</th><th className="px-3 py-2.5">状态</th><th className="px-3 py-2.5">更新时间</th><th className="px-3 py-2.5 text-right">操作</th></tr></thead>
+                    <tbody>{activePage.records.map(resource => <tr key={resource.id} className="border-b border-border/60 align-top hover:bg-muted/25"><td className="max-w-56 px-3 py-3"><p className="truncate font-medium text-foreground" title={contentAssociation(resource)}>{contentAssociation(resource)}</p><p className="mt-1 text-xs text-muted-foreground">{CONTENT_TYPE_LABELS[resource.contentType] || resource.contentType} · 内容 #{resource.contentId} · 资源 #{resource.id}</p></td><td className="px-3 py-3"><Badge variant="outline">{resource.sourceCode || '手工录入'}</Badge></td><td className="max-w-72 px-3 py-3"><p className="truncate font-medium text-foreground" title={resourceTitle(activeKind, resource)}>{resourceTitle(activeKind, resource)}</p><p className="mt-1 truncate text-xs text-muted-foreground" title={resourceLink(activeKind, resource)}>{resourceLink(activeKind, resource)}</p></td><td className="px-3 py-3 text-xs text-muted-foreground">{resourceVariant(activeKind, resource)}</td><td className="px-3 py-3"><StatusBadge resource={resource} /></td><td className="px-3 py-3 text-xs text-muted-foreground">{formatDate(resource.updatedAt || resource.createdAt)}</td><td className="px-3 py-3"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="查看详情" onClick={() => setDetailResource({ kind: activeKind, resource })}><Eye /></Button><Button variant="ghost" size="icon" title="复制链接" onClick={() => void copyResourceLink(activeKind, resource)}><Copy /></Button><Button variant="ghost" size="icon" title="编辑" onClick={() => editResource(activeKind, resource)}><Pencil /></Button><Button variant="ghost" size="icon" title={resourceStatus(resource) === 'ACTIVE' ? '禁用' : '恢复'} disabled={actionId === resource.id} onClick={() => void toggleResource(activeKind, resource)}>{resourceStatus(resource) === 'ACTIVE' ? <Ban /> : <CheckCircle2 />}</Button><Button variant="destructive" size="icon" title="删除" disabled={actionId === resource.id} onClick={() => void deleteResource(activeKind, resource)}><Trash2 /></Button></div></td></tr>)}</tbody>
                   </table>
                 </div>
-                <div className="grid gap-3 md:hidden">{activePage.records.map(resource => <article key={resource.id} className="rounded-xl border border-border bg-muted/20 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{CONTENT_TYPE_LABELS[resource.contentType] || resource.contentType}</Badge><StatusBadge resource={resource} /></div><h3 className="mt-2 break-words text-sm font-semibold text-foreground">{resourceTitle(activeKind, resource)}</h3><p className="mt-1 text-xs text-muted-foreground">内容 #{resource.contentId} · {resource.sourceCode || '手工录入'}</p></div><Button variant="ghost" size="icon" onClick={() => setDetailResource({ kind: activeKind, resource })}><Eye /></Button></div><p className="mt-3 text-xs text-muted-foreground">{resourceVariant(activeKind, resource)} · {formatDate(resource.updatedAt || resource.createdAt)}</p><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void copyResourceLink(activeKind, resource)}><Copy />复制</Button><Button size="sm" variant="outline" onClick={() => editResource(activeKind, resource)}><Pencil />编辑</Button><Button size="sm" variant="outline" disabled={actionId === resource.id} onClick={() => void toggleResource(activeKind, resource)}>{resourceStatus(resource) === 'ACTIVE' ? <Ban /> : <CheckCircle2 />}{resourceStatus(resource) === 'ACTIVE' ? '禁用' : '恢复'}</Button><Button size="sm" variant="destructive" disabled={actionId === resource.id} onClick={() => void deleteResource(activeKind, resource)}><Trash2 />删除</Button></div></article>)}</div>
+                <div className="grid gap-3 md:hidden">{activePage.records.map(resource => <article key={resource.id} className="rounded-xl border border-border bg-muted/20 p-4"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><Badge variant="outline">{CONTENT_TYPE_LABELS[resource.contentType] || resource.contentType}</Badge><StatusBadge resource={resource} /></div><h3 className="mt-2 break-words text-sm font-semibold text-foreground">{contentAssociation(resource)}</h3><p className="mt-1 truncate text-xs text-muted-foreground">{resourceTitle(activeKind, resource)} · {resource.sourceCode || '手工录入'}</p><p className="mt-1 text-xs text-muted-foreground">内容 #{resource.contentId} · 资源 #{resource.id}</p></div><Button variant="ghost" size="icon" title="查看详情" onClick={() => setDetailResource({ kind: activeKind, resource })}><Eye /></Button></div><p className="mt-3 text-xs text-muted-foreground">{resourceVariant(activeKind, resource)} · {formatDate(resource.updatedAt || resource.createdAt)}</p><div className="mt-3 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void copyResourceLink(activeKind, resource)}><Copy />复制</Button><Button size="sm" variant="outline" onClick={() => editResource(activeKind, resource)}><Pencil />编辑</Button><Button size="sm" variant="outline" disabled={actionId === resource.id} onClick={() => void toggleResource(activeKind, resource)}>{resourceStatus(resource) === 'ACTIVE' ? <Ban /> : <CheckCircle2 />}{resourceStatus(resource) === 'ACTIVE' ? '禁用' : '恢复'}</Button><Button size="sm" variant="destructive" disabled={actionId === resource.id} onClick={() => void deleteResource(activeKind, resource)}><Trash2 />删除</Button></div></article>)}</div>
               </>
             )}
 
@@ -680,6 +721,7 @@ export default function ResourcesPage() {
       <Modal open={!!editingOnline} onClose={() => setEditingOnline(null)} title={editingOnline?.id ? '编辑在线资源' : '新增在线资源'} description="关联内容、来源和具体剧集；保存后仅刷新当前资源页。" width="lg" footer={<><Button variant="outline" onClick={() => setEditingOnline(null)}>取消</Button><Button disabled={saving} onClick={() => void saveResource('online')}>{saving && <Loader2 className="animate-spin" />}保存</Button></>}>
         {editingOnline && (
           <div className="grid gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2"><ContentAssociation resource={editingOnline} /></div>
             <Field label="内容类型"><Select value={editingOnline.contentType || 'movie'} onChange={contentType => setEditingOnline(current => ({ ...current, contentType }))} options={CONTENT_TYPE_OPTIONS.filter(option => option.value)} /></Field>
             <Field label="内容 ID"><input type="number" min={1} value={editingOnline.contentId || ''} onChange={event => setEditingOnline(current => ({ ...current, contentId: Number(event.target.value) }))} className={INPUT_CLASS} /></Field>
             <Field label="来源编码"><Select value={editingOnline.sourceCode || ''} onChange={sourceCode => setEditingOnline(current => ({ ...current, sourceCode }))} options={sourceOptions.filter(option => option.value)} searchable /></Field>
@@ -706,11 +748,11 @@ export default function ResourcesPage() {
       </Modal>
 
       <Modal open={!!editingMagnet} onClose={() => setEditingMagnet(null)} title={editingMagnet?.id ? '编辑磁力资源' : '新增磁力资源'} width="lg" footer={<><Button variant="outline" onClick={() => setEditingMagnet(null)}>取消</Button><Button disabled={saving} onClick={() => void saveResource('magnet')}>{saving && <Loader2 className="animate-spin" />}保存</Button></>}>
-        {editingMagnet && <div className="grid gap-4 sm:grid-cols-2"><Field label="内容类型"><Select value={editingMagnet.contentType || 'movie'} onChange={contentType => setEditingMagnet(current => ({ ...current, contentType }))} options={CONTENT_TYPE_OPTIONS.filter(option => option.value)} /></Field><Field label="内容 ID"><input type="number" min={1} value={editingMagnet.contentId || ''} onChange={event => setEditingMagnet(current => ({ ...current, contentId: Number(event.target.value) }))} className={INPUT_CLASS} /></Field><Field label="来源编码"><Select value={editingMagnet.sourceCode || ''} onChange={sourceCode => setEditingMagnet(current => ({ ...current, sourceCode }))} options={sourceOptions.filter(option => option.value)} searchable /></Field><Field label="清晰度"><Select value={editingMagnet.resolution || ''} onChange={resolution => setEditingMagnet(current => ({ ...current, resolution }))} options={RESOLUTION_OPTIONS} /></Field><div className="sm:col-span-2"><Field label="资源标题"><input value={editingMagnet.title || ''} onChange={event => setEditingMagnet(current => ({ ...current, title: event.target.value }))} className={INPUT_CLASS} /></Field></div><div className="sm:col-span-2"><Field label="磁力链接"><input value={editingMagnet.magnetUrl || ''} onChange={event => setEditingMagnet(current => ({ ...current, magnetUrl: event.target.value }))} className={INPUT_CLASS} /></Field></div><Field label="排序"><input type="number" value={editingMagnet.sort ?? 0} onChange={event => setEditingMagnet(current => ({ ...current, sort: Number(event.target.value) }))} className={INPUT_CLASS} /></Field><div className="grid grid-cols-2 gap-2"><label className="flex items-center gap-2 rounded-xl border border-border p-3 text-sm text-foreground"><input type="checkbox" checked={!!editingMagnet.hasSubtitle} onChange={event => setEditingMagnet(current => ({ ...current, hasSubtitle: event.target.checked }))} className="accent-primary" />包含字幕</label><label className="flex items-center gap-2 rounded-xl border border-border p-3 text-sm text-foreground"><input type="checkbox" checked={!!editingMagnet.isSpecialSub} onChange={event => setEditingMagnet(current => ({ ...current, isSpecialSub: event.target.checked }))} className="accent-primary" />特效字幕</label></div></div>}
+        {editingMagnet && <div className="grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><ContentAssociation resource={editingMagnet} /></div><Field label="内容类型"><Select value={editingMagnet.contentType || 'movie'} onChange={contentType => setEditingMagnet(current => ({ ...current, contentType }))} options={CONTENT_TYPE_OPTIONS.filter(option => option.value)} /></Field><Field label="内容 ID"><input type="number" min={1} value={editingMagnet.contentId || ''} onChange={event => setEditingMagnet(current => ({ ...current, contentId: Number(event.target.value) }))} className={INPUT_CLASS} /></Field><Field label="来源编码"><Select value={editingMagnet.sourceCode || ''} onChange={sourceCode => setEditingMagnet(current => ({ ...current, sourceCode }))} options={sourceOptions.filter(option => option.value)} searchable /></Field><Field label="清晰度"><Select value={editingMagnet.resolution || ''} onChange={resolution => setEditingMagnet(current => ({ ...current, resolution }))} options={RESOLUTION_OPTIONS} /></Field><div className="sm:col-span-2"><Field label="资源标题"><input value={editingMagnet.title || ''} onChange={event => setEditingMagnet(current => ({ ...current, title: event.target.value }))} className={INPUT_CLASS} /></Field></div><div className="sm:col-span-2"><Field label="磁力链接"><input value={editingMagnet.magnetUrl || ''} onChange={event => setEditingMagnet(current => ({ ...current, magnetUrl: event.target.value }))} className={INPUT_CLASS} /></Field></div><Field label="排序"><input type="number" value={editingMagnet.sort ?? 0} onChange={event => setEditingMagnet(current => ({ ...current, sort: Number(event.target.value) }))} className={INPUT_CLASS} /></Field><div className="grid grid-cols-2 gap-2"><label className="flex items-center gap-2 rounded-xl border border-border p-3 text-sm text-foreground"><input type="checkbox" checked={!!editingMagnet.hasSubtitle} onChange={event => setEditingMagnet(current => ({ ...current, hasSubtitle: event.target.checked }))} className="accent-primary" />包含字幕</label><label className="flex items-center gap-2 rounded-xl border border-border p-3 text-sm text-foreground"><input type="checkbox" checked={!!editingMagnet.isSpecialSub} onChange={event => setEditingMagnet(current => ({ ...current, isSpecialSub: event.target.checked }))} className="accent-primary" />特效字幕</label></div></div>}
       </Modal>
 
       <Modal open={!!editingCloud} onClose={() => setEditingCloud(null)} title={editingCloud?.id ? '编辑网盘资源' : '新增网盘资源'} width="lg" footer={<><Button variant="outline" onClick={() => setEditingCloud(null)}>取消</Button><Button disabled={saving} onClick={() => void saveResource('cloud')}>{saving && <Loader2 className="animate-spin" />}保存</Button></>}>
-        {editingCloud && <div className="grid gap-4 sm:grid-cols-2"><Field label="内容类型"><Select value={editingCloud.contentType || 'movie'} onChange={contentType => setEditingCloud(current => ({ ...current, contentType }))} options={CONTENT_TYPE_OPTIONS.filter(option => option.value)} /></Field><Field label="内容 ID"><input type="number" min={1} value={editingCloud.contentId || ''} onChange={event => setEditingCloud(current => ({ ...current, contentId: Number(event.target.value) }))} className={INPUT_CLASS} /></Field><Field label="来源编码"><Select value={editingCloud.sourceCode || ''} onChange={sourceCode => setEditingCloud(current => ({ ...current, sourceCode }))} options={sourceOptions.filter(option => option.value)} searchable /></Field><Field label="网盘类型"><Select value={editingCloud.diskType || ''} onChange={diskType => setEditingCloud(current => ({ ...current, diskType }))} options={DISK_TYPE_OPTIONS.filter(option => option.value)} /></Field><div className="sm:col-span-2"><Field label="资源标题"><input value={editingCloud.title || ''} onChange={event => setEditingCloud(current => ({ ...current, title: event.target.value }))} className={INPUT_CLASS} /></Field></div><div className="sm:col-span-2"><Field label="分享链接"><input type="url" value={editingCloud.url || ''} onChange={event => setEditingCloud(current => ({ ...current, url: event.target.value }))} className={INPUT_CLASS} /></Field></div><Field label="提取密码"><input value={editingCloud.password || ''} onChange={event => setEditingCloud(current => ({ ...current, password: event.target.value }))} className={INPUT_CLASS} /></Field><Field label="排序"><input type="number" value={editingCloud.sort ?? 0} onChange={event => setEditingCloud(current => ({ ...current, sort: Number(event.target.value) }))} className={INPUT_CLASS} /></Field></div>}
+        {editingCloud && <div className="grid gap-4 sm:grid-cols-2"><div className="sm:col-span-2"><ContentAssociation resource={editingCloud} /></div><Field label="内容类型"><Select value={editingCloud.contentType || 'movie'} onChange={contentType => setEditingCloud(current => ({ ...current, contentType }))} options={CONTENT_TYPE_OPTIONS.filter(option => option.value)} /></Field><Field label="内容 ID"><input type="number" min={1} value={editingCloud.contentId || ''} onChange={event => setEditingCloud(current => ({ ...current, contentId: Number(event.target.value) }))} className={INPUT_CLASS} /></Field><Field label="来源编码"><Select value={editingCloud.sourceCode || ''} onChange={sourceCode => setEditingCloud(current => ({ ...current, sourceCode }))} options={sourceOptions.filter(option => option.value)} searchable /></Field><Field label="网盘类型"><Select value={editingCloud.diskType || ''} onChange={diskType => setEditingCloud(current => ({ ...current, diskType }))} options={DISK_TYPE_OPTIONS.filter(option => option.value)} /></Field><div className="sm:col-span-2"><Field label="资源标题"><input value={editingCloud.title || ''} onChange={event => setEditingCloud(current => ({ ...current, title: event.target.value }))} className={INPUT_CLASS} /></Field></div><div className="sm:col-span-2"><Field label="分享链接"><input type="url" value={editingCloud.url || ''} onChange={event => setEditingCloud(current => ({ ...current, url: event.target.value }))} className={INPUT_CLASS} /></Field></div><Field label="提取密码"><input value={editingCloud.password || ''} onChange={event => setEditingCloud(current => ({ ...current, password: event.target.value }))} className={INPUT_CLASS} /></Field><Field label="排序"><input type="number" value={editingCloud.sort ?? 0} onChange={event => setEditingCloud(current => ({ ...current, sort: Number(event.target.value) }))} className={INPUT_CLASS} /></Field></div>}
       </Modal>
 
       <Modal open={!!editingSource} onClose={() => setEditingSource(null)} title={editingSource?.id ? '编辑资源来源' : '新增资源来源扩展位'} description="新增来源不会自动生成爬虫适配器；来源编码保存后保持稳定。" width="md" footer={<><Button variant="outline" onClick={() => setEditingSource(null)}>取消</Button><Button disabled={saving} onClick={() => void saveSource()}>{saving && <Loader2 className="animate-spin" />}保存来源</Button></>}>
@@ -723,18 +765,32 @@ export default function ResourcesPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="outline">{KIND_META[detailResource.kind].label}</Badge>
               <StatusBadge resource={detailResource.resource} />
-              <Badge variant="outline">{CONTENT_TYPE_LABELS[detailResource.resource.contentType] || detailResource.resource.contentType} #{detailResource.resource.contentId}</Badge>
+              <Badge variant="outline">{CONTENT_TYPE_LABELS[detailResource.resource.contentType] || detailResource.resource.contentType}</Badge>
             </div>
-            <div>
-              <h3 className="font-semibold text-foreground">{resourceTitle(detailResource.kind, detailResource.resource)}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{resourceVariant(detailResource.kind, detailResource.resource)}</p>
+            <div className="grid gap-3 sm:grid-cols-[4rem_minmax(0,1fr)]">
+              <div className="flex h-24 w-16 items-center justify-center overflow-hidden rounded-xl bg-muted text-[10px] text-muted-foreground">
+                {detailResource.resource.contentPosterUrl ? <img src={detailResource.resource.contentPosterUrl} alt="" className="h-full w-full object-cover" /> : '无海报'}
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold text-foreground">{contentAssociation(detailResource.resource)}</h3>
+                <p className="mt-1 truncate text-sm text-muted-foreground">资源：{resourceTitle(detailResource.kind, detailResource.resource)}</p>
+                <p className="mt-1 truncate text-xs text-muted-foreground">别名：{contentAlias(detailResource.resource.contentAlias)} · 内容 #{detailResource.resource.contentId} · 资源 #{detailResource.resource.id}</p>
+              </div>
             </div>
             <dl className="grid gap-3 rounded-xl border border-border bg-muted/20 p-4 text-sm sm:grid-cols-2">
               <div><dt className="text-xs text-muted-foreground">资源 ID</dt><dd className="mt-1 text-foreground">{detailResource.resource.id}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">关联内容</dt><dd className="mt-1 text-foreground">{contentAssociation(detailResource.resource)}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">内容别名</dt><dd className="mt-1 break-words text-foreground">{contentAlias(detailResource.resource.contentAlias)}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">内容日期</dt><dd className="mt-1 text-foreground">{detailResource.resource.contentReleaseDate || '—'}</dd></div>
               <div><dt className="text-xs text-muted-foreground">来源编码</dt><dd className="mt-1 text-foreground">{detailResource.resource.sourceCode || '手工录入'}</dd></div>
               <div><dt className="text-xs text-muted-foreground">排序</dt><dd className="mt-1 text-foreground">{detailResource.resource.sort ?? 0}</dd></div>
+              <div><dt className="text-xs text-muted-foreground">最近发现</dt><dd className="mt-1 text-foreground">{formatDate(detailResource.resource.lastSeenAt)}</dd></div>
               <div><dt className="text-xs text-muted-foreground">最近更新</dt><dd className="mt-1 text-foreground">{formatDate(detailResource.resource.updatedAt || detailResource.resource.createdAt)}</dd></div>
               {detailResource.kind === 'online' && <div><dt className="text-xs text-muted-foreground">播放类型</dt><dd className="mt-1 text-foreground">{PLAYBACK_TYPE_LABELS[(detailResource.resource as OnlineResource).playbackType || ''] || '自动识别'}</dd></div>}
+              {detailResource.kind === 'online' && <div><dt className="text-xs text-muted-foreground">来源名称</dt><dd className="mt-1 text-foreground">{(detailResource.resource as OnlineResource).sourceName || '—'}</dd></div>}
+              {detailResource.kind === 'online' && <div><dt className="text-xs text-muted-foreground">剧集信息</dt><dd className="mt-1 text-foreground">{resourceTitle(detailResource.kind, detailResource.resource)}</dd></div>}
+              {detailResource.kind === 'magnet' && <div><dt className="text-xs text-muted-foreground">字幕</dt><dd className="mt-1 text-foreground">{(detailResource.resource as MagnetResource).hasSubtitle ? '包含字幕' : '无字幕标记'}{(detailResource.resource as MagnetResource).isSpecialSub ? ' · 特效字幕' : ''}</dd></div>}
+              {detailResource.kind === 'cloud' && <div><dt className="text-xs text-muted-foreground">网盘类型</dt><dd className="mt-1 text-foreground">{DISK_TYPE_LABELS[(detailResource.resource as CloudResource).diskType || ''] || (detailResource.resource as CloudResource).diskType || '—'}</dd></div>}
             </dl>
             <div>
               <p className="text-xs text-muted-foreground">{detailResource.kind === 'online' ? '真实播放 URL' : '资源链接'}</p>
@@ -750,6 +806,9 @@ export default function ResourcesPage() {
             )}
             {detailResource.kind === 'cloud' && (detailResource.resource as CloudResource).password && (
               <div><p className="text-xs text-muted-foreground">提取密码</p><p className="mt-1 font-mono text-sm text-foreground">{(detailResource.resource as CloudResource).password}</p></div>
+            )}
+            {detailResource.resource.rawText && (
+              <div><p className="text-xs text-muted-foreground">来源原始文本</p><p className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-muted/20 p-3 text-xs text-foreground">{detailResource.resource.rawText}</p></div>
             )}
           </div>
         )}

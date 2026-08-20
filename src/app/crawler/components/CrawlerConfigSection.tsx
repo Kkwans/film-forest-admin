@@ -151,8 +151,8 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        {loading ? (
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-black/[0.02]">
+        {loading && schedules.length === 0 ? (
           <div className="flex items-center justify-center gap-2 p-12 text-muted-foreground"><Loader2 className="animate-spin" />加载配置</div>
         ) : schedules.length === 0 ? (
           <div className="p-12 text-center text-sm text-muted-foreground">尚无任务配置。自动调度保持关闭，创建后可手工启动。</div>
@@ -163,7 +163,7 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
               const cursor = cursors[schedule.id];
               const needsReview = schedule.configurationStatus === 'NEEDS_REVIEW';
               return (
-                <article key={schedule.id} className="grid gap-4 p-4 lg:grid-cols-[minmax(13rem,1.3fr)_minmax(22rem,2fr)_auto] lg:items-center">
+                <article key={schedule.id} className="grid gap-4 p-5 transition-colors hover:bg-muted/20 lg:grid-cols-[minmax(15rem,1.2fr)_minmax(22rem,2fr)_auto] lg:items-center">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate font-medium text-foreground">{schedule.name}</h3>
@@ -172,7 +172,7 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">#{schedule.id} · {sources.find(source => source.id === schedule.sourceId)?.name || schedule.sourceSite} · {contentTypeLabel(schedule.contentType)}</p>
                   </div>
-                  <dl className="grid grid-cols-2 gap-x-5 gap-y-2 text-xs sm:grid-cols-4">
+                    <dl className="grid grid-cols-2 gap-x-5 gap-y-2.5 text-xs sm:grid-cols-4">
                     <div><dt className="text-muted-foreground">运行规则</dt><dd className="mt-0.5 text-foreground">{schedule.crawlMode === 'full' ? '全量手工' : schedule.scheduleMode === 'MANUAL' ? '仅手工' : schedule.scheduleMode === 'CUSTOM_CRON' ? '高级 Cron' : schedule.scheduleMode}</dd></div>
                     <div><dt className="text-muted-foreground">来源排序</dt><dd className="mt-0.5 text-foreground">{sourceSortLabel(schedule.sourceSort || 'TIME')}</dd></div>
                     <div><dt className="text-muted-foreground">新内容 / 回填</dt><dd className="mt-0.5 text-foreground">{schedule.newItemLimit ?? schedule.batchSize} / {schedule.backfillItemLimit ?? schedule.batchSize}</dd></div>

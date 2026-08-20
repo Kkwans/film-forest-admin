@@ -84,10 +84,10 @@ export function elapsedFor(startedAt?: string | null, queuedAt?: string | null, 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="text-[13px] font-medium text-foreground/75">{label}</p>
       {children}
     </div>
   );
 }
 
-export const inputClass = 'h-9 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20';
+export const inputClass = 'h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow,background-color] placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20';

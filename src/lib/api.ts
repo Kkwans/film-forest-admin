@@ -186,6 +186,10 @@ export const crawlerApi = {
   listJobFailures: (jobId: number, params?: CrawlerJobFailureQuery) =>
     adminClient.get<ApiEnvelope<PageData<CrawlerJobItemFailure>>>(`/api/crawler/jobs/${jobId}/failures`, { params: params || {} }),
 
+  /** 获取单个 Job 内成功处理的内容快照 */
+  listJobSuccesses: (jobId: number, params?: CrawlerJobSuccessQuery) =>
+    adminClient.get<ApiEnvelope<PageData<CrawlerJobItemSuccess>>>(`/api/crawler/jobs/${jobId}/successes`, { params: params || {} }),
+
   /** 请求取消 Job */
   cancelJob: (jobId: number) => adminClient.post(`/api/crawler/jobs/${jobId}/cancel`),
 
@@ -434,6 +438,12 @@ export interface CrawlerJobFailureQuery {
   size?: number;
 }
 
+export interface CrawlerJobSuccessQuery {
+  keyword?: string;
+  page?: number;
+  size?: number;
+}
+
 export interface CrawlerJobItemFailure {
   id: number;
   jobId: number;
@@ -447,6 +457,36 @@ export interface CrawlerJobItemFailure {
   retryExhausted: boolean;
   diagnostic?: string | null;
   failedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CrawlerJobItemSuccess {
+  id: number;
+  jobId: number;
+  sourceCode: string;
+  contentType: string;
+  externalId: string;
+  sourceUrl: string;
+  contentId: number;
+  resultType: 'ADDED' | 'UPDATED' | 'UNCHANGED';
+  title: string;
+  alias?: string | null;
+  posterUrl?: string | null;
+  year?: number | null;
+  directors?: string | null;
+  writers?: string | null;
+  actors?: string | null;
+  genres?: string | null;
+  regions?: string | null;
+  languages?: string | null;
+  releaseDate?: string | null;
+  duration?: number | null;
+  totalEpisodes?: number | null;
+  scoreDouban?: number | null;
+  scoreImdb?: number | null;
+  scoreRt?: number | null;
+  crawledAt: string;
   createdAt: string;
   updatedAt: string;
 }

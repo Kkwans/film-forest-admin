@@ -102,7 +102,7 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs, onJobSta
         <Button variant="outline" onClick={() => void fetchLogs()} disabled={loading}><RefreshCw />刷新当前页</Button>
       </div>
 
-      <div className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm shadow-black/[0.02] sm:grid-cols-2 lg:grid-cols-4">
         <div className="relative sm:col-span-2"><Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" /><input className={`${inputClass} pl-9`} value={keywordInput} placeholder="配置、当前项、来源或错误" onChange={event => setKeywordInput(event.target.value)} /></div>
         <Select value={status} onChange={value => { setStatus(value); resetPage(); }} options={JOB_STATUSES} />
         <Select value={scheduleId} onChange={value => { setScheduleId(value); resetPage(); }} options={[{ label: '全部配置', value: 'all' }, ...schedules.map(item => ({ label: item.name, value: String(item.id) }))]} searchable />
@@ -112,7 +112,7 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs, onJobSta
         <label className="space-y-1"><span className="text-xs text-muted-foreground">结束时间（上海）</span><input className={inputClass} type="datetime-local" value={to} onChange={event => { setTo(event.target.value); resetPage(); }} /></label>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-black/[0.02]">
         <div className="flex items-center justify-between border-b border-border px-4 py-3 text-sm"><span className="text-muted-foreground">共 <strong className="text-foreground">{pageData.total}</strong> 个 Job</span><span className="text-xs text-muted-foreground">第 {pageData.current}/{Math.max(pageData.pages, 1)} 页</span></div>
         {loading && pageData.records.length === 0 ? (
           <div className="flex items-center justify-center gap-2 p-12 text-muted-foreground"><Loader2 className="animate-spin" />查询日志</div>

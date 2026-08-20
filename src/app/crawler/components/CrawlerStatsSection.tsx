@@ -59,7 +59,7 @@ export function CrawlerStatsSection({ hasActiveJobs }: Props) {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-            {metrics.map(([label, value]) => <div key={String(label)} className="rounded-xl border border-border bg-card p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-xl font-semibold text-foreground">{value}</p></div>)}
+            {metrics.map(([label, value]) => <div key={String(label)} className="rounded-2xl border border-border bg-card p-4 shadow-sm shadow-black/[0.02]"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-xl font-semibold tabular-nums text-foreground">{value}</p></div>)}
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">

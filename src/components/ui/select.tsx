@@ -66,7 +66,7 @@ function OptionsPopup({ options, selectedValues, searchable, compact = false, se
         sideOffset={6}
         align="start"
         alignItemWithTrigger={false}
-        className={`${UI_LAYER_CLASSES.popover} w-[var(--anchor-width)] min-w-44 max-w-[calc(100vw-1.5rem)]`}
+        className={`${UI_LAYER_CLASSES.popover} ${compact ? 'w-[min(32rem,var(--anchor-width))]' : 'w-[var(--anchor-width)]'} min-w-44 max-w-[calc(100vw-1.5rem)]`}
       >
         <SelectPrimitive.Popup
           ref={popupRef}
@@ -103,7 +103,7 @@ function OptionsPopup({ options, selectedValues, searchable, compact = false, se
           )}
           <SelectPrimitive.List className={cn(
             'max-h-[min(18rem,var(--available-height))] overflow-y-auto p-1.5',
-            compact && 'grid grid-cols-2 gap-1 sm:grid-cols-3',
+            compact && 'grid grid-cols-3 gap-1.5 p-2',
           )}>
             {filtered.length === 0 ? (
               <p className={cn('px-3 py-6 text-center text-sm text-muted-foreground', compact && 'col-span-full')}>没有匹配选项</p>
@@ -116,7 +116,7 @@ function OptionsPopup({ options, selectedValues, searchable, compact = false, se
                   disabled={option.disabled}
                   className={cn(
                     'grid min-w-0 cursor-default grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 outline-none select-none',
-                    compact ? 'min-h-8 text-xs' : size === 'sm' ? 'min-h-8 text-xs' : 'min-h-9 text-sm',
+                    compact ? 'min-h-9 px-2 text-xs' : size === 'sm' ? 'min-h-8 text-xs' : 'min-h-9 text-sm',
                     'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[selected]:font-medium data-[disabled]:pointer-events-none data-[disabled]:opacity-45',
                   )}
                 >
@@ -275,11 +275,11 @@ export function MultiSelect({
           render={<div />}
           className="flex min-h-10 w-full items-start justify-between gap-2 rounded-xl border border-input bg-background px-3 py-1.5 text-left text-sm text-foreground outline-none transition-[border-color,box-shadow,background-color] hover:border-muted-foreground/55 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25 data-[popup-open]:border-ring data-[popup-open]:ring-3 data-[popup-open]:ring-ring/20 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-55"
         >
-          <div className="flex max-h-20 min-w-0 flex-1 flex-wrap content-start items-center gap-1.5 overflow-y-auto pr-1">
+          <div className="flex max-h-16 min-w-0 flex-1 flex-wrap content-start items-center gap-1 overflow-y-auto pr-1">
             {selected.length === 0 ? (
               <span className="py-1 text-muted-foreground">{placeholder}</span>
             ) : selected.map(option => (
-              <span key={option.value} className="inline-flex max-w-full items-center gap-1 rounded-lg border border-primary/15 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+              <span key={option.value} className="inline-flex max-w-full items-center gap-0.5 rounded-lg border border-primary/15 bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
                 <span className="truncate">{option.label}</span>
                 {!disabled && (
                   <button
