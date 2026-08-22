@@ -225,7 +225,7 @@ export default function AdminDashboard() {
         </div>
         <CardContent className="p-0">
           {loading ? (
-            <div className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-0 bg-card sm:grid-cols-2 xl:grid-cols-3">
               {[1, 2, 3, 4, 5, 6].map(item => <Skeleton key={item} className="h-[6.5rem] w-full rounded-none" />)}
             </div>
           ) : recentSchedules.length === 0 ? (
@@ -233,11 +233,11 @@ export default function AdminDashboard() {
               <div><Bot className="mx-auto size-8 text-muted-foreground/40" /><p className="mt-2 text-sm font-medium text-foreground">尚未创建爬虫计划</p><Link href="/crawler" className="mt-1 inline-flex text-xs text-primary">创建第一个计划</Link></div>
             </div>
           ) : (
-            <div className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-0 bg-card sm:grid-cols-2 xl:grid-cols-3">
               {recentSchedules.map(item => {
                 const state = crawlerState(item);
                 return (
-                  <Link key={item.id} href="/crawler" className="flex h-[6.5rem] min-w-0 flex-col justify-between bg-card p-4 hover:bg-muted/25">
+                  <Link key={item.id} href="/crawler" className="flex h-[6.5rem] min-w-0 flex-col justify-between border-b border-border/70 bg-card p-4 hover:bg-muted/25 sm:border-r">
                     <div className="flex min-w-0 items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-2">
                         <span className={`size-2 shrink-0 rounded-full ${state.dot} ${state.value === 'running' ? 'animate-pulse' : ''}`} />
@@ -262,7 +262,7 @@ export default function AdminDashboard() {
         <Card className="overflow-hidden border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">最近内容</h2><p className="text-xs text-muted-foreground">按入库时间展示最近内容，状态保持明确三态。</p></div><Link href="/content" className="flex items-center gap-1 text-xs font-medium text-primary">内容管理<ArrowRight className="size-3" /></Link></div>
           <CardContent className="p-0">
-            {loading ? <div className="grid gap-px bg-border sm:grid-cols-2">{[1, 2, 3, 4, 5, 6].map(item => <Skeleton key={item} className="h-20 w-full rounded-none" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid gap-px bg-border sm:grid-cols-2">{recentItems.map(item => { const status = contentStatus(item.status); const type = CONTENT_TYPES.find(entry => entry.code === item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-h-20 min-w-0 items-center gap-3 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}</p><p className="mt-1 truncate text-xs text-muted-foreground">{TYPE_LABELS[item.type] || item.type}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · {relativeTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
+            {loading ? <div className="grid gap-0 bg-card sm:grid-cols-2">{[1, 2, 3, 4, 5, 6].map(item => <Skeleton key={item} className="h-20 w-full rounded-none" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid gap-0 bg-card sm:grid-cols-2">{recentItems.map(item => { const status = contentStatus(item.status); const type = CONTENT_TYPES.find(entry => entry.code === item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-h-20 min-w-0 items-center gap-3 border-b border-r border-border/70 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}</p><p className="mt-1 truncate text-xs text-muted-foreground">{TYPE_LABELS[item.type] || item.type}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · {relativeTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
           </CardContent>
         </Card>
 
