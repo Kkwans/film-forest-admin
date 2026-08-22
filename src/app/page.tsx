@@ -233,7 +233,7 @@ export default function AdminDashboard() {
               <div><Bot className="mx-auto size-8 text-muted-foreground/40" /><p className="mt-2 text-sm font-medium text-foreground">尚未创建爬虫计划</p><Link href="/crawler" className="mt-1 inline-flex text-xs text-primary">创建第一个计划</Link></div>
             </div>
           ) : (
-            <div className="grid gap-0 bg-card sm:grid-cols-2 xl:grid-cols-3">
+            <div className={`grid gap-0 bg-card ${recentSchedules.length === 1 ? 'grid-cols-1' : 'sm:grid-cols-2 xl:grid-cols-3'}`}>
               {recentSchedules.map(item => {
                 const state = crawlerState(item);
                 return (
