@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tags, Plus, Pencil, Trash2, Search, Loader2, Inbox, Tag, X, Hash } from 'lucide-react';
+import { Tags, Plus, Pencil, Trash2, Search, Loader2, Inbox, Tag, X, Hash, Link2 } from 'lucide-react';
 import { tagApi, type TagItem } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 import { useDialog } from '@/components/ui/dialog';
@@ -180,7 +180,7 @@ export default function TagsPage() {
                 <p className="text-2xl font-bold text-foreground mt-1">{loading ? <Skeleton className="h-6 w-12" /> : tags.reduce((sum, t) => sum + (t.usageCount ?? 0), 0)}</p>
               </div>
               <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                <span className="text-lg">🔗</span>
+                <Link2 className="w-5 h-5 text-amber-500" />
               </div>
             </div>
           </CardContent>
