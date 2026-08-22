@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { extractErrorMessage } from '@/lib/utils';
-import { StatusBadge, contentTypeLabel, elapsedFor, formatCrawlerTime } from './crawler-ui';
+import { StatusBadge, contentTypeLabel, crawlerPanelClass, elapsedFor, formatCrawlerTime } from './crawler-ui';
 import { CrawlerJobDetailModal } from './CrawlerJobDetailModal';
 
 interface Props {
@@ -74,7 +74,7 @@ export function CrawlerJobsSection({ jobs, loading, onRefresh, focusJobId, onFoc
       ) : (
         <div className="space-y-3">
           {jobs.map(job => (
-            <article key={job.id} className="rounded-2xl border border-border bg-card p-5 shadow-sm shadow-black/[0.02]">
+            <article key={job.id} className={`${crawlerPanelClass} p-5`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-foreground">Job #{job.id}</h3><StatusBadge status={job.status} /></div>
@@ -87,14 +87,14 @@ export function CrawlerJobsSection({ jobs, loading, onRefresh, focusJobId, onFoc
                   </Button>
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-8">
-                {progressFields.map(([key, label]) => <div key={key} className="rounded-lg bg-muted/50 p-2"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 font-semibold text-foreground">{Number(job[key] ?? 0)}</p></div>)}
+              <div className="mt-4 grid auto-rows-fr grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-8">
+                {progressFields.map(([key, label]) => <div key={key} className="min-h-[3.75rem] rounded-xl bg-muted/50 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 font-semibold tabular-nums text-foreground">{Number(job[key] ?? 0)}</p></div>)}
               </div>
               <dl className="mt-4 grid gap-2 text-xs text-muted-foreground md:grid-cols-4">
-                <div>当前页：<span className="text-foreground">{job.currentPage ?? '-'}</span></div>
-                <div className="truncate" title={job.currentItem || ''}>当前项：<span className="text-foreground">{job.currentItem || '-'}</span></div>
-                <div>已用时：<span className="text-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</span></div>
-                <div>心跳：<span className="text-foreground">{formatCrawlerTime(job.heartbeatAt)}</span></div>
+                <div className="min-w-0">当前页：<span className="text-foreground">{job.currentPage ?? '-'}</span></div>
+                <div className="min-w-0 truncate" title={job.currentItem || ''}>当前项：<span className="text-foreground">{job.currentItem || '-'}</span></div>
+                <div className="min-w-0">已用时：<span className="text-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</span></div>
+                <div className="min-w-0">心跳：<span className="text-foreground">{formatCrawlerTime(job.heartbeatAt)}</span></div>
               </dl>
               {job.errorSummary && <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{job.errorSummary}</p>}
             </article>

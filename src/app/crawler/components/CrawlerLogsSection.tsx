@@ -9,7 +9,7 @@ import Pagination from '@/components/Pagination';
 import { useToast } from '@/components/ui/toast';
 import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
 import { extractErrorMessage } from '@/lib/utils';
-import { CONTENT_TYPES, JOB_STATUSES, StatusBadge, contentTypeLabel, elapsedFor, formatCrawlerTime, inputClass } from './crawler-ui';
+import { CONTENT_TYPES, JOB_STATUSES, StatusBadge, contentTypeLabel, crawlerPanelClass, elapsedFor, formatCrawlerTime, inputClass } from './crawler-ui';
 import { CrawlerJobDetailModal } from './CrawlerJobDetailModal';
 
 interface Props {
@@ -102,7 +102,7 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs, onJobSta
         <Button variant="outline" onClick={() => void fetchLogs()} disabled={loading}><RefreshCw />刷新当前页</Button>
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-border bg-card p-4 shadow-sm shadow-black/[0.02] sm:grid-cols-2 lg:grid-cols-4">
+      <div className={`${crawlerPanelClass} grid items-end gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4`}>
         <div className="relative sm:col-span-2"><Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" /><input className={`${inputClass} pl-9`} value={keywordInput} placeholder="配置、当前项、来源或错误" onChange={event => setKeywordInput(event.target.value)} /></div>
         <Select value={status} onChange={value => { setStatus(value); resetPage(); }} options={JOB_STATUSES} />
         <Select value={scheduleId} onChange={value => { setScheduleId(value); resetPage(); }} options={[{ label: '全部配置', value: 'all' }, ...schedules.map(item => ({ label: item.name, value: String(item.id) }))]} searchable />
@@ -112,27 +112,28 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs, onJobSta
         <label className="space-y-1"><span className="text-xs text-muted-foreground">结束时间（上海）</span><input className={inputClass} type="datetime-local" value={to} onChange={event => { setTo(event.target.value); resetPage(); }} /></label>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm shadow-black/[0.02]">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3 text-sm"><span className="text-muted-foreground">共 <strong className="text-foreground">{pageData.total}</strong> 个 Job</span><span className="text-xs text-muted-foreground">第 {pageData.current}/{Math.max(pageData.pages, 1)} 页</span></div>
+      <div className={`${crawlerPanelClass} overflow-hidden`}>
+        <div className="flex min-h-12 items-center justify-between border-b border-border px-4 py-3 text-sm"><span className="text-muted-foreground">共 <strong className="text-foreground">{pageData.total}</strong> 个 Job</span><span className="text-xs tabular-nums text-muted-foreground">第 {pageData.current}/{Math.max(pageData.pages, 1)} 页</span></div>
         {loading && pageData.records.length === 0 ? (
           <div className="flex items-center justify-center gap-2 p-12 text-muted-foreground"><Loader2 className="animate-spin" />查询日志</div>
         ) : pageData.records.length === 0 ? (
           <div className="p-12 text-center text-sm text-muted-foreground">当前筛选条件下没有 Job 日志。</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-sm">
+            <table className="w-full min-w-[980px] table-fixed text-sm">
+              <colgroup><col className="w-[18%]" /><col className="w-[12%]" /><col className="w-[10%]" /><col className="w-[13%]" /><col className="w-[13%]" /><col className="w-[9%]" /><col className="w-[15%]" /><col className="w-[10%]" /></colgroup>
               <thead className="bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-3">Job / 配置</th><th className="p-3">来源 / 类型</th><th className="p-3">状态</th><th className="p-3">发现 / 获取 / 解析</th><th className="p-3">新增 / 更新 / 失败</th><th className="p-3">耗时</th><th className="p-3">开始时间</th><th className="p-3 text-right">操作</th></tr></thead>
               <tbody className="divide-y divide-border">
                 {pageData.records.map(job => (
-                  <tr key={job.id} className="hover:bg-muted/20">
-                    <td className="p-3"><p className="font-medium text-foreground">#{job.id} · {job.scheduleName || '-'}</p><p className="mt-1 text-xs text-muted-foreground">{job.triggerType || '-'}{job.retryOfJobId ? ` · 重试 #${job.retryOfJobId}` : ''}</p></td>
-                    <td className="p-3 text-muted-foreground">{job.sourceCode || '-'} / {contentTypeLabel(job.contentType)}</td>
+                  <tr key={job.id} className="align-top hover:bg-muted/20">
+                    <td className="p-3"><p className="truncate font-medium text-foreground" title={job.scheduleName || '-'}>#{job.id} · {job.scheduleName || '-'}</p><p className="mt-1 truncate text-xs text-muted-foreground">{job.triggerType || '-'}{job.retryOfJobId ? ` · 重试 #${job.retryOfJobId}` : ''}</p></td>
+                    <td className="truncate p-3 text-muted-foreground" title={`${job.sourceCode || '-'} / ${contentTypeLabel(job.contentType)}`}>{job.sourceCode || '-'} / {contentTypeLabel(job.contentType)}</td>
                     <td className="p-3"><StatusBadge status={job.status} /></td>
-                    <td className="p-3 text-muted-foreground">{job.discoveredCount ?? 0} / {job.fetchSucceededCount ?? 0} / {job.parseSucceededCount ?? 0}</td>
-                    <td className="p-3"><span className="text-primary">+{job.addedCount ?? 0}</span> / {job.updatedCount ?? 0} / <span className={(job.failedCount ?? 0) > 0 ? 'text-destructive' : 'text-muted-foreground'}>{job.failedCount ?? 0}</span></td>
-                    <td className="p-3 text-muted-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</td>
-                    <td className="p-3 text-xs text-muted-foreground">{formatCrawlerTime(job.startedAt || job.queuedAt)}</td>
-                    <td className="p-3"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="查看详情" onClick={() => setDetailJobId(job.id)}><Eye /></Button>{retryableStatuses.has(job.status) && <Button variant="outline" size="icon" title="重试" disabled={retryingId === job.id} onClick={() => void retry(job)}>{retryingId === job.id ? <Loader2 className="animate-spin" /> : <RotateCcw />}</Button>}</div></td>
+                    <td className="p-3 tabular-nums text-muted-foreground">{job.discoveredCount ?? 0} / {job.fetchSucceededCount ?? 0} / {job.parseSucceededCount ?? 0}</td>
+                    <td className="p-3 tabular-nums"><span className="text-primary">+{job.addedCount ?? 0}</span> / {job.updatedCount ?? 0} / <span className={(job.failedCount ?? 0) > 0 ? 'text-destructive' : 'text-muted-foreground'}>{job.failedCount ?? 0}</span></td>
+                    <td className="p-3 tabular-nums text-muted-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</td>
+                    <td className="p-3 text-xs tabular-nums text-muted-foreground">{formatCrawlerTime(job.startedAt || job.queuedAt)}</td>
+                    <td className="p-3"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="查看详情" aria-label="查看详情" onClick={() => setDetailJobId(job.id)}><Eye /></Button>{retryableStatuses.has(job.status) && <Button variant="outline" size="icon" title="重试" aria-label="重试" disabled={retryingId === job.id} onClick={() => void retry(job)}>{retryingId === job.id ? <Loader2 className="animate-spin" /> : <RotateCcw />}</Button>}</div></td>
                   </tr>
                 ))}
               </tbody>

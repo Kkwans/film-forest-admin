@@ -110,12 +110,12 @@ export default function CrawlerPage() {
         <div className="flex gap-2 text-xs"><span className="rounded-full bg-muted px-3 py-1.5 text-muted-foreground">{summary.configurations} 个配置</span><span className="rounded-full bg-primary/10 px-3 py-1.5 text-primary">{summary.active} 个活动 Job</span><span className="rounded-full bg-muted px-3 py-1.5 text-muted-foreground">{summary.enabled} 个自动调度</span></div>
       </header>
 
-      <nav aria-label="爬虫管理区域" className="grid gap-2 rounded-xl border border-border bg-card p-2 sm:grid-cols-2 xl:grid-cols-4">
+      <nav aria-label="爬虫管理区域" className="grid items-stretch gap-2 rounded-2xl border border-border bg-card p-2 sm:grid-cols-2 xl:grid-cols-4">
         {sections.map(item => {
           const Icon = item.icon;
           const active = section === item.key;
           return (
-            <button key={item.key} type="button" onClick={() => setSection(item.key)} className={`flex items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors ${active ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'}`}>
+            <button key={item.key} type="button" onClick={() => setSection(item.key)} className={`flex min-h-16 items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors ${active ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'}`}>
               <Icon className="size-5 shrink-0" /><span><span className="block text-sm font-medium">{item.label}</span><span className={`block text-xs ${active ? 'text-primary-foreground/75' : 'text-muted-foreground'}`}>{item.description}</span></span>
             </button>
           );

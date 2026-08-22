@@ -166,8 +166,8 @@ export function CrawlerConfigSection({ schedules, activeJobs, sources, loading, 
               const cursor = cursors[schedule.id];
               const needsReview = schedule.configurationStatus === 'NEEDS_REVIEW';
               return (
-                <article key={schedule.id} className="grid gap-4 p-5 transition-colors hover:bg-muted/20 lg:grid-cols-[minmax(15rem,1.2fr)_minmax(22rem,2fr)_auto] lg:items-center">
-                  <div className="min-w-0">
+                <article key={schedule.id} data-crawler-config-card className="grid gap-x-5 gap-y-4 p-5 transition-colors hover:bg-muted/20 lg:grid-cols-[15rem_minmax(0,1fr)_21.5rem] lg:items-stretch">
+                  <div className="flex min-w-0 flex-col justify-center">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate font-medium text-foreground">{schedule.name}</h3>
                       <StatusBadge status={schedule.latestResult} />
@@ -175,7 +175,7 @@ export function CrawlerConfigSection({ schedules, activeJobs, sources, loading, 
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">#{schedule.id} · {sources.find(source => source.id === schedule.sourceId)?.name || schedule.sourceSite} · {contentTypeLabel(schedule.contentType)}</p>
                   </div>
-                    <dl className="grid grid-cols-2 gap-x-5 gap-y-2.5 text-xs sm:grid-cols-4">
+                  <dl className="grid min-w-0 grid-cols-2 content-center gap-x-6 gap-y-3 text-xs sm:grid-cols-3">
                     <div><dt className="text-muted-foreground">运行规则</dt><dd className="mt-0.5 text-foreground">{schedule.crawlMode === 'full' ? '全量手工' : schedule.scheduleMode === 'MANUAL' ? '仅手工' : schedule.scheduleMode === 'CUSTOM_CRON' ? '高级 Cron' : schedule.scheduleMode}</dd></div>
                     <div><dt className="text-muted-foreground">来源排序</dt><dd className="mt-0.5 text-foreground">{sourceSortLabel(schedule.sourceSort || 'TIME')}</dd></div>
                     <div><dt className="text-muted-foreground">新内容 / 回填</dt><dd className="mt-0.5 text-foreground">{schedule.newItemLimit ?? schedule.batchSize} / {schedule.backfillItemLimit ?? schedule.batchSize}</dd></div>
@@ -183,17 +183,17 @@ export function CrawlerConfigSection({ schedules, activeJobs, sources, loading, 
                     <div><dt className="text-muted-foreground">上次运行</dt><dd className="mt-0.5 text-foreground">{formatCrawlerTime(schedule.lastRunTime)}</dd></div>
                     <div><dt className="text-muted-foreground">下次运行</dt><dd className="mt-0.5 text-foreground">{schedule.enabled === 1 ? formatCrawlerTime(schedule.nextRunTime) : '自动调度关闭'}</dd></div>
                   </dl>
-                  <div className="flex flex-wrap justify-end gap-1.5">
-                    {activeJob && <Button variant="outline" size="sm" onClick={() => onViewJob(activeJob.id)}><Eye />运行详情</Button>}
-                    <Button variant="outline" size="sm" onClick={() => void toggle(schedule)} disabled={schedule.crawlMode === 'full' || needsReview}>
+                  <div className="flex min-w-0 flex-nowrap items-center justify-end gap-1.5 self-center">
+                    {activeJob && <Button variant="outline" onClick={() => onViewJob(activeJob.id)}><Eye />运行详情</Button>}
+                    <Button variant="outline" onClick={() => void toggle(schedule)} disabled={schedule.crawlMode === 'full' || needsReview}>
                       {schedule.enabled === 1 ? '关闭自动' : '启用自动'}
                     </Button>
-                    <Button variant="outline" size="icon" title={active ? '取消 Job' : needsReview ? '来源待复核' : '手工启动'} disabled={actionId === schedule.id || (!active && needsReview)} onClick={() => void runAction(schedule.id, active ? 'stop' : 'start')}>
+                    <Button variant="outline" size="icon" title={active ? '取消 Job' : needsReview ? '来源待复核' : '手工启动'} aria-label={active ? '取消 Job' : needsReview ? '来源待复核' : '手工启动'} disabled={actionId === schedule.id || (!active && needsReview)} onClick={() => void runAction(schedule.id, active ? 'stop' : 'start')}>
                       {actionId === schedule.id ? <Loader2 className="animate-spin" /> : active ? <Square /> : <Play />}
                     </Button>
-                    <Button variant="ghost" size="icon" title="重置续爬游标" disabled={active || !cursor} onClick={() => void resetCursor(schedule)}><RotateCcw /></Button>
-                    <Button variant="ghost" size="icon" title="编辑" onClick={() => { setEditing(schedule); setEditorOpen(true); }}><Pencil /></Button>
-                    <Button variant="destructive" size="icon" title="删除" disabled={deletingId === schedule.id} onClick={() => void remove(schedule)}>
+                    <Button variant="ghost" size="icon" title="重置续爬游标" aria-label="重置续爬游标" disabled={active || !cursor} onClick={() => void resetCursor(schedule)}><RotateCcw /></Button>
+                    <Button variant="ghost" size="icon" title="编辑" aria-label="编辑" onClick={() => { setEditing(schedule); setEditorOpen(true); }}><Pencil /></Button>
+                    <Button variant="destructive" size="icon" title="删除" aria-label="删除" disabled={deletingId === schedule.id} onClick={() => void remove(schedule)}>
                       {deletingId === schedule.id ? <Loader2 className="animate-spin" /> : <Trash2 />}
                     </Button>
                   </div>

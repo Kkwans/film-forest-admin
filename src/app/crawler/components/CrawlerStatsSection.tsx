@@ -8,7 +8,7 @@ import { Select } from '@/components/ui/select';
 import { useToast } from '@/components/ui/toast';
 import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
 import { extractErrorMessage } from '@/lib/utils';
-import { formatCrawlerTime, formatDuration } from './crawler-ui';
+import { crawlerPanelClass, formatCrawlerTime, formatDuration } from './crawler-ui';
 
 interface Props {
   hasActiveJobs: boolean;
@@ -59,11 +59,11 @@ export function CrawlerStatsSection({ hasActiveJobs }: Props) {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-            {metrics.map(([label, value]) => <div key={String(label)} className="rounded-2xl border border-border bg-card p-4 shadow-sm shadow-black/[0.02]"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-xl font-semibold tabular-nums text-foreground">{value}</p></div>)}
+            {metrics.map(([label, value]) => <div key={String(label)} className={`${crawlerPanelClass} min-h-[5.25rem] p-4`}><p className="text-xs text-muted-foreground">{label}</p><p className="mt-2 text-xl font-semibold tabular-nums text-foreground">{value}</p></div>)}
           </div>
 
           <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className={`${crawlerPanelClass} p-4`}>
               <h3 className="font-medium text-foreground">每日 Job 趋势</h3>
               <div className="mt-4 space-y-2">
                 {data.daily.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">该窗口尚无 Job。</p> : data.daily.map(day => (
@@ -76,7 +76,7 @@ export function CrawlerStatsSection({ hasActiveJobs }: Props) {
               </div>
             </div>
 
-            <div className="rounded-xl border border-border bg-card p-4">
+            <div className={`${crawlerPanelClass} p-4`}>
               <h3 className="font-medium text-foreground">来源健康度</h3>
               <div className="mt-4 space-y-3">
                 {data.sourceHealth.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">该窗口尚无来源运行记录。</p> : data.sourceHealth.map(source => {

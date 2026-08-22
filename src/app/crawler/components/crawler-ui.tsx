@@ -90,4 +90,25 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
+export const crawlerPanelClass = 'rounded-2xl border border-border bg-card shadow-sm shadow-black/[0.02]';
+export const crawlerInsetClass = 'rounded-xl border border-border bg-muted/20';
+export const crawlerDetailFieldClass = 'flex h-7 min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-xs';
+
+export function CrawlerDetailField({
+  label,
+  children,
+  title,
+}: {
+  label: string;
+  children: ReactNode;
+  title?: string;
+}) {
+  return (
+    <div className={crawlerDetailFieldClass}>
+      <dt className="shrink-0 text-foreground/60">{label}：</dt>
+      <dd className="min-w-0 truncate text-foreground" title={title}>{children}</dd>
+    </div>
+  );
+}
+
 export const inputClass = 'h-9 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none transition-[border-color,box-shadow,background-color] placeholder:text-muted-foreground/60 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20';

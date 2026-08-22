@@ -17,8 +17,11 @@ import { Select } from '@/components/ui/select';
 import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
 import { extractErrorMessage } from '@/lib/utils';
 import {
+  CrawlerDetailField,
   StatusBadge,
   contentTypeLabel,
+  crawlerInsetClass,
+  crawlerPanelClass,
   elapsedFor,
   formatCrawlerTime,
   inputClass,
@@ -239,7 +242,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
 
         {job ? (
           <>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            <div className="grid auto-rows-fr grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
               {[
                 ['发现', job.discoveredCount], ['获取', job.fetchSucceededCount], ['解析', job.parseSucceededCount],
                 ['新增', job.addedCount], ['更新', job.updatedCount], ['未变化', job.unchangedCount],
@@ -247,14 +250,14 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 ['列表项', job.listItemsScanned], ['详情尝试', job.detailAttempted], ['游标推进', job.cursorAdvanced],
                 ['新内容', job.newItems], ['历史回填', job.backfillItems],
               ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-xl border border-border bg-muted/35 p-3">
+                <div key={String(label)} className="flex min-h-[4.25rem] flex-col justify-center rounded-xl border border-border bg-muted/35 p-3">
                   <p className="text-xs text-muted-foreground">{label}</p>
                   <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{Number(value ?? 0)}</p>
                 </div>
               ))}
             </div>
 
-            <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="grid auto-rows-fr gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               {[
                 ['当前页', job.currentPage ?? '-'], ['当前项', job.currentItem || '-'],
                 ['来源排序', sourceSortLabel(job.sourceSort)], ['遍历模式', job.traversalMode || '-'],
@@ -264,21 +267,21 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 ['游标状态', cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '-'],
                 ['游标锚点', cursor?.nextExternalId || cursor?.lastCommittedExternalId || '-'],
               ].map(([label, value]) => (
-                <div key={String(label)} className="min-w-0 rounded-xl border border-border p-3">
+                <div key={String(label)} className="flex min-h-[4.25rem] min-w-0 flex-col justify-center rounded-xl border border-border p-3">
                   <dt className="text-xs text-muted-foreground">{label}</dt>
                   <dd className="mt-1 break-all text-foreground">{String(value)}</dd>
                 </div>
               ))}
             </dl>
 
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className="min-w-0 rounded-xl border border-border bg-muted/20 p-3">
+            <div className="grid items-stretch gap-3 lg:grid-cols-2">
+              <div className={`${crawlerInsetClass} flex min-h-[6.25rem] min-w-0 flex-col p-3`}>
                 <p className="text-xs font-medium text-muted-foreground">查询快照</p>
-                <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.querySnapshot || '未记录'}</pre>
+                <pre className="mt-2 min-h-12 max-h-24 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.querySnapshot || '未记录'}</pre>
               </div>
-              <div className="min-w-0 rounded-xl border border-border bg-muted/20 p-3">
+              <div className={`${crawlerInsetClass} flex min-h-[6.25rem] min-w-0 flex-col p-3`}>
                 <p className="text-xs font-medium text-muted-foreground">配置快照</p>
-                <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.configSnapshot || '未记录'}</pre>
+                <pre className="mt-2 min-h-12 max-h-24 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.configSnapshot || '未记录'}</pre>
               </div>
             </div>
 
@@ -312,7 +315,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                   }
                 }}
               />
-              <Button variant="outline" size="sm" onClick={() => { setSuccessKeyword(successKeywordInput.trim()); setSuccessPage(1); }}>
+              <Button variant="outline" onClick={() => { setSuccessKeyword(successKeywordInput.trim()); setSuccessPage(1); }}>
                 搜索
               </Button>
             </div>
@@ -333,43 +336,43 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
           ) : successes.records.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">当前 Job 没有可展示的成功明细。</div>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-3">
               {successes.records.map((success, index) => {
                 const sequence = (successes.current - 1) * successes.size + index + 1;
                 return (
-                  <article key={success.id} className="grid gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm shadow-black/[0.02] sm:grid-cols-[2.5rem_5rem_minmax(0,1fr)]">
-                    <div className="flex items-start justify-center pt-1">
+                  <article key={success.id} data-crawler-success-card className={`${crawlerPanelClass} grid items-stretch gap-3 p-3 sm:grid-cols-[2rem_5rem_minmax(0,1fr)]`}>
+                    <div className="flex h-full items-start justify-center pt-1">
                       <span className="font-mono text-xs font-semibold tabular-nums text-primary/75">{String(sequence).padStart(2, '0')}</span>
                     </div>
-                    <div className="flex h-28 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted text-[10px] text-muted-foreground">
-                      {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="h-full w-full object-cover" /> : '无海报'}
+                    <div className="flex min-h-[7.5rem] w-20 shrink-0 items-center justify-center self-stretch overflow-hidden rounded-xl bg-muted/70 text-[10px] text-muted-foreground">
+                      {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="h-full w-full object-contain" /> : '无海报'}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                    <div className="flex min-w-0 flex-col">
+                      <div className="grid min-h-[3.5rem] gap-2 border-b border-border/70 pb-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                         <div className="min-w-0">
-                          <p className="truncate font-semibold text-foreground">{success.title}{success.year ? `（${success.year}）` : ''}</p>
-                          <p className="mt-0.5 truncate text-xs text-muted-foreground" title={listText(success.alias)}>别名：{listText(success.alias)}</p>
+                          <p className="truncate font-semibold leading-5 text-foreground">{success.title}{success.year ? `（${success.year}）` : ''}</p>
+                          <p className="mt-1 truncate text-xs leading-4 text-muted-foreground" title={listText(success.alias)}>别名：{listText(success.alias)}</p>
                         </div>
-                        <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                          <span>爬取时间 {formatCrawlerTime(success.crawledAt)}</span>
+                        <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs text-muted-foreground sm:justify-self-end">
+                          <span className="tabular-nums">爬取时间 {formatCrawlerTime(success.crawledAt)}</span>
                           <a href={success.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
                             查看来源 <ExternalLink className="size-3" />
                           </a>
                         </div>
                       </div>
-                      <dl className="mt-3 grid gap-x-5 gap-y-2 border-t border-border/70 pt-3 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
-                        <div><dt className="inline text-foreground/60">类型：</dt><dd className="inline">{contentTypeLabel(success.contentType)}</dd></div>
-                        <div><dt className="inline text-foreground/60">评分：</dt><dd className="inline">豆瓣 {scoreText(success.scoreDouban)} · IMDb {scoreText(success.scoreImdb)} · 烂番茄 {scoreText(success.scoreRt)}</dd></div>
-                        <div className="min-w-0 truncate" title={listText(success.directors)}><dt className="inline text-foreground/60">导演：</dt><dd className="inline">{listText(success.directors)}</dd></div>
-                        <div className="min-w-0 truncate" title={listText(success.writers)}><dt className="inline text-foreground/60">编剧：</dt><dd className="inline">{listText(success.writers)}</dd></div>
-                        <div className="min-w-0 truncate" title={listText(success.actors)}><dt className="inline text-foreground/60">主演：</dt><dd className="inline">{listText(success.actors)}</dd></div>
-                        <div className="min-w-0 truncate" title={listText(success.genres)}><dt className="inline text-foreground/60">题材：</dt><dd className="inline">{listText(success.genres)}</dd></div>
-                        <div className="min-w-0 truncate" title={listText(success.regions)}><dt className="inline text-foreground/60">地区：</dt><dd className="inline">{listText(success.regions)}</dd></div>
-                        <div className="min-w-0 truncate" title={listText(success.languages)}><dt className="inline text-foreground/60">语言：</dt><dd className="inline">{listText(success.languages)}</dd></div>
-                        <div className="min-w-0 truncate" title={success.releaseDate || '—'}><dt className="inline text-foreground/60">日期：</dt><dd className="inline">{success.releaseDate || '—'}</dd></div>
-                        <div><dt className="inline text-foreground/60">时长：</dt><dd className="inline">{success.duration ? `${success.duration} 分钟` : '—'}</dd></div>
-                        <div><dt className="inline text-foreground/60">来源条目：</dt><dd className="inline">{success.externalId}</dd></div>
-                        <div><dt className="inline text-foreground/60">内容：</dt><dd className="inline">{contentTypeLabel(success.contentType)} #{success.contentId}</dd></div>
+                      <dl className="mt-3 grid min-w-0 grid-cols-2 gap-x-5 gap-y-0 text-xs sm:grid-cols-4">
+                        <CrawlerDetailField label="类型" title={contentTypeLabel(success.contentType)}>{contentTypeLabel(success.contentType)}</CrawlerDetailField>
+                        <CrawlerDetailField label="评分" title={`豆瓣 ${scoreText(success.scoreDouban)} · IMDb ${scoreText(success.scoreImdb)} · 烂番茄 ${scoreText(success.scoreRt)}`}>豆瓣 {scoreText(success.scoreDouban)} · IMDb {scoreText(success.scoreImdb)} · 烂番茄 {scoreText(success.scoreRt)}</CrawlerDetailField>
+                        <CrawlerDetailField label="导演" title={listText(success.directors)}>{listText(success.directors)}</CrawlerDetailField>
+                        <CrawlerDetailField label="编剧" title={listText(success.writers)}>{listText(success.writers)}</CrawlerDetailField>
+                        <CrawlerDetailField label="主演" title={listText(success.actors)}>{listText(success.actors)}</CrawlerDetailField>
+                        <CrawlerDetailField label="题材" title={listText(success.genres)}>{listText(success.genres)}</CrawlerDetailField>
+                        <CrawlerDetailField label="地区" title={listText(success.regions)}>{listText(success.regions)}</CrawlerDetailField>
+                        <CrawlerDetailField label="语言" title={listText(success.languages)}>{listText(success.languages)}</CrawlerDetailField>
+                        <CrawlerDetailField label="日期" title={success.releaseDate || '—'}>{success.releaseDate || '—'}</CrawlerDetailField>
+                        <CrawlerDetailField label="时长">{success.duration ? `${success.duration} 分钟` : '—'}</CrawlerDetailField>
+                        <CrawlerDetailField label="来源条目" title={success.externalId}>{success.externalId}</CrawlerDetailField>
+                        <CrawlerDetailField label="内容">{contentTypeLabel(success.contentType)} #{success.contentId}</CrawlerDetailField>
                       </dl>
                     </div>
                   </article>
