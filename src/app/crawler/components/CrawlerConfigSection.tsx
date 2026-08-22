@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Pencil, Play, Plus, RefreshCw, RotateCcw, Square, Trash2 } from 'lucide-react';
-import { crawlerApi, type CrawlerJobStartResult, type CrawlerSchedule, type CrawlerScheduleCursor, type CrawlerSourceDescriptor } from '@/lib/api';
+import { Eye, Loader2, Pencil, Play, Plus, RefreshCw, RotateCcw, Square, Trash2 } from 'lucide-react';
+import { crawlerApi, type CrawlerJobStartResult, type CrawlerSchedule, type CrawlerScheduleCursor, type CrawlerSourceDescriptor, type CrawlerTaskLog } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
@@ -12,13 +12,15 @@ import { CrawlerScheduleEditor } from './CrawlerScheduleEditor';
 
 interface Props {
   schedules: CrawlerSchedule[];
+  activeJobs: CrawlerTaskLog[];
   sources: CrawlerSourceDescriptor[];
   loading: boolean;
   onRefresh: () => Promise<void>;
   onJobStarted: (result: CrawlerJobStartResult) => void | Promise<void>;
+  onViewJob: (jobId: number) => void;
 }
 
-export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, onJobStarted }: Props) {
+export function CrawlerConfigSection({ schedules, activeJobs, sources, loading, onRefresh, onJobStarted, onViewJob }: Props) {
   const toast = useToast();
   const dialog = useDialog();
   const [editorOpen, setEditorOpen] = useState(false);
@@ -159,7 +161,8 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
         ) : (
           <div className="divide-y divide-border">
             {schedules.map(schedule => {
-              const active = schedule.status === 'running';
+              const activeJob = activeJobs.find(job => job.scheduleId === schedule.id);
+              const active = Boolean(activeJob);
               const cursor = cursors[schedule.id];
               const needsReview = schedule.configurationStatus === 'NEEDS_REVIEW';
               return (
@@ -181,6 +184,7 @@ export function CrawlerConfigSection({ schedules, sources, loading, onRefresh, o
                     <div><dt className="text-muted-foreground">下次运行</dt><dd className="mt-0.5 text-foreground">{schedule.enabled === 1 ? formatCrawlerTime(schedule.nextRunTime) : '自动调度关闭'}</dd></div>
                   </dl>
                   <div className="flex flex-wrap justify-end gap-1.5">
+                    {activeJob && <Button variant="outline" size="sm" onClick={() => onViewJob(activeJob.id)}><Eye />运行详情</Button>}
                     <Button variant="outline" size="sm" onClick={() => void toggle(schedule)} disabled={schedule.crawlMode === 'full' || needsReview}>
                       {schedule.enabled === 1 ? '关闭自动' : '启用自动'}
                     </Button>

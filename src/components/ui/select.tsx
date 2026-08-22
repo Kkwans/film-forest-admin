@@ -66,7 +66,7 @@ function OptionsPopup({ options, selectedValues, searchable, compact = false, se
         sideOffset={6}
         align="start"
         alignItemWithTrigger={false}
-        className={`${UI_LAYER_CLASSES.popover} ${compact ? 'w-[min(32rem,var(--anchor-width))]' : 'w-[var(--anchor-width)]'} min-w-44 max-w-[calc(100vw-1.5rem)]`}
+        className={`${UI_LAYER_CLASSES.popover} w-[var(--anchor-width)] min-w-44 max-w-[calc(100vw-1.5rem)]`}
       >
         <SelectPrimitive.Popup
           ref={popupRef}
@@ -103,10 +103,10 @@ function OptionsPopup({ options, selectedValues, searchable, compact = false, se
           )}
           <SelectPrimitive.List className={cn(
             'max-h-[min(18rem,var(--available-height))] overflow-y-auto p-1.5',
-            compact && 'grid grid-cols-3 gap-1.5 p-2',
+            compact && 'flex flex-wrap content-start gap-2 p-3',
           )}>
             {filtered.length === 0 ? (
-              <p className={cn('px-3 py-6 text-center text-sm text-muted-foreground', compact && 'col-span-full')}>没有匹配选项</p>
+              <p className="w-full px-3 py-6 text-center text-sm text-muted-foreground">没有匹配选项</p>
             ) : (
               filtered.map(option => (
                 <SelectPrimitive.Item
@@ -115,12 +115,16 @@ function OptionsPopup({ options, selectedValues, searchable, compact = false, se
                   label={option.label}
                   disabled={option.disabled}
                   className={cn(
-                    'grid min-w-0 cursor-default grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 outline-none select-none',
-                    compact ? 'min-h-9 px-2 text-xs' : size === 'sm' ? 'min-h-8 text-xs' : 'min-h-9 text-sm',
+                    'min-w-0 cursor-default items-center gap-1.5 outline-none select-none',
+                    compact
+                      ? 'inline-flex min-h-8 w-auto shrink-0 rounded-full border border-border bg-background px-3 text-sm font-medium'
+                      : 'grid grid-cols-[minmax(0,1fr)_auto] rounded-lg px-2',
+                    compact ? '' : size === 'sm' ? 'min-h-8 text-xs' : 'min-h-9 text-sm',
                     'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[selected]:font-medium data-[disabled]:pointer-events-none data-[disabled]:opacity-45',
+                    compact && 'data-[selected]:border-primary/35 data-[selected]:bg-primary/10 data-[selected]:text-primary',
                   )}
                 >
-                  <SelectPrimitive.ItemText className="min-w-0 truncate">{option.label}</SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemText className={compact ? 'whitespace-nowrap' : 'min-w-0 truncate'}>{option.label}</SelectPrimitive.ItemText>
                   <SelectPrimitive.ItemIndicator className="text-primary">
                     <Check aria-hidden="true" className="size-4" strokeWidth={2.2} />
                   </SelectPrimitive.ItemIndicator>

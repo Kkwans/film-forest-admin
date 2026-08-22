@@ -62,6 +62,10 @@ export default function CrawlerPage() {
     setFocusedJobId(result.jobId);
     await refreshConfiguration();
   }, [refreshConfiguration]);
+  const handleViewJob = useCallback((jobId: number) => {
+    setSection('jobs');
+    setFocusedJobId(jobId);
+  }, []);
   const clearFocusedJob = useCallback(() => setFocusedJobId(null), []);
 
   useEffect(() => {
@@ -118,7 +122,7 @@ export default function CrawlerPage() {
         })}
       </nav>
 
-      {section === 'config' && <CrawlerConfigSection schedules={schedules} sources={sources} loading={staticLoading} onRefresh={refreshConfiguration} onJobStarted={handleJobStarted} />}
+      {section === 'config' && <CrawlerConfigSection schedules={schedules} activeJobs={activeJobs} sources={sources} loading={staticLoading} onRefresh={refreshConfiguration} onJobStarted={handleJobStarted} onViewJob={handleViewJob} />}
       {section === 'jobs' && <CrawlerJobsSection jobs={activeJobs} loading={jobsLoading} onRefresh={refreshJobs} focusJobId={focusedJobId} onFocusHandled={clearFocusedJob} />}
       {section === 'logs' && <CrawlerLogsSection schedules={schedules} sources={sources} hasActiveJobs={activeJobs.length > 0} onJobStarted={handleJobStarted} />}
       {section === 'stats' && <CrawlerStatsSection hasActiveJobs={activeJobs.length > 0} />}

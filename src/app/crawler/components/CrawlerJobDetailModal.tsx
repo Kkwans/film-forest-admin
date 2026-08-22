@@ -195,6 +195,12 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
   }, [categoryInput]);
 
   const active = Boolean(job && activeStatuses.has(job.status));
+  const successfulCount = job
+    ? (job.addedCount ?? 0) + (job.updatedCount ?? 0) + (job.unchangedCount ?? 0)
+    : 0;
+  const historicalSuccessSnapshotsUnavailable = Boolean(
+    job && !successesLoading && successes.total === 0 && successfulCount > 0,
+  );
   const refreshAll = useCallback(async () => {
     await Promise.all([fetchJob(), fetchFailures(), fetchSuccesses()]);
   }, [fetchFailures, fetchJob, fetchSuccesses]);
@@ -319,42 +325,56 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
             </div>
           ) : successesLoading && successes.records.length === 0 ? (
             <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground"><Loader2 className="animate-spin" />读取成功明细</div>
+          ) : historicalSuccessSnapshotsUnavailable ? (
+            <div className="rounded-2xl border border-dashed border-amber-500/35 bg-amber-500/5 p-5 text-sm text-amber-800 dark:text-amber-200">
+              <p className="font-medium">该 Job 有 {successfulCount} 条成功统计，但没有逐条成功快照。</p>
+              <p className="mt-1 leading-6">这些记录产生于成功明细启用前，历史数据库只保存了汇总数字，无法补造真实的标题、来源和爬取时间。新运行的 Job 会从处理成功的第一条内容开始保存明细。</p>
+            </div>
           ) : successes.records.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">当前 Job 没有可展示的成功明细。</div>
           ) : (
             <div className="space-y-2">
-              {successes.records.map(success => (
-                <article key={success.id} className="grid gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-[3.5rem_minmax(0,1fr)]">
-                  <div className="flex h-20 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-[10px] text-muted-foreground">
-                    {success.posterUrl ? <img src={success.posterUrl} alt="" className="h-full w-full object-cover" /> : '无海报'}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold text-foreground">{success.title}{success.year ? `（${success.year}）` : ''}</p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">别名：{listText(success.alias)}</p>
-                      </div>
-                      <a href={success.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline">
-                        查看来源 <ExternalLink className="size-3" />
-                      </a>
+              {successes.records.map((success, index) => {
+                const sequence = (successes.current - 1) * successes.size + index + 1;
+                return (
+                  <article key={success.id} className="grid gap-3 rounded-2xl border border-border bg-card p-3 shadow-sm shadow-black/[0.02] sm:grid-cols-[2.5rem_5rem_minmax(0,1fr)]">
+                    <div className="flex items-start justify-center pt-1">
+                      <span className="font-mono text-xs font-semibold tabular-nums text-primary/75">{String(sequence).padStart(2, '0')}</span>
                     </div>
-                    <dl className="mt-2 grid gap-x-4 gap-y-1.5 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
-                      <div><dt className="inline text-foreground/60">类型：</dt><dd className="inline">{contentTypeLabel(success.contentType)}</dd></div>
-                      <div><dt className="inline text-foreground/60">评分：</dt><dd className="inline">豆瓣 {scoreText(success.scoreDouban)} · IMDb {scoreText(success.scoreImdb)} · 烂番茄 {scoreText(success.scoreRt)}</dd></div>
-                      <div className="min-w-0 truncate" title={listText(success.directors)}><dt className="inline text-foreground/60">导演：</dt><dd className="inline">{listText(success.directors)}</dd></div>
-                      <div className="min-w-0 truncate" title={listText(success.writers)}><dt className="inline text-foreground/60">编剧：</dt><dd className="inline">{listText(success.writers)}</dd></div>
-                      <div className="min-w-0 truncate" title={listText(success.actors)}><dt className="inline text-foreground/60">主演：</dt><dd className="inline">{listText(success.actors)}</dd></div>
-                      <div className="min-w-0 truncate" title={listText(success.genres)}><dt className="inline text-foreground/60">题材：</dt><dd className="inline">{listText(success.genres)}</dd></div>
-                      <div className="min-w-0 truncate" title={listText(success.regions)}><dt className="inline text-foreground/60">地区：</dt><dd className="inline">{listText(success.regions)}</dd></div>
-                      <div className="min-w-0 truncate" title={listText(success.languages)}><dt className="inline text-foreground/60">语言：</dt><dd className="inline">{listText(success.languages)}</dd></div>
-                      <div><dt className="inline text-foreground/60">日期：</dt><dd className="inline">{success.releaseDate || '—'}</dd></div>
-                      <div><dt className="inline text-foreground/60">时长：</dt><dd className="inline">{success.duration ? `${success.duration} 分钟` : '—'}</dd></div>
-                      <div><dt className="inline text-foreground/60">来源条目：</dt><dd className="inline">{success.externalId}</dd></div>
-                      <div><dt className="inline text-foreground/60">内容：</dt><dd className="inline">{contentTypeLabel(success.contentType)} #{success.contentId}</dd></div>
-                    </dl>
-                  </div>
-                </article>
-              ))}
+                    <div className="flex h-28 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted text-[10px] text-muted-foreground">
+                      {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="h-full w-full object-cover" /> : '无海报'}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-foreground">{success.title}{success.year ? `（${success.year}）` : ''}</p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground" title={listText(success.alias)}>别名：{listText(success.alias)}</p>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                          <span>爬取时间 {formatCrawlerTime(success.crawledAt)}</span>
+                          <a href={success.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-primary hover:underline">
+                            查看来源 <ExternalLink className="size-3" />
+                          </a>
+                        </div>
+                      </div>
+                      <dl className="mt-3 grid gap-x-5 gap-y-2 border-t border-border/70 pt-3 text-xs text-muted-foreground sm:grid-cols-2 lg:grid-cols-4">
+                        <div><dt className="inline text-foreground/60">类型：</dt><dd className="inline">{contentTypeLabel(success.contentType)}</dd></div>
+                        <div><dt className="inline text-foreground/60">评分：</dt><dd className="inline">豆瓣 {scoreText(success.scoreDouban)} · IMDb {scoreText(success.scoreImdb)} · 烂番茄 {scoreText(success.scoreRt)}</dd></div>
+                        <div className="min-w-0 truncate" title={listText(success.directors)}><dt className="inline text-foreground/60">导演：</dt><dd className="inline">{listText(success.directors)}</dd></div>
+                        <div className="min-w-0 truncate" title={listText(success.writers)}><dt className="inline text-foreground/60">编剧：</dt><dd className="inline">{listText(success.writers)}</dd></div>
+                        <div className="min-w-0 truncate" title={listText(success.actors)}><dt className="inline text-foreground/60">主演：</dt><dd className="inline">{listText(success.actors)}</dd></div>
+                        <div className="min-w-0 truncate" title={listText(success.genres)}><dt className="inline text-foreground/60">题材：</dt><dd className="inline">{listText(success.genres)}</dd></div>
+                        <div className="min-w-0 truncate" title={listText(success.regions)}><dt className="inline text-foreground/60">地区：</dt><dd className="inline">{listText(success.regions)}</dd></div>
+                        <div className="min-w-0 truncate" title={listText(success.languages)}><dt className="inline text-foreground/60">语言：</dt><dd className="inline">{listText(success.languages)}</dd></div>
+                        <div className="min-w-0 truncate" title={success.releaseDate || '—'}><dt className="inline text-foreground/60">日期：</dt><dd className="inline">{success.releaseDate || '—'}</dd></div>
+                        <div><dt className="inline text-foreground/60">时长：</dt><dd className="inline">{success.duration ? `${success.duration} 分钟` : '—'}</dd></div>
+                        <div><dt className="inline text-foreground/60">来源条目：</dt><dd className="inline">{success.externalId}</dd></div>
+                        <div><dt className="inline text-foreground/60">内容：</dt><dd className="inline">{contentTypeLabel(success.contentType)} #{success.contentId}</dd></div>
+                      </dl>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
           <Pagination currentPage={successes.current} totalPages={successes.pages} onPageChange={setSuccessPage} />
