@@ -14,6 +14,7 @@ import Pagination from '@/components/Pagination';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
+import { InfoHint, TooltipText } from '@/components/ui/tooltip';
 import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
 import { extractErrorMessage } from '@/lib/utils';
 import {
@@ -55,6 +56,38 @@ const stageLabels: Record<string, string> = {
   fetch: '获取页面',
   parse: '解析内容',
   persistence: '写入数据',
+};
+
+const jobMetricHelp: Record<string, string> = {
+  '发现': '从来源列表页识别出的条目总数。',
+  '获取': '成功请求详情页并拿到响应的条目数。',
+  '解析': '详情页通过来源解析器校验的条目数。',
+  '新增': '本次运行首次写入内容库的条目数。',
+  '更新': '本次运行刷新了已有内容字段的条目数。',
+  '未变化': '已有记录与本次来源指纹一致，没有发生内容变化。',
+  '过滤': '解析成功但被标准题材等后置条件过滤的条目数。',
+  '失败': '获取、解析或保存阶段失败的条目数。',
+  '扫描页': '本次运行实际请求并处理的来源列表页数。',
+  '列表项': '从来源列表页读取的条目数；其中一部分可能因游标或上限未进入详情处理。',
+  '详情尝试': '实际发起详情页请求的次数。',
+  '游标推进': '成功确认处理结果并安全推进游标的次数。',
+  '新内容': '最新区间计数：仅统计最新页窗口内处理的条目，不等同于“新增入库”。',
+  '历史回填': '历史区间计数：评分/热度断点续爬，或超过最新页窗口的条目；即使首次入库，也属于历史区间。',
+};
+
+const jobMetaHelp: Record<string, string> = {
+  '当前页': '当前正在处理或下一次准备处理的来源分页。',
+  '当前项': '当前来源列表条目的链接或外部标识。',
+  '来源排序': '本次 Job 请求来源列表时使用的排序方式。',
+  '遍历模式': '本次 Job 采用的游标遍历策略，不代表内容是否首次入库。',
+  '排队时间': 'Job 进入执行队列的时间。',
+  '开始时间': 'Job 实际开始处理的时间。',
+  '最近心跳': '服务端最近一次报告运行进度的时间。',
+  '完成时间': 'Job 结束并写入最终统计的时间。',
+  '累计耗时': '从排队/开始到结束或当前时刻的累计耗时。',
+  '检查点': '用于异常恢复的页码、列表索引和外部 ID 快照。',
+  '游标状态': '当前计划游标的状态与下一页位置。',
+  '游标锚点': '恢复分页时用于定位的来源外部 ID。',
 };
 
 const outcomeLabels: Record<string, string> = {
@@ -218,7 +251,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
       open={jobId !== null}
       onClose={onClose}
       title={jobId ? `Job #${jobId} 运行详情` : 'Job 运行详情'}
-      description={active ? '运行中每 4 秒刷新进度和失败条目。' : '展示该 Job 的最终运行事实和条目级失败。'}
+      description={active ? '运行中自动刷新进度和失败条目；页面隐藏时暂停。' : '展示该 Job 的最终运行事实和条目级失败。'}
       width="xl"
     >
       <div className="space-y-5">
@@ -242,7 +275,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
 
         {job ? (
           <>
-            <div className="grid auto-rows-fr grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
               {[
                 ['发现', job.discoveredCount], ['获取', job.fetchSucceededCount], ['解析', job.parseSucceededCount],
                 ['新增', job.addedCount], ['更新', job.updatedCount], ['未变化', job.unchangedCount],
@@ -250,8 +283,11 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 ['列表项', job.listItemsScanned], ['详情尝试', job.detailAttempted], ['游标推进', job.cursorAdvanced],
                 ['新内容', job.newItems], ['历史回填', job.backfillItems],
               ].map(([label, value]) => (
-                <div key={String(label)} className="flex min-h-[4.25rem] flex-col justify-center rounded-xl border border-border bg-muted/35 p-3">
-                  <p className="text-xs text-muted-foreground">{label}</p>
+                <div key={String(label)} className="flex h-[4.75rem] flex-col justify-center rounded-xl border border-border bg-muted/35 p-3">
+                  <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span>{label}</span>
+                    <InfoHint label={String(label)} content={jobMetricHelp[String(label)] || '本次 Job 的运行统计。'} />
+                  </p>
                   <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{Number(value ?? 0)}</p>
                 </div>
               ))}
@@ -267,21 +303,26 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 ['游标状态', cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '-'],
                 ['游标锚点', cursor?.nextExternalId || cursor?.lastCommittedExternalId || '-'],
               ].map(([label, value]) => (
-                <div key={String(label)} className="flex min-h-[4.25rem] min-w-0 flex-col justify-start rounded-xl border border-border p-3">
-                  <dt className="text-xs text-muted-foreground">{label}</dt>
-                  <dd className="mt-1 break-all text-foreground">{String(value)}</dd>
+                <div key={String(label)} className="flex h-[5rem] min-w-0 flex-col justify-start rounded-xl border border-border p-3">
+                  <dt className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <span>{label}</span>
+                    <InfoHint label={String(label)} content={jobMetaHelp[String(label)] || 'Job 运行上下文信息。'} />
+                  </dt>
+                  <dd className="mt-1 min-w-0 truncate text-foreground">
+                    {String(value).length > 36 ? <TooltipText content={String(value)}>{String(value)}</TooltipText> : String(value)}
+                  </dd>
                 </div>
               ))}
             </dl>
 
-            <div className="grid items-stretch gap-3 lg:grid-cols-2">
-              <div className={`${crawlerInsetClass} flex min-h-[6.25rem] min-w-0 flex-col p-3`}>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div className={`${crawlerInsetClass} flex h-[7.25rem] min-w-0 flex-col p-3`}>
                 <p className="text-xs font-medium text-muted-foreground">查询快照</p>
-                <pre className="mt-2 min-h-12 max-h-24 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.querySnapshot || '未记录'}</pre>
+                <pre className="mt-2 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.querySnapshot || '未记录'}</pre>
               </div>
-              <div className={`${crawlerInsetClass} flex min-h-[6.25rem] min-w-0 flex-col p-3`}>
+              <div className={`${crawlerInsetClass} flex h-[7.25rem] min-w-0 flex-col p-3`}>
                 <p className="text-xs font-medium text-muted-foreground">配置快照</p>
-                <pre className="mt-2 min-h-12 max-h-24 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.configSnapshot || '未记录'}</pre>
+                <pre className="mt-2 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.configSnapshot || '未记录'}</pre>
               </div>
             </div>
 
@@ -352,7 +393,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                       <div className="grid min-h-[3.5rem] gap-2 border-b border-border/70 pb-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                         <div className="min-w-0">
                           <p className="truncate font-semibold leading-5 text-foreground">{success.title}{success.year ? `（${success.year}）` : ''}</p>
-                          <p className="mt-1 truncate text-xs leading-4 text-muted-foreground" title={listText(success.alias)}>别名：{listText(success.alias)}</p>
+                          <p className="mt-1 truncate text-xs leading-4 text-muted-foreground">别名：<TooltipText content={listText(success.alias)}>{listText(success.alias)}</TooltipText></p>
                         </div>
                         <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs text-muted-foreground sm:justify-self-end">
                           <span className="tabular-nums">爬取时间 {formatCrawlerTime(success.crawledAt)}</span>

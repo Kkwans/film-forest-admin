@@ -3,12 +3,15 @@
 import { ReactNode } from 'react';
 import { ToastProvider } from '@/components/ui/toast';
 import { DialogProvider } from '@/components/ui/dialog';
+import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
       <DialogProvider>
-        {children}
+        <TooltipPrimitive.Provider delay={450} closeDelay={80}>
+          {children}
+        </TooltipPrimitive.Provider>
       </DialogProvider>
     </ToastProvider>
   );

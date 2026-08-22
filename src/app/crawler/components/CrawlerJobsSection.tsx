@@ -6,6 +6,7 @@ import { crawlerApi, type CrawlerTaskLog } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
+import { TooltipText } from '@/components/ui/tooltip';
 import { extractErrorMessage } from '@/lib/utils';
 import { StatusBadge, contentTypeLabel, crawlerPanelClass, elapsedFor, formatCrawlerTime } from './crawler-ui';
 import { CrawlerJobDetailModal } from './CrawlerJobDetailModal';
@@ -62,7 +63,7 @@ export function CrawlerJobsSection({ jobs, loading, onRefresh, focusJobId, onFoc
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-foreground">运行任务</h2>
-          <p className="mt-1 text-sm text-muted-foreground">只展示排队、运行和正在取消的权威 Job；活动时每 4 秒刷新。</p>
+          <p className="mt-1 text-sm text-muted-foreground">只展示排队、运行和正在取消的权威 Job；活动任务会自动刷新，页面隐藏时暂停。</p>
         </div>
         <Button variant="outline" onClick={() => void onRefresh()} disabled={loading}><RefreshCw />手动刷新</Button>
       </div>
@@ -87,12 +88,12 @@ export function CrawlerJobsSection({ jobs, loading, onRefresh, focusJobId, onFoc
                   </Button>
                 </div>
               </div>
-              <div className="mt-4 grid auto-rows-fr grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-8">
-                {progressFields.map(([key, label]) => <div key={key} className="min-h-[3.75rem] rounded-xl bg-muted/50 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 font-semibold tabular-nums text-foreground">{Number(job[key] ?? 0)}</p></div>)}
+              <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-8">
+                {progressFields.map(([key, label]) => <div key={key} className="h-[3.75rem] rounded-xl bg-muted/50 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 font-semibold tabular-nums text-foreground">{Number(job[key] ?? 0)}</p></div>)}
               </div>
               <dl className="mt-4 grid gap-2 text-xs text-muted-foreground md:grid-cols-4">
                 <div className="min-w-0">当前页：<span className="text-foreground">{job.currentPage ?? '-'}</span></div>
-                <div className="min-w-0 truncate" title={job.currentItem || ''}>当前项：<span className="text-foreground">{job.currentItem || '-'}</span></div>
+                <div className="min-w-0 truncate">当前项：<span className="text-foreground">{job.currentItem ? <TooltipText content={job.currentItem}>{job.currentItem}</TooltipText> : '-'}</span></div>
                 <div className="min-w-0">已用时：<span className="text-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</span></div>
                 <div className="min-w-0">心跳：<span className="text-foreground">{formatCrawlerTime(job.heartbeatAt)}</span></div>
               </dl>

@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, Loader2, StopCircle, XCircle } from 'lucide-react';
+import { TooltipText } from '@/components/ui/tooltip';
 
 const STATUS: Record<string, { label: string; icon: ReactNode; className: string }> = {
   queued: { label: '排队中', icon: <Clock3 className="size-3" />, className: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },
@@ -106,7 +107,9 @@ export function CrawlerDetailField({
   return (
     <div className={crawlerDetailFieldClass}>
       <dt className="shrink-0 text-foreground/60">{label}：</dt>
-      <dd className="min-w-0 truncate text-foreground" title={title}>{children}</dd>
+      <dd className="min-w-0 truncate text-foreground">
+        {title ? <TooltipText content={title}>{children}</TooltipText> : children}
+      </dd>
     </div>
   );
 }

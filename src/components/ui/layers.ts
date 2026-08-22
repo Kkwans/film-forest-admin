@@ -13,6 +13,7 @@ export const UI_LAYER_CLASSES = {
   dialogBackdrop: 'z-[300]',
   dialog: 'z-[350]',
   toast: 'z-[400]',
+  tooltip: 'z-[450]',
 } as const;
 
 export const UI_LAYER_VALUES = {
@@ -24,6 +25,7 @@ export const UI_LAYER_VALUES = {
   dialogBackdrop: 300,
   dialog: 350,
   toast: 400,
+  tooltip: 450,
 } as const;
 
 export type UiLayer = keyof typeof UI_LAYER_VALUES;

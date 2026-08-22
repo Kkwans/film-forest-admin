@@ -105,6 +105,15 @@ function relativeTime(value?: string | null): string {
   return `${Math.floor(hours / 24)} 天前`;
 }
 
+function shortScheduleTime(value?: string | null): string {
+  if (!value) return '未安排';
+  const time = new Date(value);
+  if (!Number.isFinite(time.getTime())) return '时间未知';
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(time);
+}
+
 function contentStatus(status: number) {
   if (status === 1) return { label: '已上线', className: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-300' };
   if (status === 2) return { label: '已下线', className: 'bg-amber-500/12 text-amber-700 dark:text-amber-300' };
@@ -206,28 +215,64 @@ export default function AdminDashboard() {
         {metricCards.map(metric => <Link key={metric.label} href={metric.href} className="group rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] hover:border-primary/25 hover:shadow-md"><div className="flex items-start justify-between gap-2"><span className={`grid size-9 place-items-center rounded-xl ${metric.tone}`}><metric.icon className="size-4" /></span><ArrowRight className="size-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5" /></div><p className="mt-4 text-xs font-medium text-muted-foreground">{metric.label}</p>{loading ? <Skeleton className="mt-1 h-7 w-16" /> : <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{typeof metric.value === 'number' ? metric.value.toLocaleString() : metric.value}</p>}<p className="mt-1 text-xs text-muted-foreground">{metric.note}</p></Link>)}
       </div>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+      <Card className="overflow-hidden border-border bg-card">
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div>
+            <h2 className="font-semibold text-foreground">最近任务</h2>
+            <p className="text-xs text-muted-foreground">状态来自最近一次权威 Job；展示最近运行、累计运行和下一次调度。</p>
+          </div>
+          <Link href="/crawler" className="flex items-center gap-1 text-xs font-medium text-primary">管理任务<ArrowRight className="size-3" /></Link>
+        </div>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-3">
+              {[1, 2, 3, 4, 5, 6].map(item => <Skeleton key={item} className="h-[6.5rem] w-full rounded-none" />)}
+            </div>
+          ) : recentSchedules.length === 0 ? (
+            <div className="grid min-h-32 place-items-center p-6 text-center">
+              <div><Bot className="mx-auto size-8 text-muted-foreground/40" /><p className="mt-2 text-sm font-medium text-foreground">尚未创建爬虫计划</p><Link href="/crawler" className="mt-1 inline-flex text-xs text-primary">创建第一个计划</Link></div>
+            </div>
+          ) : (
+            <div className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-3">
+              {recentSchedules.map(item => {
+                const state = crawlerState(item);
+                return (
+                  <Link key={item.id} href="/crawler" className="flex h-[6.5rem] min-w-0 flex-col justify-between bg-card p-4 hover:bg-muted/25">
+                    <div className="flex min-w-0 items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className={`size-2 shrink-0 rounded-full ${state.dot} ${state.value === 'running' ? 'animate-pulse' : ''}`} />
+                        <p className="truncate text-sm font-medium text-foreground">{item.name}</p>
+                      </div>
+                      <span className={`shrink-0 text-xs font-medium ${state.tone}`}>{state.label}</span>
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">{TYPE_LABELS[item.contentType] || item.contentType} · {item.totalRuns || 0} 次运行 · {item.totalItems || 0} 条</p>
+                    <div className="flex items-center justify-between gap-3 text-[11px] tabular-nums text-muted-foreground">
+                      <span className="truncate">上次 {shortScheduleTime(item.lastRunTime)}</span>
+                      <span className="truncate text-right">下次 {shortScheduleTime(item.nextRunTime)}</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="grid items-start gap-6 xl:grid-cols-2">
         <Card className="overflow-hidden border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">最近任务</h2><p className="text-xs text-muted-foreground">状态来自最近一次权威 Job，不再用“空闲”掩盖失败。</p></div><Link href="/crawler" className="flex items-center gap-1 text-xs font-medium text-primary">管理任务<ArrowRight className="size-3" /></Link></div>
+          <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">最近内容</h2><p className="text-xs text-muted-foreground">按入库时间展示最近内容，状态保持明确三态。</p></div><Link href="/content" className="flex items-center gap-1 text-xs font-medium text-primary">内容管理<ArrowRight className="size-3" /></Link></div>
           <CardContent className="p-0">
-            {loading ? <div className="space-y-1 p-4">{[1, 2, 3, 4].map(item => <Skeleton key={item} className="h-14 w-full" />)}</div> : recentSchedules.length === 0 ? <div className="grid min-h-64 place-items-center text-center"><div><Bot className="mx-auto size-10 text-muted-foreground/40" /><p className="mt-3 text-sm font-medium text-foreground">尚未创建爬虫计划</p><Link href="/crawler" className="mt-1 inline-flex text-xs text-primary">创建第一个计划</Link></div></div> : <div className="divide-y divide-border/60">{recentSchedules.map(item => { const state = crawlerState(item); return <Link key={item.id} href="/crawler" className="flex items-center gap-3 px-5 py-3 hover:bg-muted/25"><span className={`size-2 shrink-0 rounded-full ${state.dot} ${state.value === 'running' ? 'animate-pulse' : ''}`} /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.name}</p><p className="mt-0.5 truncate text-xs text-muted-foreground">{TYPE_LABELS[item.contentType] || item.contentType} · {item.totalRuns || 0} 次运行 · {item.totalItems || 0} 条</p></div><div className="text-right"><p className={`text-xs font-medium ${state.tone}`}>{state.label}</p><p className="mt-1 text-xs text-muted-foreground">{relativeTime(item.lastRunTime)}</p></div></Link>; })}</div>}
+            {loading ? <div className="grid gap-px bg-border sm:grid-cols-2">{[1, 2, 3, 4, 5, 6].map(item => <Skeleton key={item} className="h-20 w-full rounded-none" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid gap-px bg-border sm:grid-cols-2">{recentItems.map(item => { const status = contentStatus(item.status); const type = CONTENT_TYPES.find(entry => entry.code === item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-h-20 min-w-0 items-center gap-3 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}</p><p className="mt-1 truncate text-xs text-muted-foreground">{TYPE_LABELS[item.type] || item.type}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · {relativeTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
           </CardContent>
         </Card>
 
         <Card className="border-border bg-card">
-          <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">内容结构</h2><p className="text-xs text-muted-foreground">这里只做概览，详细趋势留在数据统计。</p></div><Link href="/stats" className="flex items-center gap-1 text-xs font-medium text-primary">详细统计<ArrowRight className="size-3" /></Link></div>
-          <CardContent className="space-y-4 p-5">
-            {CONTENT_TYPES.map(type => { const value = Number(overview.typeCounts[type.code] || 0); const growth = Number(overview.weekGrowth[type.code] || 0); const percent = overview.totalContent ? value * 100 / overview.totalContent : 0; return <div key={type.code}><div className="mb-1.5 flex items-center gap-2"><span className={`size-2 rounded-full ${type.color}`} /><span className="text-sm text-foreground">{type.label}</span><span className="ml-auto text-sm font-semibold tabular-nums text-foreground">{loading ? '-' : value.toLocaleString()}</span><span className="w-14 text-right text-xs text-muted-foreground">+{growth}/7天</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${type.color}`} style={{ width: `${Math.max(percent, value > 0 ? 1 : 0)}%` }} /></div><p className="mt-1 text-right text-[11px] text-muted-foreground">{percent.toFixed(1)}%</p></div>; })}
+          <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">内容结构</h2><p className="text-xs text-muted-foreground">按内容类型查看当前总量和近 7 天变化。</p></div><Link href="/stats" className="flex items-center gap-1 text-xs font-medium text-primary">详细统计<ArrowRight className="size-3" /></Link></div>
+          <CardContent className="grid gap-3 p-5">
+            {CONTENT_TYPES.map(type => { const value = Number(overview.typeCounts[type.code] || 0); const growth = Number(overview.weekGrowth[type.code] || 0); const percent = overview.totalContent ? value * 100 / overview.totalContent : 0; return <div key={type.code} className="grid gap-1.5"><div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2"><span className={`size-2 rounded-full ${type.color}`} /><span className="truncate text-sm text-foreground">{type.label}</span><span className="text-sm font-semibold tabular-nums text-foreground">{loading ? '-' : value.toLocaleString()}</span><span className="w-16 text-right text-xs tabular-nums text-muted-foreground">+{growth}/7天</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${type.color}`} style={{ width: `${Math.max(percent, value > 0 ? 1 : 0)}%` }} /></div><p className="text-right text-[11px] tabular-nums text-muted-foreground">{percent.toFixed(1)}%</p></div>; })}
           </CardContent>
         </Card>
       </div>
-
-      <Card className="overflow-hidden border-border bg-card">
-        <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">最近内容</h2><p className="text-xs text-muted-foreground">“草稿 / 已上线 / 已下线”使用明确三态。</p></div><Link href="/content" className="flex items-center gap-1 text-xs font-medium text-primary">内容管理<ArrowRight className="size-3" /></Link></div>
-        <CardContent className="p-0">
-          {loading ? <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">{[1, 2, 3, 4, 5, 6].map(item => <Skeleton key={item} className="h-20 w-full" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid gap-px bg-border sm:grid-cols-2 xl:grid-cols-3">{recentItems.map(item => { const status = contentStatus(item.status); const type = CONTENT_TYPES.find(entry => entry.code === item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-w-0 items-center gap-3 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}</p><p className="mt-1 text-xs text-muted-foreground">{TYPE_LABELS[item.type] || item.type}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · {relativeTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
-        </CardContent>
-      </Card>
 
       <div className="flex flex-col gap-2 rounded-xl border border-border bg-muted/20 p-4 sm:flex-row sm:items-center"><div className="flex items-center gap-2 text-sm text-muted-foreground"><Clock3 className="size-4" />{lastRefresh ? `最近刷新：${lastRefresh.toLocaleTimeString('zh-CN', { hour12: false })}` : '正在获取运营数据'}</div><div className="ml-auto flex flex-wrap gap-2"><Link href="/crawler" className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-semibold text-foreground hover:bg-muted"><CalendarPlus className="size-3.5" />新建爬虫计划</Link><Link href="/resources" className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-background px-2.5 text-xs font-semibold text-foreground hover:bg-muted"><Database className="size-3.5" />管理资源</Link></div></div>
     </div>
