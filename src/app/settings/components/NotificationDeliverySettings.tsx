@@ -121,7 +121,47 @@ function smtpForm(view: SmtpSettingView): SmtpForm {
   };
 }
 
-export default function NotificationDeliverySettings() {
+function PreferenceCard({
+  preferences,
+  saving,
+  onToggle,
+  onSave,
+}: {
+  preferences: NotificationPreference;
+  saving: boolean;
+  onToggle: (key: keyof NotificationPreference) => void;
+  onSave: () => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2.5 text-lg">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><Bell className="size-4" /></span>
+              个人通知偏好
+            </CardTitle>
+            <p className="mt-2 text-sm text-muted-foreground">站内通知按管理员独立订阅；邮件仅在系统 SMTP 可用时投递。</p>
+          </div>
+          <Button size="sm" onClick={onSave} disabled={saving}>
+            {saving ? <Loader2 className="animate-spin" /> : <Save />}保存偏好
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2">
+        <PreferenceRow icon={CircleAlert} title="爬虫失败与中断" description="任务失败、部分失败或被中断时告警，建议保持开启。" checked={preferences.crawlerFailure === 1} onChange={() => onToggle('crawlerFailure')} />
+        <PreferenceRow icon={RefreshCw} title="爬虫恢复" description="失败任务重试成功后发送恢复通知。" checked={preferences.crawlerRecovery === 1} onChange={() => onToggle('crawlerRecovery')} />
+        <PreferenceRow icon={AlertTriangle} title="数据异常" description="重复激增、字段缺失或资源异常时告警。" checked={preferences.dataAnomaly === 1} onChange={() => onToggle('dataAnomaly')} />
+        <PreferenceRow icon={CheckCircle2} title="普通成功" description="每次任务成功都通知，默认关闭以减少噪声。" checked={preferences.crawlerSuccess === 1} onChange={() => onToggle('crawlerSuccess')} />
+        <div className="sm:col-span-2">
+          <PreferenceRow icon={Mail} title="邮件投递" description="将已订阅事件同步发送到当前管理员账号邮箱；站内通知始终保留。" checked={preferences.emailEnabled === 1} onChange={() => onToggle('emailEnabled')} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function NotificationDeliverySettings({ preferencesOnly = false }: { preferencesOnly?: boolean }) {
   const toast = useToast();
   const [preferences, setPreferences] = useState(defaultPreferences);
   const [smtp, setSmtp] = useState<SmtpForm>(emptySmtp);
@@ -135,18 +175,18 @@ export default function NotificationDeliverySettings() {
   useEffect(() => {
     const timer = window.setTimeout(async () => {
       try {
-        const [preferenceResponse, smtpResponse] = await Promise.all([
-          notificationApi.getPreferences(),
-          notificationApi.getSmtp(),
-        ]);
+        const preferenceResponse = await notificationApi.getPreferences();
         if (preferenceResponse.data?.code === 200) {
           setPreferences({ ...defaultPreferences, ...preferenceResponse.data.data });
         }
-        if (smtpResponse.data?.code === 200) {
-          const view = smtpResponse.data.data as SmtpSettingView;
-          setSmtp(smtpForm(view));
-          setConfigured(view.configured);
-          setTestRecipient(view.fromEmail || '');
+        if (!preferencesOnly) {
+          const smtpResponse = await notificationApi.getSmtp();
+          if (smtpResponse.data?.code === 200) {
+            const view = smtpResponse.data.data as SmtpSettingView;
+            setSmtp(smtpForm(view));
+            setConfigured(view.configured);
+            setTestRecipient(view.fromEmail || '');
+          }
         }
       } catch (error: unknown) {
         toast.error(extractErrorMessage(error, '加载通知与邮件设置失败'));
@@ -155,7 +195,7 @@ export default function NotificationDeliverySettings() {
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [toast]);
+  }, [preferencesOnly, toast]);
 
   const togglePreference = (key: keyof NotificationPreference) => {
     setPreferences(current => ({ ...current, [key]: current[key] === 1 ? 0 : 1 }));
@@ -257,33 +297,13 @@ export default function NotificationDeliverySettings() {
     );
   }
 
+  if (preferencesOnly) {
+    return <PreferenceCard preferences={preferences} saving={savingPreferences} onToggle={togglePreference} onSave={() => void savePreferences()} />;
+  }
+
   return (
     <section id="notifications" className="scroll-mt-24 space-y-6">
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2.5 text-lg">
-                <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><Bell className="size-4" /></span>
-                个人通知偏好
-              </CardTitle>
-              <p className="mt-2 text-sm text-muted-foreground">站内通知按管理员独立订阅；邮件仅在系统 SMTP 可用时投递。</p>
-            </div>
-            <Button size="sm" onClick={savePreferences} disabled={savingPreferences}>
-              {savingPreferences ? <Loader2 className="animate-spin" /> : <Save />}保存偏好
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="grid gap-3 sm:grid-cols-2">
-          <PreferenceRow icon={CircleAlert} title="爬虫失败与中断" description="任务失败、部分失败或被中断时告警，建议保持开启。" checked={preferences.crawlerFailure === 1} onChange={() => togglePreference('crawlerFailure')} />
-          <PreferenceRow icon={RefreshCw} title="爬虫恢复" description="失败任务重试成功后发送恢复通知。" checked={preferences.crawlerRecovery === 1} onChange={() => togglePreference('crawlerRecovery')} />
-          <PreferenceRow icon={AlertTriangle} title="数据异常" description="重复激增、字段缺失或资源异常时告警。" checked={preferences.dataAnomaly === 1} onChange={() => togglePreference('dataAnomaly')} />
-          <PreferenceRow icon={CheckCircle2} title="普通成功" description="每次任务成功都通知，默认关闭以减少噪声。" checked={preferences.crawlerSuccess === 1} onChange={() => togglePreference('crawlerSuccess')} />
-          <div className="sm:col-span-2">
-            <PreferenceRow icon={Mail} title="邮件投递" description="将已订阅事件同步发送到当前管理员账号邮箱；站内通知始终保留。" checked={preferences.emailEnabled === 1} onChange={() => togglePreference('emailEnabled')} />
-          </div>
-        </CardContent>
-      </Card>
+      <PreferenceCard preferences={preferences} saving={savingPreferences} onToggle={togglePreference} onSave={() => void savePreferences()} />
 
       <Card>
         <CardHeader className="pb-4">

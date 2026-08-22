@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 interface User {
   id: number;
   username: string;
+  role: 'USER' | 'ADMIN';
   nickname?: string;
   adminSidebarCollapsed?: boolean;
 }
@@ -60,6 +61,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .finally(() => setLoading(false));
   }, [pathname, router]);
+
+  useEffect(() => {
+    const refreshUser = async () => {
+      const savedToken = localStorage.getItem('token');
+      if (!savedToken) return;
+      try {
+        const response = await fetch('/api/auth/me', { headers: { Authorization: `Bearer ${savedToken}` } });
+        const data = await response.json();
+        if (data.code === 200) {
+          setUser(data.data);
+          setToken(savedToken);
+          localStorage.setItem('user', JSON.stringify(data.data));
+        }
+      } catch {
+        // 账号资料刷新失败不打断当前页面，下一次路径切换会再次校验。
+      }
+    };
+    window.addEventListener('filmforest:auth-changed', refreshUser);
+    return () => window.removeEventListener('filmforest:auth-changed', refreshUser);
+  }, []);
 
   useEffect(() => {
     const handleUnauthorized = () => {

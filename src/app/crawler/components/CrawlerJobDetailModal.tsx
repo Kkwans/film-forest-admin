@@ -21,12 +21,12 @@ import {
   CrawlerDetailField,
   StatusBadge,
   contentTypeLabel,
-  crawlerInsetClass,
   crawlerPanelClass,
   elapsedFor,
   formatCrawlerTime,
   inputClass,
   sourceSortLabel,
+  traversalModeLabel,
 } from './crawler-ui';
 
 interface Props {
@@ -296,35 +296,26 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
             <dl className="grid items-start gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               {[
                 ['当前页', job.currentPage ?? '-'], ['当前项', job.currentItem || '-'],
-                ['来源排序', sourceSortLabel(job.sourceSort)], ['遍历模式', job.traversalMode || '-'],
+                ['来源排序', sourceSortLabel(job.sourceSort)], ['遍历模式', traversalModeLabel(job.traversalMode)],
                 ['排队时间', formatCrawlerTime(job.queuedAt)], ['开始时间', formatCrawlerTime(job.startedAt)],
                 ['最近心跳', formatCrawlerTime(job.heartbeatAt)], ['完成时间', formatCrawlerTime(job.finishedAt)],
                 ['累计耗时', elapsedFor(job.startedAt, job.queuedAt, job.durationMs)], ['检查点', job.checkpoint || '-'],
                 ['游标状态', cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '-'],
                 ['游标锚点', cursor?.nextExternalId || cursor?.lastCommittedExternalId || '-'],
               ].map(([label, value]) => (
-                <div key={String(label)} className="flex h-[5rem] min-w-0 flex-col justify-start rounded-xl border border-border p-3">
+                <div key={String(label)} className="flex min-h-[5.75rem] min-w-0 flex-col justify-start rounded-xl border border-border p-3">
                   <dt className="flex items-center gap-1 text-xs text-muted-foreground">
                     <span>{label}</span>
                     <InfoHint label={String(label)} content={jobMetaHelp[String(label)] || 'Job 运行上下文信息。'} />
                   </dt>
-                  <dd className="mt-1 min-w-0 truncate text-foreground">
-                    {String(value).length > 36 ? <TooltipText content={String(value)}>{String(value)}</TooltipText> : String(value)}
+                  <dd className="mt-1 min-h-10 min-w-0 text-foreground">
+                    {String(value).length > 36 ? (
+                      <TooltipText className="line-clamp-2 whitespace-normal break-all leading-5" content={String(value)}>{String(value)}</TooltipText>
+                    ) : String(value)}
                   </dd>
                 </div>
               ))}
             </dl>
-
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div className={`${crawlerInsetClass} flex h-[7.25rem] min-w-0 flex-col p-3`}>
-                <p className="text-xs font-medium text-muted-foreground">查询快照</p>
-                <pre className="mt-2 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.querySnapshot || '未记录'}</pre>
-              </div>
-              <div className={`${crawlerInsetClass} flex h-[7.25rem] min-w-0 flex-col p-3`}>
-                <p className="text-xs font-medium text-muted-foreground">配置快照</p>
-                <pre className="mt-2 min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-all text-xs leading-5 text-foreground">{job.configSnapshot || '未记录'}</pre>
-              </div>
-            </div>
 
             {(job.errorSummary || job.errorMessage) && (
               <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4">
@@ -384,10 +375,12 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                   1,
                 );
                 return (
-                  <article key={success.id} data-crawler-success-card className={`${crawlerPanelClass} grid items-stretch gap-3 p-3 sm:grid-cols-[5rem_minmax(0,1fr)]`}>
-                    <div className="relative flex min-h-[7.5rem] w-20 shrink-0 items-center justify-center self-stretch overflow-hidden rounded-xl bg-muted/70 text-[10px] text-muted-foreground">
-                      <span className="absolute left-1.5 top-1.5 z-10 rounded-md border border-border/70 bg-card/90 px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums text-primary shadow-sm backdrop-blur-sm">{String(sequence).padStart(2, '0')}</span>
-                      {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="h-full w-full object-contain" /> : '无海报'}
+                  <article key={success.id} data-crawler-success-card className={`${crawlerPanelClass} grid min-h-[13rem] items-start gap-3 p-3 sm:grid-cols-[2.5rem_6rem_minmax(0,1fr)]`}>
+                    <div className="flex h-full items-start justify-center pt-2">
+                      <span className="font-mono text-xs font-semibold tabular-nums text-primary">{String(sequence).padStart(2, '0')}</span>
+                    </div>
+                    <div className="flex aspect-[2/3] w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted/50 text-[10px] text-muted-foreground sm:w-24">
+                      {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="block aspect-[2/3] h-full w-full object-cover" /> : '无海报'}
                     </div>
                     <div className="flex min-w-0 flex-col">
                       <div className="grid min-h-[3.5rem] gap-2 border-b border-border/70 pb-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
@@ -402,7 +395,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                           </a>
                         </div>
                       </div>
-                      <dl className="mt-3 grid min-w-0 grid-cols-2 gap-x-5 gap-y-0 text-xs sm:grid-cols-4">
+                      <dl className="mt-3 grid min-w-0 auto-rows-[1.75rem] grid-cols-2 gap-x-5 gap-y-0 text-xs sm:grid-cols-4">
                         <CrawlerDetailField label="类型" title={contentTypeLabel(success.contentType)}>{contentTypeLabel(success.contentType)}</CrawlerDetailField>
                         <CrawlerDetailField label="评分" title={`豆瓣 ${scoreText(success.scoreDouban)} · IMDb ${scoreText(success.scoreImdb)} · 烂番茄 ${scoreText(success.scoreRt)}`}>豆瓣 {scoreText(success.scoreDouban)} · IMDb {scoreText(success.scoreImdb)} · 烂番茄 {scoreText(success.scoreRt)}</CrawlerDetailField>
                         <CrawlerDetailField label="导演" title={listText(success.directors)}>{listText(success.directors)}</CrawlerDetailField>

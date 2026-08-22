@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, Loader2, StopCircle, XCircle } from 'lucide-react';
-import { TooltipText } from '@/components/ui/tooltip';
+import { InfoHint, TooltipText } from '@/components/ui/tooltip';
 
 const STATUS: Record<string, { label: string; icon: ReactNode; className: string }> = {
   queued: { label: '排队中', icon: <Clock3 className="size-3" />, className: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },
@@ -57,6 +57,16 @@ export function sourceSortLabel(value?: string | null) {
   return value ? SOURCE_SORT_LABELS[value] ?? value : '-';
 }
 
+export const TRAVERSAL_MODE_LABELS: Record<string, string> = {
+  CONTINUOUS_SYNC: '持续同步',
+  BACKFILL_CONTINUE: '历史回填续爬',
+  MANUAL_FULL: '人工全量扫描',
+};
+
+export function traversalModeLabel(value?: string | null) {
+  return value ? TRAVERSAL_MODE_LABELS[value] ?? value : '-';
+}
+
 export function parseCrawlerTime(value: string) {
   return new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`);
 }
@@ -82,10 +92,13 @@ export function elapsedFor(startedAt?: string | null, queuedAt?: string | null, 
   return start ? formatDuration(Math.max(0, Date.now() - parseCrawlerTime(start).getTime())) : '-';
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, help, children }: { label: string; help?: ReactNode; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <p className="text-[13px] font-medium text-foreground/75">{label}</p>
+      <p className="flex items-center gap-1 text-[13px] font-medium text-foreground/75">
+        <span>{label}</span>
+        {help && <InfoHint label={label} content={help} />}
+      </p>
       {children}
     </div>
   );
@@ -108,7 +121,7 @@ export function CrawlerDetailField({
     <div className={crawlerDetailFieldClass}>
       <dt className="shrink-0 text-foreground/60">{label}：</dt>
       <dd className="min-w-0 truncate text-foreground">
-        {title ? <TooltipText content={title}>{children}</TooltipText> : children}
+        {title ? <TooltipText className="truncate" content={title}>{children}</TooltipText> : children}
       </dd>
     </div>
   );

@@ -9,7 +9,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
       <DialogProvider>
-        <TooltipPrimitive.Provider delay={450} closeDelay={80}>
+      <TooltipPrimitive.Provider delay={0} closeDelay={100}>
           {children}
         </TooltipPrimitive.Provider>
       </DialogProvider>

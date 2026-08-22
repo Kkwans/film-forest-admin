@@ -11,7 +11,7 @@ import {
   CircleAlert,
   Info,
   Loader2,
-  MailCheck,
+  ListFilter,
   RotateCcw,
   Search,
   Settings,
@@ -20,6 +20,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select } from '@/components/ui/select';
+import { Modal } from '@/components/ui/modal';
+import NotificationDeliverySettings from '@/app/settings/components/NotificationDeliverySettings';
 import Pagination from '@/components/Pagination';
 import { useToast } from '@/components/ui/toast';
 import {
@@ -81,6 +83,7 @@ export default function NotificationsPage() {
   const [keyword, setKeyword] = useState('');
   const [loading, setLoading] = useState(true);
   const [markingAll, setMarkingAll] = useState(false);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
 
   const announceChange = () => window.dispatchEvent(new Event('filmforest:notifications-changed'));
 
@@ -122,6 +125,13 @@ export default function NotificationsPage() {
     setKeywordDraft('');
     setKeyword('');
     setPage(1);
+  };
+
+  const detailHref = (item: AdminNotificationItem) => {
+    if (item.referenceId && item.referenceType && /CRAWLER|JOB/i.test(item.referenceType)) {
+      return `/crawler?tab=jobs&jobId=${item.referenceId}`;
+    }
+    return item.link || null;
   };
 
   useEffect(() => {
@@ -176,7 +186,7 @@ export default function NotificationsPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="sm" render={<Link href="/settings#notifications" />}>
+          <Button variant="outline" size="sm" onClick={() => setPreferencesOpen(true)}>
             <Settings />通知偏好
           </Button>
           <Button variant="outline" size="sm" disabled={unreadCount === 0 || markingAll} onClick={markAllRead}>
@@ -186,7 +196,7 @@ export default function NotificationsPage() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Card>
           <CardContent className="flex items-center justify-between p-4">
             <div><p className="text-xs text-muted-foreground">未读通知</p><p className="mt-1 text-2xl font-bold">{unreadCount}</p></div>
@@ -195,14 +205,8 @@ export default function NotificationsPage() {
         </Card>
         <Card>
           <CardContent className="flex items-center justify-between p-4">
-            <div><p className="text-xs text-muted-foreground">当前结果</p><p className="mt-1 text-2xl font-bold">{total}</p></div>
-            <MailCheck className="size-5 text-muted-foreground" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center justify-between p-4">
-            <div><p className="text-xs text-muted-foreground">默认策略</p><p className="mt-1 text-sm font-semibold">异常必达，成功静默</p></div>
-            <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+            <div><p className="text-xs text-muted-foreground">筛选结果</p><p className="mt-1 text-2xl font-bold">{total}</p></div>
+            <ListFilter className="size-5 text-muted-foreground" />
           </CardContent>
         </Card>
       </div>
@@ -324,15 +328,15 @@ export default function NotificationsPage() {
                   </div>
                   <div className="flex flex-wrap gap-1.5 justify-self-start sm:justify-self-end">
                     {!item.readAt && (
-                      <Button variant="ghost" size="sm" onClick={() => void markRead(item)}>
+                      <Button variant="outline" size="sm" onClick={() => void markRead(item)}>
                         <Check />标记已读
                       </Button>
                     )}
-                    {item.link && (
+                    {detailHref(item) && (
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        render={<Link href={item.link} onClick={() => void markRead(item)} />}
+                        render={<Link href={detailHref(item) || '#'} onClick={() => void markRead(item)} />}
                       >
                         查看详情<ChevronRight />
                       </Button>
@@ -346,6 +350,17 @@ export default function NotificationsPage() {
       </Card>
 
       <Pagination currentPage={page} totalPages={pages} onPageChange={setPage} />
+
+      <Modal
+        open={preferencesOpen}
+        onClose={() => setPreferencesOpen(false)}
+        title="通知偏好"
+        description="只修改当前管理员的订阅范围，不离开通知中心。"
+        width="lg"
+        footer={<Button variant="outline" onClick={() => setPreferencesOpen(false)}>关闭</Button>}
+      >
+        <NotificationDeliverySettings preferencesOnly />
+      </Modal>
     </div>
   );
 }

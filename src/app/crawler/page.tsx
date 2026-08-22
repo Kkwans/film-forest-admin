@@ -13,6 +13,20 @@ import { CrawlerStatsSection } from './components/CrawlerStatsSection';
 
 type Section = 'config' | 'jobs' | 'logs' | 'stats';
 
+const SECTION_KEYS = new Set<Section>(['config', 'jobs', 'logs', 'stats']);
+
+function readSection(): Section {
+  if (typeof window === 'undefined') return 'config';
+  const value = new URLSearchParams(window.location.search).get('tab') as Section | null;
+  return value && SECTION_KEYS.has(value) ? value : 'config';
+}
+
+function readJobId(): number | null {
+  if (typeof window === 'undefined') return null;
+  const value = Number(new URLSearchParams(window.location.search).get('jobId'));
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
 const sections = [
   { key: 'config' as const, label: '任务配置', description: '来源与调度', icon: ListChecks },
   { key: 'jobs' as const, label: '运行任务', description: '实时进度与取消', icon: Activity },
@@ -22,13 +36,34 @@ const sections = [
 
 export default function CrawlerPage() {
   const toast = useToast();
-  const [section, setSection] = useState<Section>('config');
+  const [section, setSection] = useState<Section>(readSection);
   const [schedules, setSchedules] = useState<CrawlerSchedule[]>([]);
   const [sources, setSources] = useState<CrawlerSourceDescriptor[]>([]);
   const [activeJobs, setActiveJobs] = useState<CrawlerTaskLog[]>([]);
   const [staticLoading, setStaticLoading] = useState(true);
   const [jobsLoading, setJobsLoading] = useState(true);
-  const [focusedJobId, setFocusedJobId] = useState<number | null>(null);
+  const [focusedJobId, setFocusedJobId] = useState<number | null>(readJobId);
+
+  const navigateWithinCrawler = useCallback((nextSection: Section, jobId?: number | null) => {
+    const params = new URLSearchParams();
+    params.set('tab', nextSection);
+    if (jobId) params.set('jobId', String(jobId));
+    window.history.replaceState(null, '', `/crawler?${params.toString()}`);
+    window.dispatchEvent(new Event('filmforest:crawler-navigation'));
+  }, []);
+
+  useEffect(() => {
+    const syncFromUrl = () => {
+      setSection(readSection());
+      setFocusedJobId(readJobId());
+    };
+    window.addEventListener('popstate', syncFromUrl);
+    window.addEventListener('filmforest:crawler-navigation', syncFromUrl);
+    return () => {
+      window.removeEventListener('popstate', syncFromUrl);
+      window.removeEventListener('filmforest:crawler-navigation', syncFromUrl);
+    };
+  }, []);
 
   const refreshSchedules = useCallback(async () => {
     const response = await crawlerApi.listSchedules();
@@ -58,15 +93,13 @@ export default function CrawlerPage() {
   }, [refreshJobs, refreshSchedules, toast]);
 
   const handleJobStarted = useCallback(async (result: CrawlerJobStartResult) => {
-    setSection('jobs');
-    setFocusedJobId(result.jobId);
+    navigateWithinCrawler('jobs', result.jobId);
     await refreshConfiguration();
-  }, [refreshConfiguration]);
+  }, [navigateWithinCrawler, refreshConfiguration]);
   const handleViewJob = useCallback((jobId: number) => {
-    setSection('jobs');
-    setFocusedJobId(jobId);
-  }, []);
-  const clearFocusedJob = useCallback(() => setFocusedJobId(null), []);
+    navigateWithinCrawler('jobs', jobId);
+  }, [navigateWithinCrawler]);
+  const clearFocusedJob = useCallback(() => navigateWithinCrawler('jobs'), [navigateWithinCrawler]);
 
   useEffect(() => {
     let cancelled = false;
@@ -115,7 +148,7 @@ export default function CrawlerPage() {
           const Icon = item.icon;
           const active = section === item.key;
           return (
-            <button key={item.key} type="button" onClick={() => setSection(item.key)} className={`flex min-h-16 items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors ${active ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'}`}>
+            <button key={item.key} type="button" onClick={() => navigateWithinCrawler(item.key)} className={`flex min-h-16 items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors ${active ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'}`}>
               <Icon className="size-5 shrink-0" /><span><span className="block text-sm font-medium">{item.label}</span><span className={`block text-xs ${active ? 'text-primary-foreground/75' : 'text-muted-foreground'}`}>{item.description}</span></span>
             </button>
           );

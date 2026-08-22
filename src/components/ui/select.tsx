@@ -66,7 +66,7 @@ function OptionsPopup({ options, selectedValues, searchable, compact = false, se
         sideOffset={6}
         align="start"
         alignItemWithTrigger={false}
-        className={`${UI_LAYER_CLASSES.popover} w-[var(--anchor-width)] min-w-44 max-w-[calc(100vw-1.5rem)]`}
+        className={`${UI_LAYER_CLASSES.popover} ${compact ? 'w-[min(44rem,calc(100vw-1.5rem))]' : 'w-[var(--anchor-width)]'} min-w-44 max-w-[calc(100vw-1.5rem)]`}
       >
         <SelectPrimitive.Popup
           ref={popupRef}

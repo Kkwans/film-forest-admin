@@ -682,6 +682,7 @@ export const statsApi = {
 export interface UserItem {
   id: number;
   username: string;
+  role: 'USER' | 'ADMIN';
   nickname: string;
   email: string | null;
   phone: string | null;
@@ -716,10 +717,10 @@ export const userApi = {
   /** 获取单个用户 */
   get: (id: number) => adminClient.get(`/api/admin/users/${id}`),
   /** 创建用户 */
-  create: (data: { username: string; password: string; nickname?: string; email?: string; phone?: string; status?: number }) =>
+  create: (data: { username: string; password: string; nickname?: string; email?: string; phone?: string; status?: number; role?: UserItem['role'] }) =>
     adminClient.post('/api/admin/users', data),
   /** 更新用户 */
-  update: (id: number, data: { nickname?: string; email?: string; phone?: string; avatarUrl?: string; status?: number }) =>
+  update: (id: number, data: { username?: string; nickname?: string; email?: string; phone?: string; avatarUrl?: string; status?: number; role?: UserItem['role'] }) =>
     adminClient.put(`/api/admin/users/${id}`, data),
   /** 删除用户 */
   delete: (id: number) => adminClient.delete(`/api/admin/users/${id}`),

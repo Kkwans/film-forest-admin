@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { MultiSelect, Select } from '@/components/ui/select';
+import { InfoHint } from '@/components/ui/tooltip';
 import { useToast } from '@/components/ui/toast';
 import { extractErrorMessage } from '@/lib/utils';
 import { getAccordionPanelClass } from '@/components/ui/interaction-contracts';
@@ -510,8 +511,8 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
             <Field label="资源来源"><Select label="资源来源" value={form.sourceId} onChange={changeSource} options={sources.map(source => ({ label: `${source.name} · ${source.code}`, value: String(source.id) }))} /></Field>
             <Field label="内容类型"><Select label="内容类型" value={form.contentType} onChange={changeContentType} options={CONTENT_TYPES.map(option => ({ ...option, disabled: !selectedSource?.adapters.some(item => item.contentType === option.value) }))} /></Field>
             <Field label="来源适配器"><div className="flex h-9 items-center rounded-lg border border-border bg-muted/35 px-3 text-sm text-foreground">{form.adapterCode || '当前组合不可用'}</div></Field>
-            <Field label="抓取模式"><Select label="抓取模式" value={form.crawlMode} onChange={value => setForm(current => ({ ...current, crawlMode: value as 'latest' | 'full', scheduleMode: value === 'full' ? 'MANUAL' : current.scheduleMode, enabled: value === 'full' ? 0 : current.enabled }))} options={[{ label: '最新增量（推荐）', value: 'latest' }, { label: '全量手工', value: 'full' }]} /></Field>
-            <Field label="来源排序">
+            <Field label="抓取模式" help="最新增量按游标持续同步；全量扫描只允许手工启动，并使用独立的本次执行上限。"><Select label="抓取模式" value={form.crawlMode} onChange={value => setForm(current => ({ ...current, crawlMode: value as 'latest' | 'full', scheduleMode: value === 'full' ? 'MANUAL' : current.scheduleMode, enabled: value === 'full' ? 0 : current.enabled }))} options={[{ label: '最新增量（推荐）', value: 'latest' }, { label: '全量手工', value: 'full' }]} /></Field>
+            <Field label="来源排序" help={SOURCE_SORT_DESCRIPTIONS[effectiveSourceSort]}>
               <Select
                 label="来源排序"
                 value={effectiveSourceSort}
@@ -522,17 +523,13 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                 }}
                 options={sourceSortOptions}
               />
-              <p className="mt-1 text-[11px] leading-4 text-muted-foreground">
-                {SOURCE_SORT_DESCRIPTIONS[effectiveSourceSort]}
-                {sourceNeedsReview ? ' · 当前来源待验证，保存后保持待复核' : ''}
-              </p>
             </Field>
           </div>
           {supportedFilters.length > 0 && (
             <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-2">
-              <div className="md:col-span-2">
+              <div className="flex items-center gap-1 md:col-span-2">
                 <p className="text-xs font-medium text-muted-foreground">来源原生筛选</p>
-                <p className="mt-1 text-xs text-muted-foreground">仅显示适配器已声明并可预览验证的筛选；这些字段会进入来源 URL。</p>
+                <InfoHint label="来源原生筛选" content="只显示适配器已经声明且可以预览验证的字段；填写后会进入来源查询地址。" />
               </div>
               {supportedFilters.map(key => (
                 <Field key={key} label={SOURCE_FILTER_LABELS[key] || key}>
@@ -556,8 +553,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
           <div className="rounded-2xl border border-border bg-muted/15 p-3.5">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-sm font-medium text-foreground">标准题材筛选</p>
-                <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">入库后过滤，不会拼接到来源网址</p>
+                <p className="flex items-center gap-1 text-sm font-medium text-foreground">标准题材筛选 <InfoHint label="标准题材筛选" content="这是入库后的本地过滤条件，不会拼接到来源网址，也不会改变来源分页游标。" /></p>
               </div>
               <span className="rounded-full bg-primary/10 px-2 py-1 text-[11px] font-medium text-primary">已选 {form.genreTagIds.length} 项</span>
             </div>
@@ -689,7 +685,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
 
           <div aria-live="polite" aria-busy={previewing} className={`min-h-[10.5rem] rounded-xl border p-4 ${previewError ? 'border-destructive/35 bg-destructive/10' : 'border-primary/25 bg-primary/5'}`}>
             <div className="relative min-h-[8rem]">
-              <div>
+              <div className={previewing ? 'opacity-65' : undefined}>
                 {previewError ? (
                   <p className="text-sm text-destructive">{previewError}</p>
                 ) : preview ? (
@@ -718,6 +714,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                   <p className="text-sm text-muted-foreground">请选择定时规则，系统会在这里显示实际执行说明。</p>
                 )}
               </div>
+              {previewing && <span className="absolute right-0 top-0 rounded-full bg-background/80 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">正在验证规则…</span>}
             </div>
           </div>
         </section>
@@ -726,19 +723,19 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
           <div className="flex items-center gap-2 border-b border-border pb-2"><Clock3 className="size-4 text-primary" /><h3 className="text-sm font-semibold text-foreground">执行边界</h3></div>
           <div className="grid gap-4 md:grid-cols-2">
             {form.crawlMode === 'full' ? (
-              <Field label="人工全量执行上限"><input className={inputClass} type="number" min={1} max={5000} value={form.manualRunLimit} onChange={event => setForm(current => ({ ...current, manualRunLimit: Number(event.target.value) }))} /></Field>
+              <Field label="人工全量执行上限" help="全量扫描每次手工启动允许处理的最大条目数；不参与定时任务。"><input className={inputClass} type="number" min={1} max={5000} value={form.manualRunLimit} onChange={event => setForm(current => ({ ...current, manualRunLimit: Number(event.target.value) }))} /></Field>
             ) : (
               <>
-                <Field label="新内容上限"><input className={inputClass} type="number" min={1} max={500} value={form.newItemLimit} onChange={event => setForm(current => ({ ...current, newItemLimit: Number(event.target.value) }))} /></Field>
-                <Field label="历史回填上限"><input className={inputClass} type="number" min={1} max={500} value={form.backfillItemLimit} onChange={event => setForm(current => ({ ...current, backfillItemLimit: Number(event.target.value) }))} /></Field>
+                <Field label="新内容上限" help="每次定时运行优先处理最新内容的数量；它不是数据库新增数量。"><input className={inputClass} type="number" min={1} max={500} value={form.newItemLimit} onChange={event => setForm(current => ({ ...current, newItemLimit: Number(event.target.value) }))} /></Field>
+                <Field label="历史回填上限" help="每次定时运行在最新内容之外继续处理历史游标的数量，避免新内容持续出现时历史永远得不到处理。"><input className={inputClass} type="number" min={1} max={500} value={form.backfillItemLimit} onChange={event => setForm(current => ({ ...current, backfillItemLimit: Number(event.target.value) }))} /></Field>
               </>
             )}
-            <Field label="每次请求间隔（毫秒）"><input className={inputClass} type="number" min={2000} max={60000} value={form.rateLimitMs} onChange={event => setForm(current => ({ ...current, rateLimitMs: Number(event.target.value) }))} /></Field>
-            {form.crawlMode !== 'full' && <Field label="本轮抓完后"><div className="space-y-1.5"><Select label="本轮抓完后" value={form.endPolicy} onChange={value => setForm(current => ({ ...current, endPolicy: value as CrawlerEndPolicy }))} options={[{ label: '标记已完成，不再重复抓取（推荐）', value: 'HOLD_COMPLETED' }, { label: '下一次运行重新从第 1 页开始', value: 'RESTART_CYCLE' }]} /><p className="text-xs leading-5 text-muted-foreground">当来源列表没有更多页面时，决定下一次是否从头再扫。</p></div></Field>}
+            <Field label="每次请求间隔（毫秒）" help="两次来源请求之间的最小等待时间。公共来源默认不低于 2000 毫秒，用于遵守限速并减少触发访问控制。"><input className={inputClass} type="number" min={2000} max={60000} value={form.rateLimitMs} onChange={event => setForm(current => ({ ...current, rateLimitMs: Number(event.target.value) }))} /></Field>
+            {form.crawlMode !== 'full' && <Field label="本轮抓完后" help="到达来源末页时的处理方式。推荐保持已完成，只有人工明确选择重新开始周期时才回到第 1 页。"><Select label="本轮抓完后" value={form.endPolicy} onChange={value => setForm(current => ({ ...current, endPolicy: value as CrawlerEndPolicy }))} options={[{ label: '保持已完成，不重复抓取（推荐）', value: 'HOLD_COMPLETED' }, { label: '重新开始一个周期', value: 'RESTART_CYCLE' }]} /></Field>}
           </div>
           <label className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
             <input type="checkbox" className="mt-1 size-4 accent-primary" checked={form.enabled === 1} disabled={form.crawlMode === 'full' || !preview?.cronExpression || sourceNeedsReview || sourcePreview?.status !== 'VALIDATED'} onChange={event => setForm(current => ({ ...current, enabled: event.target.checked ? 1 : 0 }))} />
-            <span><span className="block text-sm font-medium text-foreground">保存后启用自动调度</span><span className="mt-1 block text-xs text-muted-foreground">未勾选时只保存规则；全量与待复核来源不会自动运行。来源预览通过后才可启用。</span></span>
+            <span className="flex items-center gap-1"><span className="text-sm font-medium text-foreground">保存后启用自动调度</span><InfoHint label="保存后启用自动调度" content="未勾选时只保存规则；全量任务和待复核来源不会自动运行，来源预览通过后才可启用。" /></span>
           </label>
         </section>
       </div>

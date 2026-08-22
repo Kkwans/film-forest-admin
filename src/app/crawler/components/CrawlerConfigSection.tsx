@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Eye, Loader2, Pencil, Play, Plus, RefreshCw, RotateCcw, Square, Trash2 } from 'lucide-react';
+import { Eye, Loader2, Pencil, Play, Plus, Power, RefreshCw, RotateCcw, Square, Trash2 } from 'lucide-react';
 import { crawlerApi, type CrawlerJobStartResult, type CrawlerSchedule, type CrawlerScheduleCursor, type CrawlerSourceDescriptor, type CrawlerTaskLog } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { useDialog } from '@/components/ui/dialog';
@@ -183,19 +183,40 @@ export function CrawlerConfigSection({ schedules, activeJobs, sources, loading, 
                     <div><dt className="text-muted-foreground">上次运行</dt><dd className="mt-0.5 text-foreground">{formatCrawlerTime(schedule.lastRunTime)}</dd></div>
                     <div><dt className="text-muted-foreground">下次运行</dt><dd className="mt-0.5 text-foreground">{schedule.enabled === 1 ? formatCrawlerTime(schedule.nextRunTime) : '自动调度关闭'}</dd></div>
                   </dl>
-                  <div className="flex min-w-0 flex-nowrap items-center justify-end gap-1.5 self-center">
-                    {activeJob && <Button variant="outline" onClick={() => onViewJob(activeJob.id)}><Eye />运行详情</Button>}
-                    <Button variant="outline" onClick={() => void toggle(schedule)} disabled={schedule.crawlMode === 'full' || needsReview}>
-                      {schedule.enabled === 1 ? '关闭自动' : '启用自动'}
-                    </Button>
-                    <Button variant="outline" size="icon" title={active ? '取消 Job' : needsReview ? '来源待复核' : '手工启动'} aria-label={active ? '取消 Job' : needsReview ? '来源待复核' : '手工启动'} disabled={actionId === schedule.id || (!active && needsReview)} onClick={() => void runAction(schedule.id, active ? 'stop' : 'start')}>
-                      {actionId === schedule.id ? <Loader2 className="animate-spin" /> : active ? <Square /> : <Play />}
-                    </Button>
-                    <Button variant="ghost" size="icon" title="重置续爬游标" aria-label="重置续爬游标" disabled={active || !cursor} onClick={() => void resetCursor(schedule)}><RotateCcw /></Button>
-                    <Button variant="ghost" size="icon" title="编辑" aria-label="编辑" onClick={() => { setEditing(schedule); setEditorOpen(true); }}><Pencil /></Button>
-                    <Button variant="destructive" size="icon" title="删除" aria-label="删除" disabled={deletingId === schedule.id} onClick={() => void remove(schedule)}>
-                      {deletingId === schedule.id ? <Loader2 className="animate-spin" /> : <Trash2 />}
-                    </Button>
+                  <div className="grid min-w-0 gap-2 self-center">
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <span className="col-span-3 text-[11px] font-medium text-muted-foreground">运行操作</span>
+                      <Button variant="outline" size="sm" className="min-w-0 px-2 text-xs" disabled={!activeJob} aria-label={activeJob ? '查看运行详情' : '当前没有活动 Job'} onClick={() => activeJob && onViewJob(activeJob.id)}><Eye />详情</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={`min-w-0 px-2 text-xs ${schedule.enabled === 1 ? 'border-amber-500/40 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300' : ''}`}
+                        aria-label={schedule.enabled === 1 ? '停用自动调度' : '启用自动调度'}
+                        onClick={() => void toggle(schedule)}
+                        disabled={schedule.crawlMode === 'full' || needsReview}
+                      >
+                        <Power />{schedule.enabled === 1 ? '停用' : '启用'}
+                      </Button>
+                      <Button
+                        variant={active ? 'destructive' : 'outline'}
+                        size="sm"
+                        className="min-w-0 px-2 text-xs"
+                        aria-label={active ? '取消运行 Job' : needsReview ? '来源待复核，不能启动' : '手工启动 Job'}
+                        disabled={actionId === schedule.id || (!active && needsReview)}
+                        onClick={() => void runAction(schedule.id, active ? 'stop' : 'start')}
+                      >
+                        {actionId === schedule.id ? <Loader2 className="animate-spin" /> : active ? <Square /> : <Play />}
+                        {active ? '取消' : '启动'}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      <span className="col-span-3 text-[11px] font-medium text-muted-foreground">配置操作</span>
+                      <Button variant="outline" size="sm" className="min-w-0 px-2 text-xs" aria-label="重置续爬游标" disabled={active || !cursor} onClick={() => void resetCursor(schedule)}><RotateCcw />重置</Button>
+                      <Button variant="outline" size="sm" className="min-w-0 px-2 text-xs" aria-label="编辑爬虫配置" onClick={() => { setEditing(schedule); setEditorOpen(true); }}><Pencil />编辑</Button>
+                      <Button variant="destructive" size="sm" className="min-w-0 px-2 text-xs" aria-label="删除爬虫配置" disabled={deletingId === schedule.id} onClick={() => void remove(schedule)}>
+                        {deletingId === schedule.id ? <Loader2 className="animate-spin" /> : <Trash2 />}删除
+                      </Button>
+                    </div>
                   </div>
                 </article>
               );

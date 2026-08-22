@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { ChevronRight, Home } from 'lucide-react';
 
 /** 路由 -> 面包屑标签映射 */
@@ -15,10 +16,33 @@ const ROUTE_LABELS: Record<string, string> = {
   '/users': '用户管理',
   '/logs': '操作日志',
   '/settings': '系统设置',
+  '/notifications': '通知中心',
+};
+
+const CRAWLER_TABS: Record<string, string> = {
+  config: '任务配置',
+  jobs: '运行任务',
+  logs: '执行日志',
+  stats: '运行统计',
 };
 
 export default function Breadcrumb() {
   const pathname = usePathname();
+  const [crawlerTab, setCrawlerTab] = useState('config');
+
+  useEffect(() => {
+    const syncTab = () => {
+      if (window.location.pathname !== '/crawler') return;
+      setCrawlerTab(new URLSearchParams(window.location.search).get('tab') || 'config');
+    };
+    syncTab();
+    window.addEventListener('popstate', syncTab);
+    window.addEventListener('filmforest:crawler-navigation', syncTab);
+    return () => {
+      window.removeEventListener('popstate', syncTab);
+      window.removeEventListener('filmforest:crawler-navigation', syncTab);
+    };
+  }, [pathname]);
 
   // 登录页不显示面包屑
   if (pathname === '/login') return null;
@@ -36,11 +60,18 @@ export default function Breadcrumb() {
         className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
       >
         <Home className="w-3.5 h-3.5" />
+        {!isHome && <span>主页</span>}
       </Link>
       {!isHome && (
         <>
           <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50" />
           <span className="text-foreground font-medium">{currentLabel}</span>
+          {pathname === '/crawler' && crawlerTab !== 'config' && CRAWLER_TABS[crawlerTab] && (
+            <>
+              <ChevronRight className="w-3.5 h-3.5 text-muted-foreground/50" />
+              <span className="text-foreground font-medium">{CRAWLER_TABS[crawlerTab]}</span>
+            </>
+          )}
         </>
       )}
     </nav>

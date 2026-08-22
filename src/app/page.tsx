@@ -143,7 +143,7 @@ export default function AdminDashboard() {
     setRefreshing(true);
     const results = await Promise.allSettled([
       statsApi.getOverview() as Promise<AxiosResponse<ApiEnvelope<Overview>>>,
-      contentApi.listAll({ page: 1, size: 6, sort: 'createdAt', sortDir: 'desc' }) as Promise<AxiosResponse<ApiEnvelope<{ records: RecentItem[] } | RecentItem[]>>>,
+      contentApi.listAll({ page: 1, size: 10, sort: 'createdAt', sortDir: 'desc' }) as Promise<AxiosResponse<ApiEnvelope<{ records: RecentItem[] } | RecentItem[]>>>,
       crawlerApi.getStatus() as Promise<AxiosResponse<ApiEnvelope<{ schedules: CrawlerScheduleItem[] }>>>,
     ]);
     const issues: string[] = [];
@@ -154,7 +154,7 @@ export default function AdminDashboard() {
     try {
       if (results[1].status === 'fulfilled') {
         const data = unwrap(results[1].value, '最近内容加载失败');
-        setRecentItems(Array.isArray(data) ? data.slice(0, 6) : (data.records || []).slice(0, 6));
+        setRecentItems(Array.isArray(data) ? data.slice(0, 10) : (data.records || []).slice(0, 10));
       } else throw results[1].reason;
     } catch (error: unknown) { issues.push(extractErrorMessage(error, '最近内容加载失败')); }
     try {
@@ -258,15 +258,15 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
 
-      <div className="grid items-start gap-6 xl:grid-cols-2">
-        <Card className="overflow-hidden border-border bg-card">
+      <div className="grid items-stretch gap-6 xl:grid-cols-2">
+        <Card className="h-full overflow-hidden border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">最近内容</h2><p className="text-xs text-muted-foreground">按入库时间展示最近内容，状态保持明确三态。</p></div><Link href="/content" className="flex items-center gap-1 text-xs font-medium text-primary">内容管理<ArrowRight className="size-3" /></Link></div>
           <CardContent className="p-0">
-            {loading ? <div className="grid gap-0 bg-card sm:grid-cols-2">{[1, 2, 3, 4, 5, 6].map(item => <Skeleton key={item} className="h-20 w-full rounded-none" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid gap-0 bg-card sm:grid-cols-2">{recentItems.map(item => { const status = contentStatus(item.status); const type = CONTENT_TYPES.find(entry => entry.code === item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-h-20 min-w-0 items-center gap-3 border-b border-r border-border/70 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}</p><p className="mt-1 truncate text-xs text-muted-foreground">{TYPE_LABELS[item.type] || item.type}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · {relativeTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
+            {loading ? <div className="grid gap-0 bg-card sm:grid-cols-2">{Array.from({ length: 10 }, (_, index) => index + 1).map(item => <Skeleton key={item} className="h-20 w-full rounded-none" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid gap-0 bg-card sm:grid-cols-2">{recentItems.map(item => { const status = contentStatus(item.status); const type = CONTENT_TYPES.find(entry => entry.code === item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-h-20 min-w-0 items-center gap-3 border-b border-r border-border/70 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}</p><p className="mt-1 truncate text-xs text-muted-foreground">{TYPE_LABELS[item.type] || item.type}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · {relativeTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
           </CardContent>
         </Card>
 
-        <Card className="border-border bg-card">
+        <Card className="h-full border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">内容结构</h2><p className="text-xs text-muted-foreground">按内容类型查看当前总量和近 7 天变化。</p></div><Link href="/stats" className="flex items-center gap-1 text-xs font-medium text-primary">详细统计<ArrowRight className="size-3" /></Link></div>
           <CardContent className="grid gap-3 p-5">
             {CONTENT_TYPES.map(type => { const value = Number(overview.typeCounts[type.code] || 0); const growth = Number(overview.weekGrowth[type.code] || 0); const percent = overview.totalContent ? value * 100 / overview.totalContent : 0; return <div key={type.code} className="grid gap-1.5"><div className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-2"><span className={`size-2 rounded-full ${type.color}`} /><span className="truncate text-sm text-foreground">{type.label}</span><span className="text-sm font-semibold tabular-nums text-foreground">{loading ? '-' : value.toLocaleString()}</span><span className="w-16 text-right text-xs tabular-nums text-muted-foreground">+{growth}/7天</span></div><div className="h-1.5 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${type.color}`} style={{ width: `${Math.max(percent, value > 0 ? 1 : 0)}%` }} /></div><p className="text-right text-[11px] tabular-nums text-muted-foreground">{percent.toFixed(1)}%</p></div>; })}

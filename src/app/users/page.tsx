@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, UserPlus, Search, Pencil, Trash2, Key, Loader2, Shield, ShieldOff, X, Copy, Link2, Mail, Phone, Ban } from 'lucide-react';
+import { Users, UserPlus, Search, Pencil, Trash2, Key, Loader2, Shield, ShieldOff, X, Copy, Link2, Mail, Phone, Ban, ShieldCheck } from 'lucide-react';
 import { userApi, type UserItem, type RegistrationInvitationItem } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 import { useDialog } from '@/components/ui/dialog';
@@ -70,7 +70,7 @@ export default function UsersPage() {
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
-  const [form, setForm] = useState({ username: '', password: '', confirmPassword: '', nickname: '', email: '', phone: '', status: 1 });
+  const [form, setForm] = useState<{ username: string; password: string; confirmPassword: string; nickname: string; email: string; phone: string; status: number; role: UserItem['role'] }>({ username: '', password: '', confirmPassword: '', nickname: '', email: '', phone: '', status: 1, role: 'USER' });
   const [saving, setSaving] = useState(false);
 
   // Password reset modal
@@ -130,18 +130,18 @@ export default function UsersPage() {
 
   const openCreateModal = () => {
     setEditingUser(null);
-    setForm({ username: '', password: '', confirmPassword: '', nickname: '', email: '', phone: '', status: 1 });
+    setForm({ username: '', password: '', confirmPassword: '', nickname: '', email: '', phone: '', status: 1, role: 'USER' });
     setShowModal(true);
   };
 
   const openEditModal = (user: UserItem) => {
     setEditingUser(user);
-    setForm({ username: user.username, password: '', confirmPassword: '', nickname: user.nickname || '', email: user.email || '', phone: user.phone || '', status: user.status });
+    setForm({ username: user.username, password: '', confirmPassword: '', nickname: user.nickname || '', email: user.email || '', phone: user.phone || '', status: user.status, role: user.role || 'USER' });
     setShowModal(true);
   };
 
   const handleSave = async () => {
-    if (!editingUser && !form.username.trim()) { toast.error('用户名不能为空'); return; }
+    if (!form.username.trim()) { toast.error('用户名不能为空'); return; }
     if (!editingUser && !form.password.trim()) { toast.error('密码不能为空'); return; }
     if (!editingUser && form.password.length < 6) { toast.error('密码长度至少 6 位'); return; }
     if (!editingUser && form.password !== form.confirmPassword) { toast.error('两次密码不一致'); return; }
@@ -150,10 +150,12 @@ export default function UsersPage() {
     try {
       if (editingUser) {
         await userApi.update(editingUser.id, {
+          username: form.username.trim(),
           nickname: form.nickname || undefined,
           email: form.email || undefined,
           phone: form.phone || undefined,
           status: form.status,
+          role: form.role,
         });
         toast.success('用户已更新');
       } else {
@@ -164,11 +166,13 @@ export default function UsersPage() {
           email: form.email || undefined,
           phone: form.phone || undefined,
           status: form.status,
+          role: form.role,
         });
         toast.success('用户已创建');
       }
       setShowModal(false);
-      loadUsers();
+      await loadUsers();
+      window.dispatchEvent(new Event('filmforest:auth-changed'));
     } catch (e: unknown) {
       toast.error(extractErrorMessage(e, '操作失败'));
     } finally {
@@ -349,6 +353,7 @@ export default function UsersPage() {
                 <thead className="bg-muted/50 sticky top-0 z-10 shadow-sm">
                   <tr className="border-b border-border">
                     <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">用户名</th>
+                    <th className="text-center px-5 py-3.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">权限</th>
                     <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">昵称</th>
                     <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">邮箱</th>
                     <th className="text-left px-5 py-3.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">手机号</th>
@@ -367,6 +372,11 @@ export default function UsersPage() {
                           </div>
                           <span className="font-medium text-foreground">{user.username}</span>
                         </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <Badge variant="outline" className={user.role === 'ADMIN' ? 'border-primary/30 bg-primary/10 text-primary' : 'text-muted-foreground'}>
+                          {user.role === 'ADMIN' ? <><ShieldCheck className="mr-1 size-3" />管理员</> : '普通用户'}
+                        </Badge>
                       </td>
                       <td className="px-5 py-3.5 text-muted-foreground">{user.nickname || '-'}</td>
                       <td className="px-5 py-3.5 text-muted-foreground">{user.email || '-'}</td>
@@ -408,7 +418,7 @@ export default function UsersPage() {
                         {user.username.charAt(0).toUpperCase()}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">{user.username}</p>
+                        <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground truncate">{user.username}{user.role === 'ADMIN' && <Badge variant="outline" className="border-primary/30 bg-primary/10 px-1.5 py-0 text-[10px] text-primary">管理员</Badge>}</p>
                         <p className="text-xs text-muted-foreground">{user.nickname || '-'}</p>
                       </div>
                     </div>
@@ -471,27 +481,29 @@ export default function UsersPage() {
               {invitations.map((invitation) => {
                 const status = INVITATION_STATUS[invitation.status];
                 return (
-                  <div key={invitation.id} className="grid gap-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
+                  <div key={invitation.id} className="grid gap-3 px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${status.className}`}>{status.label}</span>
                         <span className="text-xs text-muted-foreground">由 {invitation.createdByUsername} 创建</span>
                         {invitation.usedByUsername && <span className="text-xs text-secondary-foreground">注册账号：{invitation.usedByUsername}</span>}
                       </div>
-                      <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                    </div>
+                    <div className="flex flex-wrap items-center justify-start gap-3 sm:justify-end">
+                      <p className="text-xs leading-5 text-muted-foreground">
                         创建 {formatDateTime(invitation.createdAt)} · 到期 {formatDateTime(invitation.expiresAt)}
                         {invitation.usedAt ? ` · 使用 ${formatDateTime(invitation.usedAt)}` : ''}
                       </p>
+                      {invitation.status === 'ACTIVE' && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRevokeInvitation(invitation)}
+                          className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg border border-destructive/25 px-3 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+                        >
+                          <Ban className="h-3.5 w-3.5" />撤销邀请
+                        </button>
+                      )}
                     </div>
-                    {invitation.status === 'ACTIVE' && (
-                      <button
-                        type="button"
-                        onClick={() => void handleRevokeInvitation(invitation)}
-                        className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-lg border border-destructive/25 px-3 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
-                      >
-                        <Ban className="h-3.5 w-3.5" />撤销邀请
-                      </button>
-                    )}
                   </div>
                 );
               })}
@@ -503,12 +515,11 @@ export default function UsersPage() {
       {/* Create/Edit Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editingUser ? '编辑用户' : '新建用户'}>
           <div className="space-y-4 p-1">
-            {!editingUser && (
-              <div className="grid gap-2">
-                <label className="text-sm font-medium text-foreground">用户名 <span className="text-destructive">*</span></label>
-                <input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="3~30 位" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]" />
-              </div>
-            )}
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-foreground">登录用户名 <span className="text-destructive">*</span></label>
+              <input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="3~30 位" autoComplete="username" className="h-10 px-4 rounded-lg border bg-background text-foreground text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-[border-color,box-shadow,background-color]" />
+              <p className="text-xs text-muted-foreground">用于登录管理端；修改后立即对后续登录生效。</p>
+            </div>
             {!editingUser && (
               <div className="grid gap-2">
                 <label className="text-sm font-medium text-foreground">密码 <span className="text-destructive">*</span></label>
@@ -545,6 +556,18 @@ export default function UsersPage() {
                   禁用
                 </button>
               </div>
+            </div>
+            <div className="grid gap-2">
+              <label className="text-sm font-medium text-foreground">权限</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setForm(f => ({ ...f, role: 'USER' }))} className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors ${form.role === 'USER' ? 'border-border bg-muted text-foreground' : 'border-border bg-background text-muted-foreground hover:bg-muted/50'}`}>
+                  <Users className="size-4" />普通用户
+                </button>
+                <button type="button" onClick={() => setForm(f => ({ ...f, role: 'ADMIN' }))} className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border text-sm font-medium transition-colors ${form.role === 'ADMIN' ? 'border-primary/35 bg-primary/10 text-primary' : 'border-border bg-background text-muted-foreground hover:bg-muted/50'}`}>
+                  <ShieldCheck className="size-4" />管理员
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">管理员可进入管理端并管理用户、爬虫和系统配置。</p>
             </div>
             <div className="flex justify-end gap-3 pt-4 border-t border-border">
               <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted transition-colors">取消</button>
