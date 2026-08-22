@@ -206,7 +206,7 @@ export default function AdminDashboard() {
         {metricCards.map(metric => <Link key={metric.label} href={metric.href} className="group rounded-xl border border-border bg-card p-4 transition-[border-color,box-shadow] hover:border-primary/25 hover:shadow-md"><div className="flex items-start justify-between gap-2"><span className={`grid size-9 place-items-center rounded-xl ${metric.tone}`}><metric.icon className="size-4" /></span><ArrowRight className="size-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5" /></div><p className="mt-4 text-xs font-medium text-muted-foreground">{metric.label}</p>{loading ? <Skeleton className="mt-1 h-7 w-16" /> : <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{typeof metric.value === 'number' ? metric.value.toLocaleString() : metric.value}</p>}<p className="mt-1 text-xs text-muted-foreground">{metric.note}</p></Link>)}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
         <Card className="overflow-hidden border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">最近任务</h2><p className="text-xs text-muted-foreground">状态来自最近一次权威 Job，不再用“空闲”掩盖失败。</p></div><Link href="/crawler" className="flex items-center gap-1 text-xs font-medium text-primary">管理任务<ArrowRight className="size-3" /></Link></div>
           <CardContent className="p-0">

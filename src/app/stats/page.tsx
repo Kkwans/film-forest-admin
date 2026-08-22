@@ -193,7 +193,7 @@ export default function StatsPage() {
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">{metrics.map(metric => <Card key={metric.label} className="border-border bg-card"><CardContent className="p-4"><span className={`grid size-9 place-items-center rounded-xl ${metric.tone}`}><metric.icon className="size-4" /></span><p className="mt-3 text-xs text-muted-foreground">{metric.label}</p>{loading ? <Skeleton className="mt-1 h-7 w-20" /> : <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{metric.value}</p>}<p className="mt-1 truncate text-xs text-muted-foreground" title={metric.note}>{metric.note}</p></CardContent></Card>)}</div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid items-start gap-6 xl:grid-cols-2">
         <ChartCard title="内容增长趋势" note={`按内容类型统计近 ${days} 天每日新增`}>
           {loading ? <Skeleton className="h-72 w-full" /> : !trendData.some(point => TYPE_ORDER.some(type => Number(point[TYPE_LABELS[type]]) > 0)) ? <EmptyChart label="当前周期没有新增内容" /> : <ResponsiveContainer width="100%" height={288}><LineChart data={trendData} margin={{ left: -14, right: 8, top: 8 }}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} /><YAxis allowDecimals={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip isAnimationActive={false} contentStyle={CHART_STYLE} /><Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} />{TYPE_ORDER.map((type, index) => <Line key={type} type="monotone" dataKey={TYPE_LABELS[type]} stroke={COLORS[index]} strokeWidth={2} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />)}</LineChart></ResponsiveContainer>}
         </ChartCard>
@@ -202,16 +202,16 @@ export default function StatsPage() {
         </ChartCard>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <ChartCard title="内容分布" note="所有类型均展示真实占比，零值明确显示为 0.0%">
-          {loading ? <Skeleton className="h-72 w-full" /> : totalContent === 0 ? <EmptyChart label="暂无内容数据" /> : <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_180px]"><ResponsiveContainer width="100%" height={260}><PieChart><Pie data={pieData} dataKey="value" nameKey="name" innerRadius={62} outerRadius={96} paddingAngle={2} isAnimationActive={false}>{pieData.map(item => <Cell key={item.type} fill={item.color} />)}</Pie><Tooltip isAnimationActive={false} contentStyle={CHART_STYLE} formatter={(value, name) => [`${Number(value).toLocaleString()} 条 · ${(Number(value) * 100 / totalContent).toFixed(1)}%`, name]} /></PieChart></ResponsiveContainer><div className="space-y-2">{contentDistribution.map(item => <div key={item.type} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs"><span className="size-2 rounded-full" style={{ backgroundColor: item.color }} /><span className="text-muted-foreground">{item.name}</span><span className="font-medium tabular-nums text-foreground">{item.value.toLocaleString()} · {(item.value * 100 / totalContent).toFixed(1)}%</span></div>)}</div></div>}
-        </ChartCard>
+      <div className="grid items-start gap-6 xl:grid-cols-2">
         <ChartCard title="爬取数据变化" note="新增、更新和单条失败按日对比">
           {loading ? <Skeleton className="h-72 w-full" /> : !dailyData.some(row => row.added + row.updated + row.failedItems > 0) ? <EmptyChart label="当前周期没有数据变更" /> : <ResponsiveContainer width="100%" height={288}><LineChart data={dailyData} margin={{ left: -14, right: 8, top: 8 }}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="dateLabel" tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickLine={false} axisLine={false} minTickGap={18} /><YAxis allowDecimals={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickLine={false} axisLine={false} /><Tooltip isAnimationActive={false} contentStyle={CHART_STYLE} /><Legend wrapperStyle={{ fontSize: 11, paddingTop: 12 }} /><Line type="monotone" dataKey="added" name="新增" stroke="#059669" strokeWidth={2} dot={false} isAnimationActive={false} /><Line type="monotone" dataKey="updated" name="更新" stroke="#0284c7" strokeWidth={2} dot={false} isAnimationActive={false} /><Line type="monotone" dataKey="failedItems" name="失败条目" stroke="#dc2626" strokeWidth={2} dot={false} isAnimationActive={false} /></LineChart></ResponsiveContainer>}
         </ChartCard>
+        <ChartCard title="内容分布" note="所有类型均展示真实占比，零值明确显示为 0.0%">
+          {loading ? <Skeleton className="h-72 w-full" /> : totalContent === 0 ? <EmptyChart label="暂无内容数据" /> : <div className="grid items-center gap-3 sm:grid-cols-[minmax(0,1fr)_180px]"><ResponsiveContainer width="100%" height={260}><PieChart><Pie data={pieData} dataKey="value" nameKey="name" innerRadius={62} outerRadius={96} paddingAngle={2} isAnimationActive={false}>{pieData.map(item => <Cell key={item.type} fill={item.color} />)}</Pie><Tooltip isAnimationActive={false} contentStyle={CHART_STYLE} formatter={(value, name) => [`${Number(value).toLocaleString()} 条 · ${(Number(value) * 100 / totalContent).toFixed(1)}%`, name]} /></PieChart></ResponsiveContainer><div className="space-y-2">{contentDistribution.map(item => <div key={item.type} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 text-xs"><span className="size-2 rounded-full" style={{ backgroundColor: item.color }} /><span className="text-muted-foreground">{item.name}</span><span className="font-medium tabular-nums text-foreground">{item.value.toLocaleString()} · {(item.value * 100 / totalContent).toFixed(1)}%</span></div>)}</div></div>}
+        </ChartCard>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid items-start gap-6 xl:grid-cols-2">
         <ChartCard title="可用资源结构" note="仅统计已启用、未删除且未被来源判定失效的资源">
           <div className="grid grid-cols-3 gap-3">{[
             { label: '在线', value: overview?.resources.online || 0, icon: RadioTower, tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },

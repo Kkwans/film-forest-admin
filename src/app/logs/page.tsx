@@ -172,7 +172,7 @@ export default function LogsPage() {
 
       {/* Search & Filters */}
       <Card className="bg-card border-border">
-        <CardContent className="pt-6 space-y-4">
+        <CardContent className="p-4 space-y-4">
           <div className="flex gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />

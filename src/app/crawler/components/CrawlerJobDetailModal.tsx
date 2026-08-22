@@ -257,7 +257,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
               ))}
             </div>
 
-            <dl className="grid auto-rows-fr gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="grid items-start gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               {[
                 ['当前页', job.currentPage ?? '-'], ['当前项', job.currentItem || '-'],
                 ['来源排序', sourceSortLabel(job.sourceSort)], ['遍历模式', job.traversalMode || '-'],
@@ -267,7 +267,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 ['游标状态', cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '-'],
                 ['游标锚点', cursor?.nextExternalId || cursor?.lastCommittedExternalId || '-'],
               ].map(([label, value]) => (
-                <div key={String(label)} className="flex min-h-[4.25rem] min-w-0 flex-col justify-center rounded-xl border border-border p-3">
+                <div key={String(label)} className="flex min-h-[4.25rem] min-w-0 flex-col justify-start rounded-xl border border-border p-3">
                   <dt className="text-xs text-muted-foreground">{label}</dt>
                   <dd className="mt-1 break-all text-foreground">{String(value)}</dd>
                 </div>
@@ -300,7 +300,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h3 id="success-detail-title" className="font-semibold text-foreground">爬取成功明细</h3>
-              <p className="mt-1 text-xs text-muted-foreground">共 {successes.total} 条；展示本次 Job 实际处理的内容摘要，不混入其他任务。</p>
+              <p className="mt-1 text-xs text-muted-foreground">共 {successes.total} 条；按最新爬取时间倒序展示，序号表示本次 Job 的处理顺序，最新条目为最大序号。</p>
             </div>
             <div className="flex w-full gap-2 sm:w-auto">
               <input
@@ -338,13 +338,14 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
           ) : (
             <div className="space-y-3">
               {successes.records.map((success, index) => {
-                const sequence = (successes.current - 1) * successes.size + index + 1;
+                const sequence = Math.max(
+                  successes.total - ((successes.current - 1) * successes.size + index),
+                  1,
+                );
                 return (
-                  <article key={success.id} data-crawler-success-card className={`${crawlerPanelClass} grid items-stretch gap-3 p-3 sm:grid-cols-[2rem_5rem_minmax(0,1fr)]`}>
-                    <div className="flex h-full items-start justify-center pt-1">
-                      <span className="font-mono text-xs font-semibold tabular-nums text-primary/75">{String(sequence).padStart(2, '0')}</span>
-                    </div>
-                    <div className="flex min-h-[7.5rem] w-20 shrink-0 items-center justify-center self-stretch overflow-hidden rounded-xl bg-muted/70 text-[10px] text-muted-foreground">
+                  <article key={success.id} data-crawler-success-card className={`${crawlerPanelClass} grid items-stretch gap-3 p-3 sm:grid-cols-[5rem_minmax(0,1fr)]`}>
+                    <div className="relative flex min-h-[7.5rem] w-20 shrink-0 items-center justify-center self-stretch overflow-hidden rounded-xl bg-muted/70 text-[10px] text-muted-foreground">
+                      <span className="absolute left-1.5 top-1.5 z-10 rounded-md border border-border/70 bg-card/90 px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums text-primary shadow-sm backdrop-blur-sm">{String(sequence).padStart(2, '0')}</span>
                       {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="h-full w-full object-contain" /> : '无海报'}
                     </div>
                     <div className="flex min-w-0 flex-col">

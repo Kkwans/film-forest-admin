@@ -125,9 +125,11 @@ function OptionsPopup({ options, selectedValues, searchable, compact = false, se
                   )}
                 >
                   <SelectPrimitive.ItemText className={compact ? 'whitespace-nowrap' : 'min-w-0 truncate'}>{option.label}</SelectPrimitive.ItemText>
-                  <SelectPrimitive.ItemIndicator className="text-primary">
-                    <Check aria-hidden="true" className="size-4" strokeWidth={2.2} />
-                  </SelectPrimitive.ItemIndicator>
+                  {!compact && (
+                    <SelectPrimitive.ItemIndicator className="text-primary">
+                      <Check aria-hidden="true" className="size-4" strokeWidth={2.2} />
+                    </SelectPrimitive.ItemIndicator>
+                  )}
                 </SelectPrimitive.Item>
               ))
             )}
