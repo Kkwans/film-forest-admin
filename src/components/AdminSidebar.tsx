@@ -29,7 +29,6 @@ export default function AdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [collapsed, setCollapsed] = useState(Boolean(user?.adminSidebarCollapsed));
-  const [layoutCollapsed, setLayoutCollapsed] = useState(Boolean(user?.adminSidebarCollapsed));
   const [isSidebarTransitioning, setIsSidebarTransitioning] = useState(false);
   const [savingPreference, setSavingPreference] = useState(false);
   const drawerId = useId();
@@ -47,7 +46,6 @@ export default function AdminSidebar() {
     setIsSidebarTransitioning(true);
     if (collapseTimerRef.current !== null) window.clearTimeout(collapseTimerRef.current);
     collapseTimerRef.current = window.setTimeout(() => {
-      setLayoutCollapsed(next);
       setIsSidebarTransitioning(false);
       collapseTimerRef.current = null;
     }, 280);
@@ -56,7 +54,6 @@ export default function AdminSidebar() {
       await layoutApi.saveSidebarPreference(next);
     } catch {
       setCollapsed(!next);
-      setLayoutCollapsed(!next);
       setIsSidebarTransitioning(false);
       if (collapseTimerRef.current !== null) window.clearTimeout(collapseTimerRef.current);
       collapseTimerRef.current = null;
@@ -120,7 +117,9 @@ export default function AdminSidebar() {
     };
   }, [closeDrawer, isMobile, mobileOpen]);
 
-  const desktopCollapsed = (isSidebarTransitioning ? layoutCollapsed : collapsed) && !isMobile;
+  // Keep the compact icon geometry throughout the width animation. This prevents
+  // expanded labels from being clipped while the shell is already narrow.
+  const desktopCollapsed = (collapsed || isSidebarTransitioning) && !isMobile;
   const targetDesktopCollapsed = collapsed && !isMobile;
 
   return (
