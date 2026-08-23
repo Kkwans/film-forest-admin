@@ -131,7 +131,7 @@ function CurrentItemProgress({ job, connected }: { job: CrawlerTaskLog; connecte
 
   return (
     <section className="rounded-2xl border border-primary/20 bg-primary/[0.045] p-4" aria-label="当前解析进度">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary/75">当前解析</p>
           <h3 className="mt-1 truncate text-base font-semibold text-foreground" title={job.currentItemTitle || undefined}>
@@ -370,7 +370,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
 
             <dl className="grid items-start gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               {[
-                ['当前页', job.currentPage ?? '-'], ['当前项', job.currentItem || '-'],
+                ['当前页', job.currentPage ?? '-'],
                 ['来源排序', sourceSortLabel(job.sourceSort)], ['遍历模式', traversalModeLabel(job.traversalMode)],
                 ['排队时间', formatCrawlerTime(job.queuedAt)], ['开始时间', formatCrawlerTime(job.startedAt)],
                 ['最近心跳', formatCrawlerTime(job.heartbeatAt)], ['完成时间', formatCrawlerTime(job.finishedAt)],
@@ -378,12 +378,12 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 ['游标状态', cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '-'],
                 ['游标锚点', cursor?.nextExternalId || cursor?.lastCommittedExternalId || '-'],
               ].map(([label, value]) => (
-                <div key={String(label)} className="flex min-h-[5.75rem] min-w-0 flex-col justify-start rounded-xl border border-border p-3">
+                <div key={String(label)} className="flex min-h-[4.5rem] min-w-0 flex-col justify-start rounded-xl border border-border p-3">
                   <dt className="flex items-center gap-1 text-xs text-muted-foreground">
                     <span>{label}</span>
                     <InfoHint label={String(label)} content={jobMetaHelp[String(label)] || 'Job 运行上下文信息。'} />
                   </dt>
-                  <dd className="mt-1 min-h-10 min-w-0 max-w-full overflow-hidden text-foreground">
+                  <dd className="mt-1 min-h-0 min-w-0 max-w-full overflow-hidden text-foreground">
                     {String(value).length > 36 ? (
                       <TooltipText className="block w-full max-w-full overflow-hidden line-clamp-2 whitespace-normal break-all leading-5" content={String(value)}>{String(value)}</TooltipText>
                     ) : String(value)}
@@ -450,16 +450,16 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                   1,
                 );
                 return (
-                  <article key={success.id} data-crawler-success-card className={`${crawlerPanelClass} grid items-stretch gap-4 p-3 sm:h-[12rem] sm:grid-cols-[auto_minmax(0,1fr)]`}>
-                    <div className="relative flex h-36 w-24 shrink-0 items-center justify-center self-center overflow-hidden rounded-xl bg-muted/50 text-[10px] text-muted-foreground sm:h-full sm:w-auto sm:aspect-[2/3]">
-                      <span className="absolute left-2 top-2 z-10 rounded-full bg-card/95 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-primary shadow-sm">{String(sequence).padStart(2, '0')}</span>
-                      {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="block h-full w-full object-cover" /> : '无海报'}
+                  <article key={success.id} data-crawler-success-card className={`${crawlerPanelClass} grid items-center gap-4 p-3 sm:h-[11rem] sm:grid-cols-[auto_minmax(0,1fr)]`}>
+                    <div className="relative flex h-32 w-24 shrink-0 items-center justify-center self-center overflow-hidden rounded-xl bg-muted/50 text-[10px] text-muted-foreground sm:h-[9.25rem] sm:w-[6.17rem]">
+                      <span className="absolute left-1.5 top-1.5 z-10 rounded-full bg-background/70 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-primary shadow-sm backdrop-blur-sm">{String(sequence).padStart(2, '0')}</span>
+                      {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="block h-full w-full object-contain" /> : '无海报'}
                     </div>
                     <div className="flex min-w-0 flex-col">
-                      <div className="grid min-h-0 gap-2 border-b border-border/70 pb-2 sm:h-[3.5rem] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                      <div className="grid min-h-0 gap-2 border-b border-border/55 pb-2 sm:h-[3.25rem] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                         <div className="min-w-0">
                           <p className="truncate font-semibold leading-5 text-foreground">{success.title}{success.year ? `（${success.year}）` : ''}</p>
-                          <p className="mt-1 truncate text-xs leading-4 text-muted-foreground">别名：<TooltipText content={listText(success.alias)}>{listText(success.alias)}</TooltipText></p>
+                          <p className="mt-1 truncate whitespace-nowrap text-xs leading-4 text-muted-foreground">别名：<TooltipText className="inline truncate" content={listText(success.alias)}>{listText(success.alias)}</TooltipText></p>
                         </div>
                         <div className="flex shrink-0 items-center gap-3 whitespace-nowrap text-xs text-muted-foreground sm:justify-self-end">
                           <span className="tabular-nums">爬取时间 {formatCrawlerTime(success.crawledAt)}</span>

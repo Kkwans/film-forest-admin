@@ -678,6 +678,20 @@ export const layoutApi = {
     adminClient.put('/api/auth/preferences/layout', { sidebarCollapsed }),
 };
 
+export type AdminListPagePreferenceKey =
+  | 'crawlerLogs'
+  | 'operationLogs'
+  | 'resources'
+  | 'notifications'
+  | 'users'
+  | 'content';
+
+export const listPagePreferenceApi = {
+  get: () => adminClient.get<ApiEnvelope<Record<AdminListPagePreferenceKey, number>>>('/api/auth/preferences/list-page-size'),
+  update: (key: AdminListPagePreferenceKey, size: number) =>
+    adminClient.put<ApiEnvelope<Record<AdminListPagePreferenceKey, number>>>('/api/auth/preferences/list-page-size', { key, size }),
+};
+
 // 数据统计 API
 export const statsApi = {
   /** 数据概览（各类型数量 + 7日增长 + 爬虫成功率 + 资源统计） */

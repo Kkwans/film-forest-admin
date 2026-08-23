@@ -10,6 +10,8 @@ import { useDialog } from '@/components/ui/dialog';
 import { extractErrorMessage } from '@/lib/utils';
 import { Modal } from '@/components/ui/modal';
 import Pagination from '@/components/Pagination';
+import { PageSizeControl } from '@/components/PageSizeControl';
+import { useListPageSize } from '@/hooks/useListPageSize';
 
 interface PageResult<T> {
   records: T[];
@@ -36,7 +38,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [size] = useState(20);
+  const { size, saving: pageSizeSaving, updateSize: updatePageSize } = useListPageSize('users');
   const [keyword, setKeyword] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [loading, setLoading] = useState(true);
@@ -454,8 +456,9 @@ export default function UsersPage() {
       </Card>
 
       {/* Pagination */}
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-between">
+      {!loading && total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <PageSizeControl value={size} saving={pageSizeSaving} onChange={async value => { await updatePageSize(value); setPage(1); }} />
           <p className="text-sm text-muted-foreground">共 {total} 条，第 {page}/{totalPages} 页</p>
           <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
         </div>

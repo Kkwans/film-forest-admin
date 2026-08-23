@@ -31,7 +31,9 @@ import { contentApi, tagApi, type TagItem } from '@/lib/api';
 import { Select } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import Pagination from '@/components/Pagination';
+import { PageSizeControl } from '@/components/PageSizeControl';
 import { extractErrorMessage } from '@/lib/utils';
+import { useListPageSize } from '@/hooks/useListPageSize';
 import {
   ContentFormFields,
   EditForm,
@@ -191,7 +193,7 @@ export default function ContentPage() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const pageSize = 20;
+  const { size: pageSize, saving: pageSizeSaving, updateSize: updatePageSize } = useListPageSize('content');
   const fetchRequestRef = useRef(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -271,7 +273,7 @@ export default function ContentPage() {
         setLoading(false);
       }
     }
-  }, [typeFilter, statusFilter, debouncedKeyword, sortField, sortDirection, page, toast]);
+  }, [typeFilter, statusFilter, debouncedKeyword, sortField, sortDirection, page, pageSize, toast]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void fetchItems(), 0);
@@ -1089,8 +1091,9 @@ export default function ContentPage() {
       </Card>
 
       {/* Pagination - 放在表格下方 */}
-      {!loading && total > pageSize && (
-        <div className="flex items-center justify-between">
+      {!loading && total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <PageSizeControl value={pageSize} saving={pageSizeSaving} onChange={async value => { await updatePageSize(value); setPage(1); setSelectedKeys(new Set()); }} />
           <p className="text-sm text-muted-foreground">
             共 {total} 条，第 {page} / {Math.ceil(total / pageSize)} 页
           </p>

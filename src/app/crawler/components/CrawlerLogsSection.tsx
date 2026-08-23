@@ -6,10 +6,12 @@ import { crawlerApi, type CrawlerJobStartResult, type CrawlerSchedule, type Craw
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
 import Pagination from '@/components/Pagination';
+import { PageSizeControl } from '@/components/PageSizeControl';
 import { useToast } from '@/components/ui/toast';
 import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
+import { useListPageSize } from '@/hooks/useListPageSize';
 import { extractErrorMessage } from '@/lib/utils';
-import { CONTENT_TYPES, JOB_STATUSES, StatusBadge, contentTypeLabel, crawlerPanelClass, elapsedFor, formatCrawlerTime, inputClass } from './crawler-ui';
+import { CONTENT_TYPES, JOB_STATUSES, StatusBadge, contentTypeLabel, crawlerPanelClass, elapsedFor, formatCrawlerTime, inputClass, triggerTypeLabel } from './crawler-ui';
 import { CrawlerJobDetailModal } from './CrawlerJobDetailModal';
 
 interface Props {
@@ -19,7 +21,7 @@ interface Props {
   onJobStarted: (result: CrawlerJobStartResult) => void | Promise<void>;
 }
 
-const emptyPage: PageData<CrawlerTaskLog> = { records: [], total: 0, size: 20, current: 1, pages: 0 };
+const emptyPage: PageData<CrawlerTaskLog> = { records: [], total: 0, size: 10, current: 1, pages: 0 };
 const retryableStatuses = new Set(['failed', 'partial_success', 'cancelled', 'interrupted']);
 
 function shanghaiInputToIso(value: string) {
@@ -41,6 +43,7 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs, onJobSta
   const [to, setTo] = useState('');
   const [keywordInput, setKeywordInput] = useState('');
   const [keyword, setKeyword] = useState('');
+  const { size: listSize, saving: pageSizeSaving, updateSize: updatePageSize } = useListPageSize('crawlerLogs');
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
@@ -54,7 +57,7 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs, onJobSta
         to: to ? shanghaiInputToIso(to) : undefined,
         keyword: keyword.trim() || undefined,
         page,
-        size: 20,
+        size: listSize,
       });
       if (response.data?.code !== 200) throw new Error(response.data?.message || '日志加载失败');
       setPageData(response.data.data as PageData<CrawlerTaskLog>);
@@ -63,7 +66,7 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs, onJobSta
     } finally {
       setLoading(false);
     }
-  }, [from, keyword, page, scheduleId, source, status, to, toast, type]);
+  }, [from, keyword, listSize, page, scheduleId, source, status, to, toast, type]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void fetchLogs(), 0);
@@ -113,7 +116,7 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs, onJobSta
       </div>
 
       <div className={`${crawlerPanelClass} overflow-hidden`}>
-        <div className="flex min-h-12 items-center justify-between border-b border-border px-4 py-3 text-sm"><span className="text-muted-foreground">共 <strong className="text-foreground">{pageData.total}</strong> 个 Job</span><span className="text-xs tabular-nums text-muted-foreground">第 {pageData.current}/{Math.max(pageData.pages, 1)} 页</span></div>
+        <div className="flex min-h-12 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 text-sm"><span className="text-muted-foreground">共 <strong className="text-foreground">{pageData.total}</strong> 个 Job</span><div className="flex flex-wrap items-center gap-4"><PageSizeControl value={listSize} saving={pageSizeSaving} onChange={async value => { await updatePageSize(value); setPage(1); }} /><span className="text-xs tabular-nums text-muted-foreground">第 {pageData.current}/{Math.max(pageData.pages, 1)} 页</span></div></div>
         {loading && pageData.records.length === 0 ? (
           <div className="flex items-center justify-center gap-2 p-12 text-muted-foreground"><Loader2 className="animate-spin" />查询日志</div>
         ) : pageData.records.length === 0 ? (
@@ -122,25 +125,25 @@ export function CrawlerLogsSection({ schedules, sources, hasActiveJobs, onJobSta
           <div className="overflow-x-auto">
             <table className="w-full min-w-[980px] table-fixed text-sm">
               <colgroup><col className="w-[18%]" /><col className="w-[12%]" /><col className="w-[10%]" /><col className="w-[13%]" /><col className="w-[13%]" /><col className="w-[9%]" /><col className="w-[15%]" /><col className="w-[10%]" /></colgroup>
-              <thead className="bg-muted/40 text-left text-xs text-muted-foreground"><tr><th className="p-3">Job / 配置</th><th className="p-3">来源 / 类型</th><th className="p-3">状态</th><th className="p-3">发现 / 获取 / 解析</th><th className="p-3">新增 / 更新 / 失败</th><th className="p-3">耗时</th><th className="p-3">开始时间</th><th className="p-3 text-right">操作</th></tr></thead>
-              <tbody className="divide-y divide-border">
+              <thead className="bg-muted/30 text-xs text-muted-foreground"><tr><th className="p-3 text-left font-medium">Job / 配置</th><th className="p-3 text-left font-medium">来源 / 类型</th><th className="p-3 text-center font-medium">状态</th><th className="p-3 text-center font-medium">发现 / 获取 / 解析</th><th className="p-3 text-center font-medium">新增 / 更新 / 失败</th><th className="p-3 text-center font-medium">耗时</th><th className="p-3 text-center font-medium">开始时间</th><th className="p-3 text-center font-medium">操作</th></tr></thead>
+              <tbody className="divide-y divide-border/55">
                 {pageData.records.map(job => (
-                  <tr key={job.id} className="align-top hover:bg-muted/20">
-                    <td className="p-3"><p className="truncate font-medium text-foreground" title={job.scheduleName || '-'}>#{job.id} · {job.scheduleName || '-'}</p><p className="mt-1 truncate text-xs text-muted-foreground">{job.triggerType || '-'}{job.retryOfJobId ? ` · 重试 #${job.retryOfJobId}` : ''}</p></td>
+                  <tr key={job.id} className="align-middle hover:bg-muted/20">
+                    <td className="p-3"><p className="truncate font-medium text-foreground" title={job.scheduleName || '-'}>#{job.id} · {job.scheduleName || '-'}</p><p className="mt-1 truncate text-xs text-muted-foreground">{triggerTypeLabel(job.triggerType)}{job.retryOfJobId ? ` · 重试 #${job.retryOfJobId}` : ''}</p></td>
                     <td className="truncate p-3 text-muted-foreground" title={`${job.sourceCode || '-'} / ${contentTypeLabel(job.contentType)}`}>{job.sourceCode || '-'} / {contentTypeLabel(job.contentType)}</td>
-                    <td className="p-3"><StatusBadge status={job.status} /></td>
-                    <td className="p-3 tabular-nums text-muted-foreground">{job.discoveredCount ?? 0} / {job.fetchSucceededCount ?? 0} / {job.parseSucceededCount ?? 0}</td>
-                    <td className="p-3 tabular-nums"><span className="text-primary">+{job.addedCount ?? 0}</span> / {job.updatedCount ?? 0} / <span className={(job.failedCount ?? 0) > 0 ? 'text-destructive' : 'text-muted-foreground'}>{job.failedCount ?? 0}</span></td>
-                    <td className="p-3 tabular-nums text-muted-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</td>
-                    <td className="p-3 text-xs tabular-nums text-muted-foreground">{formatCrawlerTime(job.startedAt || job.queuedAt)}</td>
-                    <td className="p-3"><div className="flex justify-end gap-1"><Button variant="ghost" size="icon" title="查看详情" aria-label="查看详情" onClick={() => setDetailJobId(job.id)}><Eye /></Button>{retryableStatuses.has(job.status) && <Button variant="outline" size="icon" title="重试" aria-label="重试" disabled={retryingId === job.id} onClick={() => void retry(job)}>{retryingId === job.id ? <Loader2 className="animate-spin" /> : <RotateCcw />}</Button>}</div></td>
+                    <td className="p-3 text-center"><StatusBadge status={job.status} /></td>
+                    <td className="p-3 text-center tabular-nums text-muted-foreground">{job.discoveredCount ?? 0} / {job.fetchSucceededCount ?? 0} / {job.parseSucceededCount ?? 0}</td>
+                    <td className="p-3 text-center tabular-nums"><span className="text-primary">+{job.addedCount ?? 0}</span> / {job.updatedCount ?? 0} / <span className={(job.failedCount ?? 0) > 0 ? 'text-destructive' : 'text-muted-foreground'}>{job.failedCount ?? 0}</span></td>
+                    <td className="p-3 text-center tabular-nums text-muted-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</td>
+                    <td className="p-3 text-center text-xs tabular-nums text-muted-foreground">{formatCrawlerTime(job.startedAt || job.queuedAt)}</td>
+                    <td className="p-3"><div className="flex justify-center gap-1"><Button variant="ghost" size="icon" title="查看详情" aria-label="查看详情" onClick={() => setDetailJobId(job.id)}><Eye /></Button>{retryableStatuses.has(job.status) && <Button variant="outline" size="icon" title="重试" aria-label="重试" disabled={retryingId === job.id} onClick={() => void retry(job)}>{retryingId === job.id ? <Loader2 className="animate-spin" /> : <RotateCcw />}</Button>}</div></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-        <div className="border-t border-border p-4"><Pagination currentPage={pageData.current} totalPages={pageData.pages} onPageChange={setPage} /></div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border p-4"><span className="text-xs text-muted-foreground">分页偏好按当前登录账号保存</span><Pagination currentPage={pageData.current} totalPages={pageData.pages} onPageChange={setPage} /></div>
       </div>
 
       <CrawlerJobDetailModal key={detailJobId ?? 'closed'} jobId={detailJobId} onClose={() => setDetailJobId(null)} />

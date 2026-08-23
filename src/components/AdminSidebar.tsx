@@ -140,7 +140,7 @@ export default function AdminSidebar() {
         inert={isMobile && !mobileOpen ? true : undefined}
         className={`
           fixed inset-y-0 left-0 flex w-64 flex-col border-r border-sidebar-border bg-sidebar
-          ${UI_LAYER_CLASSES.sidebar} transform shadow-2xl transition-transform duration-200 ease-out motion-reduce:transition-none
+          ${UI_LAYER_CLASSES.sidebar} transform shadow-2xl transition-[width,transform] duration-300 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none
           md:relative md:z-auto md:translate-x-0 md:shadow-none
           ${desktopCollapsed ? 'md:w-20' : 'md:w-64'}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -197,13 +197,13 @@ export default function AdminSidebar() {
                   desktopCollapsed ? 'justify-center px-2' : 'gap-3 px-3'
                 } ${
                   isActive
-                    ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
+                    ? `${desktopCollapsed ? 'bg-transparent shadow-none' : 'bg-sidebar-primary shadow-sm'} text-sidebar-primary-foreground`
                     : 'text-sidebar-foreground/68 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground'
                 }`}
               >
                 <span className={`flex size-8 items-center justify-center rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-white/14 text-current'
+                    ? `${desktopCollapsed ? 'bg-sidebar-primary shadow-sm' : 'bg-white/14'} text-current`
                     : 'text-sidebar-foreground/55 group-hover:text-sidebar-accent-foreground'
                 }`}>
                   <item.icon className="size-[18px]" strokeWidth={1.8} />

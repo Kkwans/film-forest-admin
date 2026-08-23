@@ -68,6 +68,19 @@ export function traversalModeLabel(value?: string | null) {
   return value ? TRAVERSAL_MODE_LABELS[value] ?? value : '-';
 }
 
+export const TRIGGER_TYPE_LABELS: Record<string, string> = {
+  scheduled: '自动调度',
+  manual: '手动启动',
+  retry: '重试任务',
+  full: '人工全量',
+};
+
+export function triggerTypeLabel(value?: string | null) {
+  if (!value) return '-';
+  const normalized = value.trim().toLowerCase();
+  return TRIGGER_TYPE_LABELS[normalized] ?? value;
+}
+
 export function parseCrawlerTime(value: string) {
   return new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`);
 }

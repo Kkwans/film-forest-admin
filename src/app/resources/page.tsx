@@ -28,6 +28,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import Pagination from '@/components/Pagination';
+import { PageSizeControl } from '@/components/PageSizeControl';
 import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import {
@@ -41,6 +42,7 @@ import {
   type SaveSourceData,
 } from '@/lib/api';
 import { extractErrorMessage } from '@/lib/utils';
+import { useListPageSize } from '@/hooks/useListPageSize';
 
 type ResourceKind = 'online' | 'magnet' | 'cloud';
 type ResourceStatus = 'ACTIVE' | 'DISABLED' | 'REMOVED';
@@ -140,7 +142,6 @@ interface ApiEnvelope<T> {
   data: T;
 }
 
-const PAGE_SIZE = 20;
 const INPUT_CLASS = 'h-9 w-full min-w-0 rounded-xl border border-input bg-background px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/25';
 
 const KIND_META = {
@@ -341,6 +342,7 @@ export default function ResourcesPage() {
   const [detailResource, setDetailResource] = useState<{ kind: ResourceKind; resource: ResourceRecord } | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionId, setActionId] = useState<number | null>(null);
+  const { size: listSize, saving: pageSizeSaving, updateSize: updatePageSize } = useListPageSize('resources');
 
   const sourceOptions = useMemo(() => [
     { value: '', label: '全部来源' },
@@ -381,7 +383,7 @@ export default function ResourcesPage() {
     const [sort, order] = filter.sort.split(':') as [ResourcePageQuery['sort'], ResourcePageQuery['order']];
     const params: ResourcePageQuery = {
       page,
-      size: PAGE_SIZE,
+      size: listSize,
       keyword: filter.keyword.trim() || undefined,
       contentType: filter.contentType || undefined,
       source: filter.source || undefined,
@@ -413,7 +415,7 @@ export default function ResourcesPage() {
       setPages(previous => ({ ...previous, [kind]: { ...previous[kind], loading: false, loaded: true } }));
       toast.error(extractErrorMessage(error, `${KIND_META[kind].label}加载失败`));
     }
-  }, [toast]);
+  }, [listSize, toast]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void fetchBaseData(), 0);
@@ -709,7 +711,7 @@ export default function ResourcesPage() {
               </>
             )}
 
-            {activePage.pages > 1 && <div className="flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-xs text-muted-foreground">第 {activePage.current} / {activePage.pages} 页</p><Pagination currentPage={activePage.current} totalPages={activePage.pages} onPageChange={page => void fetchResourcePage(activeKind, page, appliedFilters[activeKind])} /></div>}
+            <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between"><PageSizeControl value={listSize} saving={pageSizeSaving} onChange={async value => { await updatePageSize(value); await fetchResourcePage(activeKind, 1, appliedFilters[activeKind]); }} /><div className="flex items-center justify-between gap-4 sm:justify-end"><p className="text-xs text-muted-foreground">第 {activePage.current} / {Math.max(activePage.pages, 1)} 页</p><Pagination currentPage={activePage.current} totalPages={activePage.pages} onPageChange={page => void fetchResourcePage(activeKind, page, appliedFilters[activeKind])} /></div></div>
           </div>
         </CardContent>
       </Card>

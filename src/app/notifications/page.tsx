@@ -23,13 +23,16 @@ import { Select } from '@/components/ui/select';
 import { Modal } from '@/components/ui/modal';
 import NotificationDeliverySettings from '@/app/settings/components/NotificationDeliverySettings';
 import Pagination from '@/components/Pagination';
+import { PageSizeControl } from '@/components/PageSizeControl';
 import { useToast } from '@/components/ui/toast';
+import { useListPageSize } from '@/hooks/useListPageSize';
 import {
   notificationApi,
   type AdminNotificationItem,
   type PageData,
 } from '@/lib/api';
 import { extractErrorMessage } from '@/lib/utils';
+import { CrawlerJobDetailModal } from '@/app/crawler/components/CrawlerJobDetailModal';
 
 const severityStyle = {
   ERROR: { icon: CircleAlert, box: 'bg-destructive/10 text-destructive', label: '错误' },
@@ -84,6 +87,8 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [markingAll, setMarkingAll] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
+  const [detailJobId, setDetailJobId] = useState<number | null>(null);
+  const { size: listSize, saving: pageSizeSaving, updateSize: updatePageSize } = useListPageSize('notifications');
 
   const announceChange = () => window.dispatchEvent(new Event('filmforest:notifications-changed'));
 
@@ -93,7 +98,7 @@ export default function NotificationsPage() {
       const [listResponse, countResponse] = await Promise.all([
         notificationApi.list({
           page,
-          size: 20,
+          size: listSize,
           unreadOnly,
           eventType: eventType === 'all' ? undefined : eventType,
           severity: severity === 'all' ? undefined : severity,
@@ -115,7 +120,7 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [eventType, keyword, page, severity, toast, unreadOnly]);
+  }, [eventType, keyword, listSize, page, severity, toast, unreadOnly]);
 
   const activeAdvancedFilters = eventType !== 'all' || severity !== 'all' || Boolean(keyword);
 
@@ -127,12 +132,7 @@ export default function NotificationsPage() {
     setPage(1);
   };
 
-  const detailHref = (item: AdminNotificationItem) => {
-    if (item.referenceId && item.referenceType && /CRAWLER|JOB/i.test(item.referenceType)) {
-      return `/crawler?tab=jobs&jobId=${item.referenceId}`;
-    }
-    return item.link || null;
-  };
+  const isCrawlerReference = (item: AdminNotificationItem) => Boolean(item.referenceId && item.referenceType && /CRAWLER|JOB/i.test(item.referenceType));
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
@@ -305,7 +305,7 @@ export default function NotificationsPage() {
               return (
                 <article
                   key={item.id}
-                  className={`group grid gap-3 p-4 transition-colors sm:grid-cols-[auto_1fr_auto] sm:items-start sm:p-5 ${
+                    className={`group grid gap-3 p-4 transition-colors sm:grid-cols-[auto_1fr_auto] sm:items-center sm:p-5 ${
                     item.readAt ? 'bg-card' : 'bg-primary/[0.035] hover:bg-primary/[0.06]'
                   }`}
                 >
@@ -322,9 +322,9 @@ export default function NotificationsPage() {
                       </Badge>
                     </div>
                     <p className="mt-1.5 text-sm leading-6 text-muted-foreground">{item.message}</p>
-                    <time className="mt-2 block text-xs text-muted-foreground/75" dateTime={item.createdAt}>
-                      {formatDate(item.createdAt)}
-                    </time>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <time className="text-xs text-muted-foreground/75" dateTime={item.createdAt}>{formatDate(item.createdAt)}</time>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5 justify-self-start sm:justify-self-end">
                     {!item.readAt && (
@@ -332,15 +332,15 @@ export default function NotificationsPage() {
                         <Check />标记已读
                       </Button>
                     )}
-                    {detailHref(item) && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        render={<Link href={detailHref(item) || '#'} onClick={() => void markRead(item)} />}
-                      >
+                    {isCrawlerReference(item) ? (
+                      <Button variant="outline" size="sm" onClick={() => { void markRead(item); setDetailJobId(item.referenceId || null); }}>
+                        查看 Job 详情<ChevronRight />
+                      </Button>
+                    ) : item.link ? (
+                      <Button variant="outline" size="sm" render={<Link href={item.link} onClick={() => void markRead(item)} />}>
                         查看详情<ChevronRight />
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 </article>
               );
@@ -349,7 +349,10 @@ export default function NotificationsPage() {
         )}
       </Card>
 
-      <Pagination currentPage={page} totalPages={pages} onPageChange={setPage} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PageSizeControl value={listSize} saving={pageSizeSaving} onChange={async value => { await updatePageSize(value); setPage(1); }} />
+        <Pagination currentPage={page} totalPages={pages} onPageChange={setPage} />
+      </div>
 
       <Modal
         open={preferencesOpen}
@@ -361,6 +364,8 @@ export default function NotificationsPage() {
       >
         <NotificationDeliverySettings preferencesOnly />
       </Modal>
+
+      <CrawlerJobDetailModal key={detailJobId ?? 'closed'} jobId={detailJobId} onClose={() => setDetailJobId(null)} />
     </div>
   );
 }

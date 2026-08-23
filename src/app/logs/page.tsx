@@ -7,8 +7,10 @@ import { FileText, Search, Loader2, Activity, CheckCircle2, XCircle, Filter, X }
 import { logApi, type LogItem } from '@/lib/api';
 import { Select } from '@/components/ui/select';
 import Pagination from '@/components/Pagination';
+import { PageSizeControl } from '@/components/PageSizeControl';
 import { useToast } from '@/components/ui/toast';
 import { extractErrorMessage } from '@/lib/utils';
+import { useListPageSize } from '@/hooks/useListPageSize';
 
 interface PageResult<T> {
   records: T[];
@@ -39,7 +41,7 @@ export default function LogsPage() {
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [size] = useState(20);
+  const { size, saving: pageSizeSaving, updateSize: updatePageSize } = useListPageSize('operationLogs');
   const [keyword, setKeyword] = useState('');
   const [debouncedKeyword, setDebouncedKeyword] = useState('');
   const [actionFilter, setActionFilter] = useState('');
@@ -319,8 +321,9 @@ export default function LogsPage() {
       </Card>
 
       {/* Pagination */}
-      {!loading && totalPages > 1 && (
-        <div className="flex items-center justify-between">
+      {!loading && total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <PageSizeControl value={size} saving={pageSizeSaving} onChange={async value => { await updatePageSize(value); setPage(1); }} />
           <p className="text-sm text-muted-foreground">共 {total} 条，第 {page}/{totalPages} 页</p>
           <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
