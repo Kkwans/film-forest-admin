@@ -732,6 +732,44 @@ export default function ContentPage() {
     }
   };
 
+  const handleBatchSetAllStatus = async () => {
+    if (batchProcessing || total === 0) return;
+    const status = 1;
+    const filterLabel = [
+      typeFilter === 'all' ? '全部分类' : TYPE_LABELS[typeFilter],
+      statusFilter === 'all' ? '全部状态' : STATUS_LABELS[Number(statusFilter)],
+      debouncedKeyword ? `搜索“${debouncedKeyword}”` : '',
+    ].filter(Boolean).join(' · ');
+    const ok = await dialog.confirm({
+      title: '全部上线',
+      content: `确定将当前筛选结果（${filterLabel}，共 ${total} 条）中的未上线内容全部设为“上线”？已上线内容会自动跳过。`,
+      confirmText: '全部上线',
+      cancelText: '取消',
+    });
+    if (!ok) return;
+
+    setBatchProcessing(true);
+    try {
+      const response = await contentApi.batchUpdateAllStatus({
+        type: typeFilter === 'all' ? undefined : typeFilter,
+        currentStatus: statusFilter === 'all' ? undefined : Number(statusFilter),
+        keyword: debouncedKeyword || undefined,
+        targetStatus: status,
+      });
+      if (!isMutationSuccess(response)) {
+        throw new Error(mutationFailureMessage(response, '服务器拒绝全部上线'));
+      }
+      const updated = Number(response.data?.data?.updated) || 0;
+      setSelectedKeys(new Set());
+      await refreshContentData();
+      toast.success(updated > 0 ? `已全部上线 ${updated} 条内容` : '当前筛选结果无需上线');
+    } catch (error: unknown) {
+      toast.error(`全部上线失败：${extractErrorMessage(error, '请求失败，内容未变更')}`);
+    } finally {
+      setBatchProcessing(false);
+    }
+  };
+
   // Keyboard shortcut: Ctrl+Enter to save in modal, Escape to close
   useEffect(() => {
     if (!editingItem && !creatingNew && !detailItem) return;
@@ -780,48 +818,6 @@ export default function ContentPage() {
           </Card>;
         })}
       </div>
-
-      {/* Batch Action Bar */}
-      {visibleSelectedKeys.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
-          <span className="text-sm font-medium text-primary">已选 {visibleSelectedKeys.size} 项（仅当前页）</span>
-          <div className="flex-1" />
-          <button
-            onClick={() => handleBatchSetStatus(1)}
-            disabled={batchProcessing}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 disabled:opacity-50 transition-colors"
-          >
-            {batchProcessing ? '处理中...' : '批量上线'}
-          </button>
-          <button
-            onClick={() => handleBatchSetStatus(2)}
-            disabled={batchProcessing}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
-          >
-            {batchProcessing ? '处理中...' : '批量下线'}
-          </button>
-          <button
-            onClick={() => handleBatchSetStatus(0)}
-            disabled={batchProcessing}
-            className="rounded-lg bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-          >
-            {batchProcessing ? '处理中...' : '转为草稿'}
-          </button>
-          <button
-            onClick={handleBatchDelete}
-            disabled={batchProcessing}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 transition-colors"
-          >
-            {batchProcessing ? '处理中...' : '批量删除'}
-          </button>
-          <button
-            onClick={() => setSelectedKeys(new Set())}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          >
-            取消选择
-          </button>
-        </div>
-      )}
 
       {/* Filters - overflow-visible 使下拉菜单不被 Card 的 overflow-hidden 裁剪 */}
       <Card className="bg-card border-border overflow-visible">
@@ -886,14 +882,31 @@ export default function ContentPage() {
 
       {/* Table */}
       <Card className="bg-card border-border overflow-visible">
-        <CardHeader className="pb-3 border-b border-border/60">
-          <CardTitle className="text-foreground text-base flex items-center gap-2">
-            <span className="w-1 h-4 rounded-full bg-primary" />
+        <CardHeader className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+          <CardTitle className="flex items-center gap-2 text-base text-foreground">
+            <span className="h-4 w-1 rounded-full bg-primary" />
             内容列表 ({loading ? '...' : total || filtered.length})
             {debouncedKeyword && !loading && (
-              <span className="text-xs font-normal text-muted-foreground ml-1">— 搜索 &ldquo;{debouncedKeyword}&rdquo;</span>
+              <span className="ml-1 text-xs font-normal text-muted-foreground">— 搜索 &ldquo;{debouncedKeyword}&rdquo;</span>
             )}
           </CardTitle>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {visibleSelectedKeys.size > 0 && (
+              <>
+                <span className="text-xs font-medium text-primary">当前页已选 {visibleSelectedKeys.size} 项</span>
+                <Button variant="outline" size="sm" onClick={() => void handleBatchSetStatus(1)} disabled={batchProcessing} className="border-emerald-500/25 text-emerald-700 hover:bg-emerald-500/10 dark:text-emerald-300">批量上线</Button>
+                <Button variant="outline" size="sm" onClick={() => void handleBatchSetStatus(2)} disabled={batchProcessing} className="border-amber-500/25 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300">批量下线</Button>
+                <Button variant="outline" size="sm" onClick={() => void handleBatchSetStatus(0)} disabled={batchProcessing}>转为草稿</Button>
+                <Button variant="destructive" size="sm" onClick={() => void handleBatchDelete()} disabled={batchProcessing}>批量删除</Button>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedKeys(new Set())}>取消选择</Button>
+              </>
+            )}
+            {!loading && total > 0 && (
+              <Button size="sm" onClick={() => void handleBatchSetAllStatus()} disabled={batchProcessing} className="bg-emerald-600 text-white hover:bg-emerald-700">
+                {batchProcessing ? <Loader2 className="animate-spin" /> : null}全部上线
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-0">
           {/* Desktop table */}

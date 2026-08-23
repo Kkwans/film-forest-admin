@@ -92,19 +92,19 @@ export function CrawlerJobsSection({ jobs, loading, onRefresh, focusJobId, onFoc
                 {progressFields.map(([key, label]) => <div key={key} className="h-[3.75rem] rounded-xl bg-muted/50 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 font-semibold tabular-nums text-foreground">{Number(job[key] ?? 0)}</p></div>)}
               </div>
               {job.currentItemTitle && (
-                <div className="mt-3 flex min-w-0 items-center gap-2 rounded-xl border border-primary/15 bg-primary/[0.045] px-3 py-2 text-sm">
+                <div className="mt-3 grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] items-center gap-x-2 rounded-xl border border-primary/15 bg-primary/[0.045] px-3 py-2 text-sm">
                   <span className="size-2 shrink-0 rounded-full bg-primary" />
                   <span className="shrink-0 text-xs font-medium text-primary">当前解析</span>
-                  <span className="min-w-0 truncate font-medium text-foreground" title={job.currentItemTitle}>{job.currentItemTitle}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">· {crawlerStageLabel(job.currentStage)}</span>
-                  <span className="ml-auto shrink-0 tabular-nums text-xs font-semibold text-primary">{job.currentStageProgress ?? 0}%</span>
+                  <span className="min-w-0 truncate font-medium leading-5 text-foreground" title={job.currentItemTitle}>{job.currentItemTitle}</span>
+                  <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">· {crawlerStageLabel(job.currentStage)}</span>
+                  <span className="col-start-5 row-start-1 ml-1 shrink-0 tabular-nums text-xs font-semibold text-primary">{job.currentStageProgress ?? 0}%</span>
                 </div>
               )}
-              <dl className="mt-3 grid items-center gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-xs text-muted-foreground md:grid-cols-4">
-                <div className="min-w-0">当前页：<span className="tabular-nums text-foreground">{job.currentPage ?? '-'}</span></div>
-                <div className="min-w-0 truncate">当前来源：<span className="text-foreground">{job.currentItem ? <TooltipText className="truncate" content={job.currentItem}>{job.currentItem}</TooltipText> : '-'}</span></div>
-                <div className="min-w-0">已用时：<span className="text-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</span></div>
-                <div className="min-w-0">心跳：<span className="tabular-nums text-foreground">{formatCrawlerTime(job.heartbeatAt)}</span></div>
+              <dl className="mt-3 grid gap-x-4 gap-y-2 border-t border-border/60 pt-3 text-xs text-muted-foreground md:grid-cols-4">
+                <div className="min-w-0"><dt>当前页</dt><dd className="mt-1 truncate tabular-nums text-foreground">{job.currentPage ?? '-'}</dd></div>
+                <div className="min-w-0"><dt>当前来源</dt><dd className="mt-1 truncate text-foreground">{job.currentItem ? <TooltipText className="truncate" content={job.currentItem}>{job.currentItem}</TooltipText> : '-'}</dd></div>
+                <div className="min-w-0"><dt>已用时</dt><dd className="mt-1 truncate text-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</dd></div>
+                <div className="min-w-0"><dt>心跳</dt><dd className="mt-1 truncate tabular-nums text-foreground">{formatCrawlerTime(job.heartbeatAt)}</dd></div>
               </dl>
               {job.errorSummary && <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{crawlerErrorMessage(job.errorSummary)}</p>}
             </article>

@@ -29,11 +29,14 @@ export default function AdminSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [collapsed, setCollapsed] = useState(Boolean(user?.adminSidebarCollapsed));
+  const [layoutCollapsed, setLayoutCollapsed] = useState(Boolean(user?.adminSidebarCollapsed));
+  const [isSidebarTransitioning, setIsSidebarTransitioning] = useState(false);
   const [savingPreference, setSavingPreference] = useState(false);
   const drawerId = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const collapseTimerRef = useRef<number | null>(null);
 
   const closeDrawer = useCallback(() => setMobileOpen(false), []);
 
@@ -41,16 +44,31 @@ export default function AdminSidebar() {
     if (savingPreference) return;
     const next = !collapsed;
     setCollapsed(next);
+    setIsSidebarTransitioning(true);
+    if (collapseTimerRef.current !== null) window.clearTimeout(collapseTimerRef.current);
+    collapseTimerRef.current = window.setTimeout(() => {
+      setLayoutCollapsed(next);
+      setIsSidebarTransitioning(false);
+      collapseTimerRef.current = null;
+    }, 280);
     setSavingPreference(true);
     try {
       await layoutApi.saveSidebarPreference(next);
     } catch {
       setCollapsed(!next);
+      setLayoutCollapsed(!next);
+      setIsSidebarTransitioning(false);
+      if (collapseTimerRef.current !== null) window.clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
       toast.error('侧栏偏好保存失败，请重试');
     } finally {
       setSavingPreference(false);
     }
   };
+
+  useEffect(() => () => {
+    if (collapseTimerRef.current !== null) window.clearTimeout(collapseTimerRef.current);
+  }, []);
 
   useEffect(() => {
     const media = window.matchMedia('(max-width: 767px)');
@@ -102,7 +120,8 @@ export default function AdminSidebar() {
     };
   }, [closeDrawer, isMobile, mobileOpen]);
 
-  const desktopCollapsed = collapsed && !isMobile;
+  const desktopCollapsed = (isSidebarTransitioning ? layoutCollapsed : collapsed) && !isMobile;
+  const targetDesktopCollapsed = collapsed && !isMobile;
 
   return (
     <>
@@ -142,10 +161,12 @@ export default function AdminSidebar() {
           fixed inset-y-0 left-0 flex w-64 flex-col border-r border-sidebar-border bg-sidebar
           ${UI_LAYER_CLASSES.sidebar} transform shadow-2xl transition-[width,transform] duration-300 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none
           md:relative md:z-auto md:translate-x-0 md:shadow-none
-          ${desktopCollapsed ? 'md:w-20' : 'md:w-64'}
+          overflow-hidden
+          ${targetDesktopCollapsed ? 'md:w-20' : 'md:w-64'}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
+        <div className={`flex h-full w-full min-w-0 flex-col ${desktopCollapsed ? 'md:min-w-20' : 'md:min-w-64'}`}>
         {/* Mobile close button */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-sidebar-border md:hidden">
           <div className="flex items-center gap-3">
@@ -230,6 +251,7 @@ export default function AdminSidebar() {
             {!desktopCollapsed && <span>折叠侧边菜单</span>}
           </button>
           <p className={`mt-3 text-xs text-sidebar-foreground/55 md:mt-2 ${desktopCollapsed ? 'hidden' : ''}`}>影视森林 · 授权访问</p>
+        </div>
         </div>
       </aside>
     </>
