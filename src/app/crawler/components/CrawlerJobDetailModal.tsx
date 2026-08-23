@@ -28,6 +28,7 @@ import {
   crawlerStageProgress,
   crawlerPanelClass,
   crawlerErrorMessage,
+  cursorStateLabel,
   elapsedFor,
   formatCrawlerTime,
   inputClass,
@@ -121,6 +122,21 @@ function listText(value?: string | null): string {
 
 function scoreText(value?: number | null): string {
   return value === null || value === undefined ? '—' : String(value);
+}
+
+function checkpointLabel(value?: string | null): string {
+  if (!value) return '—';
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    const parts: string[] = [];
+    if (typeof parsed.nextPage === 'number') parts.push(`下一页 ${parsed.nextPage}`);
+    if (typeof parsed.nextItemIndex === 'number') parts.push(`列表第 ${parsed.nextItemIndex + 1} 项`);
+    const externalId = parsed.nextExternalId ?? parsed.lastCommittedExternalId;
+    if (typeof externalId === 'string' && externalId.trim()) parts.push(`来源条目 ${externalId}`);
+    return parts.join(' · ') || '已记录';
+  } catch {
+    return value;
+  }
 }
 
 function CurrentItemProgress({ job, connected }: { job: CrawlerTaskLog; connected: boolean }) {
@@ -374,8 +390,8 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 ['来源排序', sourceSortLabel(job.sourceSort)], ['遍历模式', traversalModeLabel(job.traversalMode)],
                 ['排队时间', formatCrawlerTime(job.queuedAt)], ['开始时间', formatCrawlerTime(job.startedAt)],
                 ['最近心跳', formatCrawlerTime(job.heartbeatAt)], ['完成时间', formatCrawlerTime(job.finishedAt)],
-                ['累计耗时', elapsedFor(job.startedAt, job.queuedAt, job.durationMs)], ['检查点', job.checkpoint || '-'],
-                ['游标状态', cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '-'],
+                ['累计耗时', elapsedFor(job.startedAt, job.queuedAt, job.durationMs)], ['检查点', checkpointLabel(job.checkpoint)],
+                ['游标状态', cursor ? `${cursorStateLabel(cursor.state)} · 第 ${cursor.nextPage} 页` : '-'],
                 ['游标锚点', cursor?.nextExternalId || cursor?.lastCommittedExternalId || '-'],
               ].map(([label, value]) => (
                 <div key={String(label)} className="flex min-h-[4.5rem] min-w-0 flex-col justify-start rounded-xl border border-border p-3">

@@ -68,6 +68,18 @@ export function traversalModeLabel(value?: string | null) {
   return value ? TRAVERSAL_MODE_LABELS[value] ?? value : '-';
 }
 
+export const CURSOR_STATE_LABELS: Record<string, string> = {
+  ACTIVE: '运行中',
+  COMPLETE: '已完成',
+  INVALIDATED: '已失效',
+  RECOVERY_REQUIRED: '需要恢复',
+  SOURCE_UNAVAILABLE: '来源不可用',
+};
+
+export function cursorStateLabel(value?: string | null) {
+  return value ? CURSOR_STATE_LABELS[value] ?? value : '-';
+}
+
 export const TRIGGER_TYPE_LABELS: Record<string, string> = {
   scheduled: '自动调度',
   manual: '手动启动',
