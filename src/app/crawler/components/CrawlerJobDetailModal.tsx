@@ -383,9 +383,9 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                     <span>{label}</span>
                     <InfoHint label={String(label)} content={jobMetaHelp[String(label)] || 'Job 运行上下文信息。'} />
                   </dt>
-                  <dd className="mt-1 min-h-10 min-w-0 text-foreground">
+                  <dd className="mt-1 min-h-10 min-w-0 max-w-full overflow-hidden text-foreground">
                     {String(value).length > 36 ? (
-                      <TooltipText className="line-clamp-2 whitespace-normal break-all leading-5" content={String(value)}>{String(value)}</TooltipText>
+                      <TooltipText className="block w-full max-w-full overflow-hidden line-clamp-2 whitespace-normal break-all leading-5" content={String(value)}>{String(value)}</TooltipText>
                     ) : String(value)}
                   </dd>
                 </div>
