@@ -10,6 +10,10 @@ const client = axios.create({
 
 const ADMIN_BASE = process.env.NEXT_PUBLIC_ADMIN_API_URL || '';
 
+export function adminStreamUrl(path: string) {
+  return `${ADMIN_BASE}${path}`;
+}
+
 const adminClient = axios.create({
   baseURL: ADMIN_BASE,
   timeout: 10000,
@@ -424,6 +428,16 @@ export interface CrawlerTaskLog {
   durationMs: number | null;
   startedAt: string | null;
   finishedAt: string | null;
+}
+
+export type CrawlerProgressEventType = 'snapshot' | 'queued' | 'progress'
+  | 'item-completed' | 'item-failed' | 'terminal';
+
+export interface CrawlerProgressEvent {
+  type: CrawlerProgressEventType;
+  jobId?: number | null;
+  job?: CrawlerTaskLog | null;
+  jobs?: CrawlerTaskLog[];
 }
 
 export interface PageData<T> {

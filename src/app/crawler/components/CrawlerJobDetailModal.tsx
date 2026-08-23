@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import {
   crawlerApi,
+  type CrawlerProgressEvent,
   type CrawlerJobItemFailure,
   type CrawlerJobItemSuccess,
   type CrawlerScheduleCursor,
@@ -16,13 +17,13 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { InfoHint, TooltipText } from '@/components/ui/tooltip';
 import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
+import { useCrawlerEvents } from '@/hooks/crawler-events';
 import { extractErrorMessage } from '@/lib/utils';
 import {
   CrawlerDetailField,
   CRAWLER_PROGRESS_STAGES,
   StatusBadge,
   contentTypeLabel,
-  crawlerStageIndex,
   crawlerStageLabel,
   crawlerStageProgress,
   crawlerPanelClass,
@@ -122,9 +123,8 @@ function scoreText(value?: number | null): string {
   return value === null || value === undefined ? '—' : String(value);
 }
 
-function CurrentItemProgress({ job }: { job: CrawlerTaskLog }) {
+function CurrentItemProgress({ job, connected }: { job: CrawlerTaskLog; connected: boolean }) {
   if (!job.currentItemTitle && !job.currentStage) return null;
-  const activeIndex = crawlerStageIndex(job.currentStage);
   const percent = Math.max(0, Math.min(100,
     job.currentStageProgress ?? crawlerStageProgress(job.currentStage)));
   const stages = CRAWLER_PROGRESS_STAGES.filter(stage => stage.value !== 'COMPLETED');
@@ -149,20 +149,24 @@ function CurrentItemProgress({ job }: { job: CrawlerTaskLog }) {
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-primary/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
         <div className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
       </div>
-      <div className="mt-3 grid grid-cols-3 gap-x-2 gap-y-2 sm:grid-cols-6">
-        {stages.map((stage, index) => {
-          const completed = activeIndex > index || job.currentStage === 'COMPLETED';
-          const active = activeIndex === index;
+      <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span>{connected ? '实时进度已连接' : '正在连接实时进度，断线后自动重连'}</span>
+        <span className="tabular-nums">阶段进度 {percent}%</span>
+      </div>
+      <ol className="mt-4 grid grid-cols-3 gap-x-3 gap-y-3 sm:grid-cols-6" aria-label="影片解析阶段">
+        {stages.map(stage => {
+          const reached = crawlerStageProgress(job.currentStage) >= stage.percent;
+          const active = job.currentStage === stage.value;
           return (
-            <div key={stage.value} className="min-w-0">
-              <div className={`mb-1 h-1.5 rounded-full ${completed || active ? 'bg-primary' : 'bg-border'}`} />
-              <p className={`truncate text-[11px] ${active ? 'font-semibold text-primary' : completed ? 'text-foreground/75' : 'text-muted-foreground'}`}>
+            <li key={stage.value} className="flex min-w-0 items-center gap-1.5">
+              <span className={`size-2 shrink-0 rounded-full ${active ? 'bg-primary ring-4 ring-primary/15' : reached ? 'bg-primary/65' : 'bg-border'}`} />
+              <p className={`truncate text-[11px] ${active ? 'font-semibold text-primary' : reached ? 'text-foreground/75' : 'text-muted-foreground'}`}>
                 {stage.label}
               </p>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </section>
   );
 }
@@ -186,6 +190,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
   const [successKeywordInput, setSuccessKeywordInput] = useState('');
   const [successKeyword, setSuccessKeyword] = useState('');
   const [cursor, setCursor] = useState<CrawlerScheduleCursor | null>(null);
+  const [streamConnected, setStreamConnected] = useState(false);
 
   const fetchJob = useCallback(async () => {
     if (!jobId) return;
@@ -290,10 +295,29 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
   const refreshAll = useCallback(async () => {
     await Promise.all([fetchJob(), fetchFailures(), fetchSuccesses()]);
   }, [fetchFailures, fetchJob, fetchSuccesses]);
-  useAdaptivePolling({
+
+  const handleCrawlerEvent = useCallback((event: CrawlerProgressEvent) => {
+    if (event.job?.id !== jobId) return;
+    setJob(event.job);
+    if (event.type === 'item-completed' || event.type === 'item-failed' || event.type === 'terminal') {
+      void fetchFailures();
+      void fetchSuccesses();
+    }
+  }, [fetchFailures, fetchSuccesses, jobId]);
+
+  useCrawlerEvents(jobId, {
     enabled: Boolean(jobId) && active,
+    closeOnTerminal: true,
+    onEvent: handleCrawlerEvent,
+    onConnectionChange: setStreamConnected,
+  });
+
+  useAdaptivePolling({
+    enabled: Boolean(jobId) && active && !streamConnected,
     hasActiveJobs: active,
     onPoll: refreshAll,
+    activeIntervalMs: 30_000,
+    idleIntervalMs: 60_000,
   });
 
   return (
@@ -301,7 +325,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
       open={jobId !== null}
       onClose={onClose}
       title={jobId ? `Job #${jobId} 运行详情` : 'Job 运行详情'}
-      description={active ? '运行中自动刷新进度和失败条目；页面隐藏时暂停。' : '展示该 Job 的最终运行事实和条目级失败。'}
+      description={active ? '实时接收当前解析状态；连接中断时每 30 秒低频兜底刷新。' : '展示该 Job 的最终运行事实和条目级明细。'}
       width="xl"
     >
       <div className="space-y-5">
@@ -325,7 +349,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
 
         {job ? (
           <>
-            <CurrentItemProgress job={job} />
+            <CurrentItemProgress job={job} connected={streamConnected} />
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
               {[
                 ['发现', job.discoveredCount], ['获取', job.fetchSucceededCount], ['解析', job.parseSucceededCount],
@@ -426,15 +450,13 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                   1,
                 );
                 return (
-                  <article key={success.id} data-crawler-success-card className={`${crawlerPanelClass} grid min-h-[13rem] items-start gap-3 p-3 sm:grid-cols-[2.5rem_6rem_minmax(0,1fr)]`}>
-                    <div className="flex h-full items-start justify-center pt-2">
-                      <span className="font-mono text-xs font-semibold tabular-nums text-primary">{String(sequence).padStart(2, '0')}</span>
-                    </div>
-                    <div className="flex aspect-[2/3] w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-muted/50 text-[10px] text-muted-foreground sm:w-24">
-                      {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="block aspect-[2/3] h-full w-full object-cover" /> : '无海报'}
+                  <article key={success.id} data-crawler-success-card className={`${crawlerPanelClass} grid items-stretch gap-4 p-3 sm:h-[12rem] sm:grid-cols-[auto_minmax(0,1fr)]`}>
+                    <div className="relative flex h-36 w-24 shrink-0 items-center justify-center self-center overflow-hidden rounded-xl bg-muted/50 text-[10px] text-muted-foreground sm:h-full sm:w-auto sm:aspect-[2/3]">
+                      <span className="absolute left-2 top-2 z-10 rounded-full bg-card/95 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-primary shadow-sm">{String(sequence).padStart(2, '0')}</span>
+                      {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="block h-full w-full object-cover" /> : '无海报'}
                     </div>
                     <div className="flex min-w-0 flex-col">
-                      <div className="grid min-h-[3.5rem] gap-2 border-b border-border/70 pb-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                      <div className="grid min-h-0 gap-2 border-b border-border/70 pb-2 sm:h-[3.5rem] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                         <div className="min-w-0">
                           <p className="truncate font-semibold leading-5 text-foreground">{success.title}{success.year ? `（${success.year}）` : ''}</p>
                           <p className="mt-1 truncate text-xs leading-4 text-muted-foreground">别名：<TooltipText content={listText(success.alias)}>{listText(success.alias)}</TooltipText></p>
@@ -446,7 +468,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                           </a>
                         </div>
                       </div>
-                      <dl className="mt-3 grid min-w-0 auto-rows-[1.75rem] grid-cols-2 gap-x-5 gap-y-0 text-xs sm:grid-cols-4">
+                      <dl className="mt-2 grid min-w-0 auto-rows-[1.75rem] grid-cols-2 gap-x-5 gap-y-0 text-xs sm:grid-cols-4">
                         <CrawlerDetailField label="类型" title={contentTypeLabel(success.contentType)}>{contentTypeLabel(success.contentType)}</CrawlerDetailField>
                         <CrawlerDetailField label="评分" title={`豆瓣 ${scoreText(success.scoreDouban)} · IMDb ${scoreText(success.scoreImdb)} · 烂番茄 ${scoreText(success.scoreRt)}`}>豆瓣 {scoreText(success.scoreDouban)} · IMDb {scoreText(success.scoreImdb)} · 烂番茄 {scoreText(success.scoreRt)}</CrawlerDetailField>
                         <CrawlerDetailField label="导演" title={listText(success.directors)}>{listText(success.directors)}</CrawlerDetailField>

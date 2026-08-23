@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, BarChart3, FileClock, ListChecks } from 'lucide-react';
-import { crawlerApi, type CrawlerJobStartResult, type CrawlerSchedule, type CrawlerSourceDescriptor, type CrawlerTaskLog } from '@/lib/api';
+import { crawlerApi, type CrawlerJobStartResult, type CrawlerProgressEvent, type CrawlerSchedule, type CrawlerSourceDescriptor, type CrawlerTaskLog } from '@/lib/api';
 import { useToast } from '@/components/ui/toast';
 import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
+import { useCrawlerEvents } from '@/hooks/crawler-events';
 import { extractErrorMessage } from '@/lib/utils';
 import { CrawlerConfigSection } from './components/CrawlerConfigSection';
 import { CrawlerJobsSection } from './components/CrawlerJobsSection';
@@ -14,6 +15,7 @@ import { CrawlerStatsSection } from './components/CrawlerStatsSection';
 type Section = 'config' | 'jobs' | 'logs' | 'stats';
 
 const SECTION_KEYS = new Set<Section>(['config', 'jobs', 'logs', 'stats']);
+const ACTIVE_JOB_STATUSES = new Set(['queued', 'running', 'cancel_requested']);
 
 function readSection(): Section {
   if (typeof window === 'undefined') return 'config';
@@ -42,6 +44,7 @@ export default function CrawlerPage() {
   const [activeJobs, setActiveJobs] = useState<CrawlerTaskLog[]>([]);
   const [staticLoading, setStaticLoading] = useState(true);
   const [jobsLoading, setJobsLoading] = useState(true);
+  const [jobEventsConnected, setJobEventsConnected] = useState(false);
   const [focusedJobId, setFocusedJobId] = useState<number | null>(readJobId);
 
   const navigateWithinCrawler = useCallback((nextSection: Section, jobId?: number | null) => {
@@ -101,6 +104,19 @@ export default function CrawlerPage() {
   }, [navigateWithinCrawler]);
   const clearFocusedJob = useCallback(() => navigateWithinCrawler('jobs'), [navigateWithinCrawler]);
 
+  const handleCrawlerEvent = useCallback((event: CrawlerProgressEvent) => {
+    if (event.type === 'snapshot') {
+      setActiveJobs(Array.isArray(event.jobs) ? event.jobs : []);
+      return;
+    }
+    const job = event.job;
+    if (!job) return;
+    setActiveJobs(current => {
+      const next = current.filter(item => item.id !== job.id);
+      return ACTIVE_JOB_STATUSES.has(job.status || '') ? [...next, job] : next;
+    });
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -128,7 +144,18 @@ export default function CrawlerPage() {
     return () => { cancelled = true; };
   }, [toast]);
 
-  useAdaptivePolling({ hasActiveJobs: activeJobs.length > 0, onPoll: refreshJobs });
+  useCrawlerEvents('all', {
+    onEvent: handleCrawlerEvent,
+    onConnectionChange: setJobEventsConnected,
+  });
+
+  useAdaptivePolling({
+    enabled: !jobEventsConnected,
+    hasActiveJobs: activeJobs.length > 0,
+    onPoll: refreshJobs,
+    activeIntervalMs: 30_000,
+    idleIntervalMs: 60_000,
+  });
 
   const summary = useMemo(() => ({
     configurations: schedules.length,

@@ -16,6 +16,7 @@ import {
   crawlerStageLabel,
   crawlerStageProgress,
 } from '../../app/crawler/components/crawler-progress.ts';
+import { parseCrawlerSseFrames } from '../../hooks/crawler-sse.ts';
 
 test('select search keeps matching and selected options', () => {
   const options = [
@@ -71,4 +72,19 @@ test('crawler progress labels expose Chinese stages and translate watchdog error
   assert.equal(crawlerErrorMessage('Job progress stalled'), '任务进度长时间未推进');
   assert.equal(crawlerErrorMessage('Job heartbeat expired'), '任务心跳已超时');
   assert.equal(crawlerStageProgress('SAVING'), 95);
+});
+
+test('crawler SSE parser preserves split frames and multiline data', () => {
+  const first = parseCrawlerSseFrames(
+    'event: crawler\ndata: {"type":"progress","jobId":9}\n\n' +
+    'event: crawler\ndata: {"type":"progress",',
+  );
+  assert.equal(first.events.length, 1);
+  assert.equal(first.events[0].jobId, 9);
+  assert.equal(first.rest, 'event: crawler\ndata: {"type":"progress",');
+
+  const second = parseCrawlerSseFrames(first.rest + '"jobId":10}\n\n');
+  assert.equal(second.events.length, 1);
+  assert.equal(second.events[0].jobId, 10);
+  assert.equal(second.rest, '');
 });
