@@ -8,7 +8,7 @@ import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { TooltipText } from '@/components/ui/tooltip';
 import { extractErrorMessage } from '@/lib/utils';
-import { StatusBadge, contentTypeLabel, crawlerPanelClass, elapsedFor, formatCrawlerTime } from './crawler-ui';
+import { StatusBadge, contentTypeLabel, crawlerErrorMessage, crawlerPanelClass, crawlerStageLabel, elapsedFor, formatCrawlerTime } from './crawler-ui';
 import { CrawlerJobDetailModal } from './CrawlerJobDetailModal';
 
 interface Props {
@@ -91,13 +91,22 @@ export function CrawlerJobsSection({ jobs, loading, onRefresh, focusJobId, onFoc
               <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-8">
                 {progressFields.map(([key, label]) => <div key={key} className="h-[3.75rem] rounded-xl bg-muted/50 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 font-semibold tabular-nums text-foreground">{Number(job[key] ?? 0)}</p></div>)}
               </div>
+              {job.currentItemTitle && (
+                <div className="mt-3 flex min-w-0 items-center gap-2 rounded-xl border border-primary/15 bg-primary/[0.045] px-3 py-2 text-sm">
+                  <span className="size-2 shrink-0 rounded-full bg-primary" />
+                  <span className="shrink-0 text-xs font-medium text-primary">当前解析</span>
+                  <span className="min-w-0 truncate font-medium text-foreground" title={job.currentItemTitle}>{job.currentItemTitle}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">· {crawlerStageLabel(job.currentStage)}</span>
+                  <span className="ml-auto shrink-0 tabular-nums text-xs font-semibold text-primary">{job.currentStageProgress ?? 0}%</span>
+                </div>
+              )}
               <dl className="mt-4 grid gap-2 text-xs text-muted-foreground md:grid-cols-4">
                 <div className="min-w-0">当前页：<span className="text-foreground">{job.currentPage ?? '-'}</span></div>
                 <div className="min-w-0 truncate">当前项：<span className="text-foreground">{job.currentItem ? <TooltipText content={job.currentItem}>{job.currentItem}</TooltipText> : '-'}</span></div>
                 <div className="min-w-0">已用时：<span className="text-foreground">{elapsedFor(job.startedAt, job.queuedAt, job.durationMs)}</span></div>
                 <div className="min-w-0">心跳：<span className="text-foreground">{formatCrawlerTime(job.heartbeatAt)}</span></div>
               </dl>
-              {job.errorSummary && <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{job.errorSummary}</p>}
+              {job.errorSummary && <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{crawlerErrorMessage(job.errorSummary)}</p>}
             </article>
           ))}
         </div>

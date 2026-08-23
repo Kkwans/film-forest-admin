@@ -394,6 +394,10 @@ export interface CrawlerTaskLog {
   cancelRequested?: boolean;
   currentPage?: number | null;
   currentItem?: string | null;
+  currentItemTitle?: string | null;
+  currentStage?: string | null;
+  currentStageProgress?: number | null;
+  currentStageMessage?: string | null;
   discoveredCount?: number;
   fetchSucceededCount?: number;
   parseSucceededCount?: number;

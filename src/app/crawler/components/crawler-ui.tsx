@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, Loader2, StopCircle, XCircle } from 'lucide-react';
 import { InfoHint, TooltipText } from '@/components/ui/tooltip';
+export { crawlerErrorMessage, crawlerStageIndex, crawlerStageLabel, crawlerStageProgress, CRAWLER_PROGRESS_STAGES } from './crawler-progress';
 
 const STATUS: Record<string, { label: string; icon: ReactNode; className: string }> = {
   queued: { label: '排队中', icon: <Clock3 className="size-3" />, className: 'bg-slate-500/15 text-slate-600 dark:text-slate-300' },

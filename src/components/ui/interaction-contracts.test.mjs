@@ -11,6 +11,11 @@ import {
   getNextOptionIndex,
 } from './interaction-contracts.ts';
 import { UI_LAYER_CLASSES, UI_LAYER_VALUES, isLayerAbove } from './layers.ts';
+import {
+  crawlerErrorMessage,
+  crawlerStageLabel,
+  crawlerStageProgress,
+} from '../../app/crawler/components/crawler-progress.ts';
 
 test('select search keeps matching and selected options', () => {
   const options = [
@@ -59,4 +64,11 @@ test('trigger and modal geometry contracts avoid press resizing and clip corners
   assert.doesNotMatch(STABLE_POPUP_TRANSITION_CLASS, /width|transform|scale/);
   assert.match(MODAL_SHELL_GEOMETRY_CLASS, /overflow-hidden/);
   assert.match(MODAL_SHELL_GEOMETRY_CLASS, /rounded-2xl/);
+});
+
+test('crawler progress labels expose Chinese stages and translate watchdog errors', () => {
+  assert.equal(crawlerStageLabel('ONLINE'), '在线播放');
+  assert.equal(crawlerErrorMessage('Job progress stalled'), '任务进度长时间未推进');
+  assert.equal(crawlerErrorMessage('Job heartbeat expired'), '任务心跳已超时');
+  assert.equal(crawlerStageProgress('SAVING'), 95);
 });

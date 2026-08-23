@@ -19,9 +19,14 @@ import { useAdaptivePolling } from '@/hooks/useAdaptivePolling';
 import { extractErrorMessage } from '@/lib/utils';
 import {
   CrawlerDetailField,
+  CRAWLER_PROGRESS_STAGES,
   StatusBadge,
   contentTypeLabel,
+  crawlerStageIndex,
+  crawlerStageLabel,
+  crawlerStageProgress,
   crawlerPanelClass,
+  crawlerErrorMessage,
   elapsedFor,
   formatCrawlerTime,
   inputClass,
@@ -115,6 +120,51 @@ function listText(value?: string | null): string {
 
 function scoreText(value?: number | null): string {
   return value === null || value === undefined ? '—' : String(value);
+}
+
+function CurrentItemProgress({ job }: { job: CrawlerTaskLog }) {
+  if (!job.currentItemTitle && !job.currentStage) return null;
+  const activeIndex = crawlerStageIndex(job.currentStage);
+  const percent = Math.max(0, Math.min(100,
+    job.currentStageProgress ?? crawlerStageProgress(job.currentStage)));
+  const stages = CRAWLER_PROGRESS_STAGES.filter(stage => stage.value !== 'COMPLETED');
+
+  return (
+    <section className="rounded-2xl border border-primary/20 bg-primary/[0.045] p-4" aria-label="当前解析进度">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary/75">当前解析</p>
+          <h3 className="mt-1 truncate text-base font-semibold text-foreground" title={job.currentItemTitle || undefined}>
+            {job.currentItemTitle || '正在准备下一个影片'}
+          </h3>
+          <p className="mt-1 truncate text-xs text-muted-foreground" title={job.currentStageMessage || undefined}>
+            {job.currentStageMessage || crawlerStageLabel(job.currentStage)}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-lg font-semibold tabular-nums text-primary">{percent}%</p>
+          <p className="text-xs text-muted-foreground">{crawlerStageLabel(job.currentStage)}</p>
+        </div>
+      </div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-primary/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+        <div className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-x-2 gap-y-2 sm:grid-cols-6">
+        {stages.map((stage, index) => {
+          const completed = activeIndex > index || job.currentStage === 'COMPLETED';
+          const active = activeIndex === index;
+          return (
+            <div key={stage.value} className="min-w-0">
+              <div className={`mb-1 h-1.5 rounded-full ${completed || active ? 'bg-primary' : 'bg-border'}`} />
+              <p className={`truncate text-[11px] ${active ? 'font-semibold text-primary' : completed ? 'text-foreground/75' : 'text-muted-foreground'}`}>
+                {stage.label}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
@@ -275,6 +325,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
 
         {job ? (
           <>
+            <CurrentItemProgress job={job} />
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
               {[
                 ['发现', job.discoveredCount], ['获取', job.fetchSucceededCount], ['解析', job.parseSucceededCount],
@@ -319,8 +370,8 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
 
             {(job.errorSummary || job.errorMessage) && (
               <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4">
-                <p className="text-xs font-semibold text-destructive">Job 错误摘要</p>
-                <p className="mt-1 whitespace-pre-wrap break-all text-sm text-destructive">{job.errorSummary || job.errorMessage}</p>
+                <p className="text-xs font-semibold text-destructive">任务错误摘要</p>
+                <p className="mt-1 whitespace-pre-wrap break-all text-sm text-destructive">{crawlerErrorMessage(job.errorSummary || job.errorMessage)}</p>
               </div>
             )}
           </>
