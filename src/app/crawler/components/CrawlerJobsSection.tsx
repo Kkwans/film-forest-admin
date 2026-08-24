@@ -8,7 +8,7 @@ import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { TooltipText } from '@/components/ui/tooltip';
 import { extractErrorMessage } from '@/lib/utils';
-import { StatusBadge, contentTypeLabel, crawlerErrorMessage, crawlerPanelClass, crawlerStageLabel, elapsedFor, formatCrawlerTime, triggerTypeLabel } from './crawler-ui';
+import { StatusBadge, contentTypeLabel, crawlerCurrentItemLabel, crawlerErrorMessage, crawlerPanelClass, crawlerStageLabel, elapsedFor, formatCrawlerTime, triggerTypeLabel } from './crawler-ui';
 import { CrawlerJobDetailModal } from './CrawlerJobDetailModal';
 
 interface Props {
@@ -95,7 +95,7 @@ export function CrawlerJobsSection({ jobs, loading, onRefresh, focusJobId, onFoc
                 <div className="mt-3 grid min-w-0 grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] items-center gap-x-2 rounded-xl border border-primary/15 bg-primary/[0.045] px-3 py-2 text-sm">
                   <span className="size-2 shrink-0 rounded-full bg-primary" />
                   <span className="shrink-0 text-xs font-medium text-primary">当前解析</span>
-                  <span className="min-w-0 truncate font-medium leading-5 text-foreground" title={job.currentItemTitle}>{job.currentItemTitle}</span>
+                  <span className="relative -top-px min-w-0 truncate font-medium leading-5 text-foreground" title={crawlerCurrentItemLabel(job.currentItemTitle, job.currentItemYear)}>{crawlerCurrentItemLabel(job.currentItemTitle, job.currentItemYear)}</span>
                   <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">· {crawlerStageLabel(job.currentStage)}</span>
                   <span className="col-start-5 row-start-1 ml-1 shrink-0 tabular-nums text-xs font-semibold text-primary">{job.currentStageProgress ?? 0}%</span>
                 </div>

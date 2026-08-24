@@ -27,10 +27,12 @@ import {
   crawlerStageProgress,
   crawlerPanelClass,
   crawlerErrorMessage,
+  crawlerCurrentItemLabel,
   elapsedFor,
   formatCrawlerTime,
   inputClass,
   sourceSortLabel,
+  triggerTypeLabel,
   traversalModeLabel,
 } from './crawler-ui';
 
@@ -91,8 +93,8 @@ const jobMetaHelp: Record<string, string> = {
   '完成时间': 'Job 结束并写入最终统计的时间。',
   '累计耗时': '从排队/开始到结束或当前时刻的累计耗时。',
   '列表位置': '当前检查点对应的来源列表位置。',
-  '来源条目': '当前检查点对应的来源外部条目编号。',
-  '当前阶段': '当前正在处理的解析阶段；实时进度区域会展示更详细的阶段进度。',
+  '条目': '当前检查点对应的来源外部条目编号。',
+  '触发': '启动本次 Job 的方式，例如自动调度、手工启动或重试。',
 };
 
 const outcomeLabels: Record<string, string> = {
@@ -148,8 +150,8 @@ function CurrentItemProgress({ job, connected }: { job: CrawlerTaskLog; connecte
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary/75">当前解析</p>
-          <h3 className="mt-1 truncate text-base font-semibold text-foreground" title={job.currentItemTitle || undefined}>
-            {job.currentItemTitle || '正在准备下一个影片'}
+          <h3 className="relative -top-px mt-1 truncate text-base font-semibold text-foreground" title={crawlerCurrentItemLabel(job.currentItemTitle, job.currentItemYear)}>
+            {crawlerCurrentItemLabel(job.currentItemTitle, job.currentItemYear)}
           </h3>
           <p className="mt-1 truncate text-xs text-muted-foreground" title={job.currentStageMessage || undefined}>
             {job.currentStageMessage || crawlerStageLabel(job.currentStage)}
@@ -383,9 +385,9 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 ['排队时间', formatCrawlerTime(job.queuedAt)], ['开始时间', formatCrawlerTime(job.startedAt)],
                 ['最近心跳', formatCrawlerTime(job.heartbeatAt)], ['完成时间', formatCrawlerTime(job.finishedAt)],
                 ['累计耗时', elapsedFor(job.startedAt, job.queuedAt, job.durationMs)], ['列表位置', checkpoint.item],
-                ['来源条目', checkpoint.externalId], ['当前阶段', job.currentStage ? crawlerStageLabel(job.currentStage) : '-'],
+                ['条目', checkpoint.externalId], ['触发', triggerTypeLabel(job.triggerType)],
               ].map(([label, value]) => (
-                <div key={String(label)} className="flex h-[5.4rem] min-w-0 flex-col justify-start overflow-hidden rounded-xl border border-border p-3">
+                <div key={String(label)} className="flex h-[5.3rem] min-w-0 flex-col justify-start overflow-hidden rounded-xl border border-border p-3">
                   <dt className="flex items-center gap-1 text-xs text-muted-foreground">
                     <span>{label}</span>
                     <InfoHint label={String(label)} content={jobMetaHelp[String(label)] || 'Job 运行上下文信息。'} />

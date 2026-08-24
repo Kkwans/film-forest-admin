@@ -93,6 +93,12 @@ export function triggerTypeLabel(value?: string | null) {
   return TRIGGER_TYPE_LABELS[normalized] ?? value;
 }
 
+export function crawlerCurrentItemLabel(title?: string | null, year?: number | null) {
+  const normalizedTitle = title?.trim() || '正在准备下一个影片';
+  if (year == null || /(?:\(|（)\d{4}(?:\)|）)$/.test(normalizedTitle)) return normalizedTitle;
+  return `${normalizedTitle}（${year}）`;
+}
+
 export function parseCrawlerTime(value: string) {
   return new Date(/(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`);
 }

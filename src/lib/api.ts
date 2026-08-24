@@ -406,6 +406,7 @@ export interface CrawlerTaskLog {
   currentPage?: number | null;
   currentItem?: string | null;
   currentItemTitle?: string | null;
+  currentItemYear?: number | null;
   currentStage?: string | null;
   currentStageProgress?: number | null;
   currentStageMessage?: string | null;
