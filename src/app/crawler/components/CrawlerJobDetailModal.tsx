@@ -83,8 +83,8 @@ const jobMetricHelp: Record<string, string> = {
 };
 
 const jobMetaHelp: Record<string, string> = {
-  '当前页': '当前正在处理或下一次准备处理的来源分页。',
-  '当前项': '当前来源列表条目的链接或外部标识。',
+  '当前页': '当前正在处理或下一次准备处理的来源分页；页码只在这里展示一次。',
+  '当前项': '当前来源列表条目的链接或外部标识；内容过长时可悬停查看完整值。',
   '来源排序': '本次 Job 请求来源列表时使用的排序方式。',
   '遍历模式': '本次 Job 采用的游标遍历策略，不代表内容是否首次入库。',
   '排队时间': 'Job 进入执行队列的时间。',
@@ -92,8 +92,8 @@ const jobMetaHelp: Record<string, string> = {
   '最近心跳': '服务端最近一次报告运行进度的时间。',
   '完成时间': 'Job 结束并写入最终统计的时间。',
   '累计耗时': '从排队/开始到结束或当前时刻的累计耗时。',
-  '检查点': '用于异常恢复的页码、列表索引和外部 ID 快照。',
-  '游标状态': '当前计划游标的状态与下一页位置。',
+  '恢复位置': '异常恢复时使用的列表索引和来源条目；页码已在“当前页”中单独展示。',
+  '游标状态': '当前计划游标的状态；不重复展示页码。',
   '游标锚点': '恢复分页时用于定位的来源外部 ID。',
 };
 
@@ -129,11 +129,10 @@ function checkpointLabel(value?: string | null): string {
   try {
     const parsed = JSON.parse(value) as Record<string, unknown>;
     const parts: string[] = [];
-    if (typeof parsed.nextPage === 'number') parts.push(`下一页 ${parsed.nextPage}`);
     if (typeof parsed.nextItemIndex === 'number') parts.push(`列表第 ${parsed.nextItemIndex + 1} 项`);
     const externalId = parsed.nextExternalId ?? parsed.lastCommittedExternalId;
     if (typeof externalId === 'string' && externalId.trim()) parts.push(`来源条目 ${externalId}`);
-    return parts.join(' · ') || '已记录';
+    return parts.join(' · ') || '已记录恢复位置';
   } catch {
     return value;
   }
@@ -386,12 +385,12 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
 
             <dl className="grid items-stretch gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               {[
-                ['当前页', job.currentPage ?? '-'], ['当前项', job.currentItem || '-'],
+                ['当前页', job.currentPage != null ? `第 ${job.currentPage} 页` : '-'], ['当前项', job.currentItem || '-'],
                 ['来源排序', sourceSortLabel(job.sourceSort)], ['遍历模式', traversalModeLabel(job.traversalMode)],
                 ['排队时间', formatCrawlerTime(job.queuedAt)], ['开始时间', formatCrawlerTime(job.startedAt)],
                 ['最近心跳', formatCrawlerTime(job.heartbeatAt)], ['完成时间', formatCrawlerTime(job.finishedAt)],
-                ['累计耗时', elapsedFor(job.startedAt, job.queuedAt, job.durationMs)], ['检查点', checkpointLabel(job.checkpoint)],
-                ['游标状态', cursor ? `${cursorStateLabel(cursor.state)} · 第 ${cursor.nextPage} 页` : '-'],
+                ['累计耗时', elapsedFor(job.startedAt, job.queuedAt, job.durationMs)], ['恢复位置', checkpointLabel(job.checkpoint)],
+                ['游标状态', cursor ? cursorStateLabel(cursor.state) : '-'],
                 ['游标锚点', cursor?.nextExternalId || cursor?.lastCommittedExternalId || '-'],
               ].map(([label, value]) => (
                 <div key={String(label)} className="flex h-[5.5rem] min-w-0 flex-col justify-start overflow-hidden rounded-xl border border-border p-3">
@@ -399,8 +398,8 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                     <span>{label}</span>
                     <InfoHint label={String(label)} content={jobMetaHelp[String(label)] || 'Job 运行上下文信息。'} />
                   </dt>
-                  <dd className="mt-1 min-w-0 max-w-full truncate text-foreground">
-                    <TooltipText className="block max-w-full truncate" content={String(value)}>{String(value)}</TooltipText>
+                  <dd className="mt-1 min-w-0 max-w-full text-foreground">
+                    <TooltipText className="block max-w-full leading-5 line-clamp-2" content={String(value)}>{String(value)}</TooltipText>
                   </dd>
                 </div>
               ))}
@@ -466,9 +465,13 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 const aliasText = listText(success.alias);
                 return (
                   <article key={success.id} data-crawler-success-card className={`${crawlerPanelClass} grid items-center gap-4 p-3 sm:min-h-[11rem] sm:grid-cols-[6.33rem_minmax(0,1fr)]`}>
-                    <div className="relative isolate mx-auto flex h-[9.5rem] w-[6.33rem] shrink-0 items-center justify-center self-center overflow-hidden rounded-[1.05rem] bg-transparent text-[10px] text-muted-foreground">
-                      <span className="absolute left-2 top-2 z-10 rounded-md border border-white/70 bg-background/55 px-2 py-0.5 font-mono text-xs font-semibold tabular-nums text-primary backdrop-blur-sm">{String(sequence).padStart(2, '0')}</span>
-                      {success.posterUrl ? <img src={success.posterUrl} alt={`${success.title}海报`} className="block h-full w-full rounded-[inherit] object-contain" /> : '无海报'}
+                    <div className="mx-auto flex h-[9.5rem] w-[6.33rem] shrink-0 items-center justify-center self-center overflow-hidden rounded-[1.05rem] bg-muted/20 text-[10px] text-muted-foreground">
+                      {success.posterUrl ? (
+                        <div className="relative h-full w-full overflow-hidden rounded-[1.05rem] border border-border/60 bg-muted/45">
+                          <img src={success.posterUrl} alt={`${success.title}海报`} className="block size-full object-cover object-center" />
+                          <span className="pointer-events-none absolute left-2 top-2 inline-flex min-w-7 items-center justify-center rounded-full bg-background/42 px-1.5 py-1 font-mono text-[11px] font-semibold leading-none tabular-nums text-primary/90 shadow-sm backdrop-blur-[2px]">{sequence}</span>
+                        </div>
+                      ) : '无海报'}
                     </div>
                     <div className="flex min-w-0 flex-col self-stretch justify-center">
                       <div className="grid min-h-[3.5rem] gap-1.5 border-b border-border/55 pb-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start sm:gap-3">

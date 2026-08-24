@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 import { CircleHelp } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -46,7 +46,7 @@ export function TooltipText({ content, children, className }: TooltipTextProps) 
   const triggerRef = useRef<HTMLSpanElement>(null);
   const [isOverflowing, setIsOverflowing] = useState(false);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const trigger = triggerRef.current;
     if (!trigger) return;
 
