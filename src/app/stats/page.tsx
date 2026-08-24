@@ -211,16 +211,16 @@ export default function StatsPage() {
         </ChartCard>
       </div>
 
-      <div className="grid items-stretch gap-6 xl:grid-cols-2">
-        <ChartCard title="可用资源结构" note="仅统计已启用、未删除且未被来源判定失效的资源" className="h-full">
-          <div className="grid h-[13rem] min-h-0 grid-cols-3 items-stretch gap-3">{[
+      <div className="grid items-start gap-6 xl:grid-cols-2">
+        <ChartCard title="可用资源结构" note="仅统计已启用、未删除且未被来源判定失效的资源">
+          <div className="grid grid-cols-3 items-start gap-3">{[
             { label: '在线', value: overview?.resources.online || 0, icon: RadioTower, tone: 'bg-sky-500/10 text-sky-700 dark:text-sky-300' },
             { label: '磁力', value: overview?.resources.magnet || 0, icon: Link2, tone: 'bg-violet-500/10 text-violet-700 dark:text-violet-300' },
             { label: '网盘', value: overview?.resources.cloud || 0, icon: Cloud, tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-300' },
-          ].map(item => <div key={item.label} className="flex h-full min-w-0 flex-col justify-center rounded-xl border border-border bg-muted/20 p-4"><span className={`grid size-8 place-items-center rounded-lg ${item.tone}`}><item.icon className="size-4" /></span><p className="mt-3 text-xs text-muted-foreground">{item.label}</p><p className="mt-1 truncate text-xl font-bold tabular-nums text-foreground">{loading ? '-' : Number(item.value).toLocaleString()}</p></div>)}</div>
+          ].map(item => <div key={item.label} className="min-w-0 rounded-xl border border-border bg-muted/20 p-4"><span className={`grid size-8 place-items-center rounded-lg ${item.tone}`}><item.icon className="size-4" /></span><div className="mt-3 flex items-baseline justify-between gap-2"><p className="truncate text-xs text-muted-foreground">{item.label}</p><p className="truncate text-xl font-bold tabular-nums text-foreground">{loading ? '-' : Number(item.value).toLocaleString()}</p></div></div>)}</div>
         </ChartCard>
-        <ChartCard title="热门搜索" note="近 30 天真实搜索日志 Top 10" className="h-full">
-          {loading ? <Skeleton className="h-[13rem] w-full" /> : hotSearch.length === 0 ? <div className="grid h-[13rem] place-items-center rounded-xl border border-dashed border-border bg-muted/10 px-6 text-center text-sm text-muted-foreground">暂无搜索日志</div> : <div className="grid h-[13rem] min-h-0 grid-cols-2 grid-rows-5 gap-2">{hotSearch.slice(0, 10).map((item, index) => <div key={item.keyword} className="flex h-full min-w-0 items-center gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-background text-xs font-bold text-muted-foreground">{index + 1}</span><span className="min-w-0 flex-1 truncate text-sm text-foreground">{item.keyword}</span><Badge variant="outline" className="shrink-0">{item.count}</Badge></div>)}</div>}
+        <ChartCard title="热门搜索" note="近 30 天真实搜索日志 Top 10">
+          {loading ? <Skeleton className="h-24 w-full" /> : hotSearch.length === 0 ? <div className="grid min-h-24 place-items-center rounded-xl border border-dashed border-border bg-muted/10 px-6 py-5 text-center text-sm text-muted-foreground">暂无搜索日志</div> : <div className="grid gap-2 sm:grid-cols-2">{hotSearch.slice(0, 10).map((item, index) => <div key={item.keyword} className="flex min-h-12 min-w-0 items-center gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2"><span className="grid size-7 shrink-0 place-items-center rounded-lg bg-background text-xs font-bold text-muted-foreground">{index + 1}</span><span className="min-w-0 flex-1 truncate text-sm text-foreground">{item.keyword}</span><Badge variant="outline" className="shrink-0">{item.count}</Badge></div>)}</div>}
         </ChartCard>
       </div>
 

@@ -124,11 +124,12 @@ export function elapsedFor(startedAt?: string | null, queuedAt?: string | null, 
   return start ? formatDuration(Math.max(0, Date.now() - parseCrawlerTime(start).getTime())) : '-';
 }
 
-export function Field({ label, help, children }: { label: string; help?: ReactNode; children: ReactNode }) {
+export function Field({ label, help, required = false, children }: { label: string; help?: ReactNode; required?: boolean; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
       <p className="flex items-center gap-1 text-[13px] font-medium text-foreground/75">
         <span>{label}</span>
+        {required && <span aria-hidden="true" className="text-destructive">*</span>}
         {help && <InfoHint label={label} content={help} />}
       </p>
       {children}

@@ -493,6 +493,18 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
   const selectedDays = Array.isArray(form.scheduleConfig.days)
     ? form.scheduleConfig.days.map(String)
     : [];
+  const autoScheduleDisabledReason = form.crawlMode === 'full'
+    ? '全量手工任务不支持自动调度。'
+    : !preview?.cronExpression
+      ? mode === 'MANUAL'
+        ? '当前选择“仅手工”，不会自动运行；切换到定时规则后才可启用。'
+        : '定时规则尚未验证，验证通过后才可启用。'
+      : sourceNeedsReview
+        ? '来源尚未验证或当前不可用，不能启用自动调度。'
+        : sourcePreview?.status !== 'VALIDATED'
+          ? '请先点击“验证并查看样本”，确认来源查询可用后再启用。'
+          : '';
+  const autoScheduleDisabled = Boolean(autoScheduleDisabledReason);
 
   return (
     <Modal
@@ -505,14 +517,14 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
     >
       <div className="space-y-6">
         <section className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-border pb-2"><CheckCircle2 className="size-4 text-primary" /><h3 className="text-sm font-semibold text-foreground">任务范围</h3></div>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2"><div className="flex items-center gap-2"><CheckCircle2 className="size-4 text-primary" /><h3 className="text-sm font-semibold text-foreground">任务范围</h3></div><p className="text-xs text-muted-foreground"><span className="text-destructive">*</span> 为必填项，其余为可选</p></div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="配置名称"><input className={inputClass} value={form.name} maxLength={100} placeholder="例如：每日电影增量" onChange={event => setForm(current => ({ ...current, name: event.target.value }))} /></Field>
-            <Field label="资源来源"><Select label="资源来源" value={form.sourceId} onChange={changeSource} options={sources.map(source => ({ label: `${source.name} · ${source.code}`, value: String(source.id) }))} /></Field>
-            <Field label="内容类型"><Select label="内容类型" value={form.contentType} onChange={changeContentType} options={CONTENT_TYPES.map(option => ({ ...option, disabled: !selectedSource?.adapters.some(item => item.contentType === option.value) }))} /></Field>
+            <Field label="配置名称" required><input className={inputClass} required value={form.name} maxLength={100} placeholder="例如：每日电影增量" onChange={event => setForm(current => ({ ...current, name: event.target.value }))} /></Field>
+            <Field label="资源来源" required><Select label="资源来源" value={form.sourceId} onChange={changeSource} options={sources.map(source => ({ label: `${source.name} · ${source.code}`, value: String(source.id) }))} /></Field>
+            <Field label="内容类型" required><Select label="内容类型" value={form.contentType} onChange={changeContentType} options={CONTENT_TYPES.map(option => ({ ...option, disabled: !selectedSource?.adapters.some(item => item.contentType === option.value) }))} /></Field>
             <Field label="来源适配器"><div className="flex h-9 items-center rounded-lg border border-border bg-muted/35 px-3 text-sm text-foreground">{form.adapterCode || '当前组合不可用'}</div></Field>
-            <Field label="抓取模式" help="最新增量按游标持续同步；全量扫描只允许手工启动，并使用独立的本次执行上限。"><Select label="抓取模式" value={form.crawlMode} onChange={value => setForm(current => ({ ...current, crawlMode: value as 'latest' | 'full', scheduleMode: value === 'full' ? 'MANUAL' : current.scheduleMode, enabled: value === 'full' ? 0 : current.enabled }))} options={[{ label: '最新增量（推荐）', value: 'latest' }, { label: '全量手工', value: 'full' }]} /></Field>
-            <Field label="来源排序" help={SOURCE_SORT_DESCRIPTIONS[effectiveSourceSort]}>
+            <Field label="抓取模式" required help="最新增量按游标持续同步；全量扫描只允许手工启动，并使用独立的本次执行上限。"><Select label="抓取模式" value={form.crawlMode} onChange={value => setForm(current => ({ ...current, crawlMode: value as 'latest' | 'full', scheduleMode: value === 'full' ? 'MANUAL' : current.scheduleMode, enabled: value === 'full' ? 0 : current.enabled }))} options={[{ label: '最新增量（推荐）', value: 'latest' }, { label: '全量手工', value: 'full' }]} /></Field>
+            <Field label="来源排序" required help={SOURCE_SORT_DESCRIPTIONS[effectiveSourceSort]}>
               <Select
                 label="来源排序"
                 value={effectiveSourceSort}
@@ -640,12 +652,12 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                 ))}
               </div>
 
-              <div className="min-h-[5.75rem]">
-                {mode === 'INTERVAL' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="间隔单位"><Select label="间隔单位" value={String(form.scheduleConfig.unit || 'hours')} onChange={unit => updateConfig({ unit })} options={[{ label: '分钟', value: 'minutes' }, { label: '小时', value: 'hours' }]} /></Field><Field label="每隔多少"><input className={inputClass} type="number" min={1} max={form.scheduleConfig.unit === 'minutes' ? 59 : 23} value={numberConfig(form.scheduleConfig, 'interval', 1)} onChange={event => updateConfig({ interval: Number(event.target.value) })} /></Field></div>}
-                {mode === 'DAILY' && <div className="rounded-xl border border-border bg-muted/20 p-4"><Field label="每天执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
-                {mode === 'WEEKLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-[minmax(0,1fr)_12rem]"><Field label="执行星期"><MultiSelect label="执行星期" value={selectedDays} onChange={days => updateConfig({ days })} options={WEEKDAYS} /></Field><Field label="执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
-                {mode === 'MONTHLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="每月日期"><input className={inputClass} type="number" min={1} max={31} value={numberConfig(form.scheduleConfig, 'day', 1)} onChange={event => updateConfig({ day: Number(event.target.value) })} /></Field><Field label="执行时间"><input className={inputClass} type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
-                {mode === 'MANUAL' && <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">计划只保留配置，需要时点击列表中的“手工启动”。</div>}
+              <div>
+                {mode === 'INTERVAL' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="间隔单位" required><Select label="间隔单位" value={String(form.scheduleConfig.unit || 'hours')} onChange={unit => updateConfig({ unit })} options={[{ label: '分钟', value: 'minutes' }, { label: '小时', value: 'hours' }]} /></Field><Field label="每隔多少" required><input className={inputClass} required type="number" min={1} max={form.scheduleConfig.unit === 'minutes' ? 59 : 23} value={numberConfig(form.scheduleConfig, 'interval', 1)} onChange={event => updateConfig({ interval: Number(event.target.value) })} /></Field></div>}
+                {mode === 'DAILY' && <div className="rounded-xl border border-border bg-muted/20 p-4"><Field label="每天执行时间" required><input className={inputClass} required type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
+                {mode === 'WEEKLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 md:grid-cols-[minmax(0,1fr)_12rem]"><Field label="执行星期" required><MultiSelect label="执行星期" value={selectedDays} onChange={days => updateConfig({ days })} options={WEEKDAYS} /></Field><Field label="执行时间" required><input className={inputClass} required type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
+                {mode === 'MONTHLY' && <div className="grid gap-4 rounded-xl border border-border bg-muted/20 p-4 sm:grid-cols-2"><Field label="每月日期" required><input className={inputClass} required type="number" min={1} max={31} value={numberConfig(form.scheduleConfig, 'day', 1)} onChange={event => updateConfig({ day: Number(event.target.value) })} /></Field><Field label="执行时间" required><input className={inputClass} required type="time" value={timeValue(form.scheduleConfig)} onChange={event => updateConfig(parseTime(event.target.value))} /></Field></div>}
+                {mode === 'MANUAL' && <div className="rounded-xl border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">计划只保留配置，不会自动运行；需要时点击列表中的“手工启动”。</div>}
               </div>
             </>
           )}
@@ -683,8 +695,8 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
             </div>
           </div>}
 
-          <div aria-live="polite" aria-busy={previewing} className={`min-h-[10.5rem] rounded-xl border p-4 ${previewError ? 'border-destructive/35 bg-destructive/10' : 'border-primary/25 bg-primary/5'}`}>
-            <div className="relative min-h-[8rem]">
+          <div aria-live="polite" aria-busy={previewing} className={`rounded-xl border p-4 ${previewError ? 'border-destructive/35 bg-destructive/10' : 'border-primary/25 bg-primary/5'}`}>
+            <div>
               <div className={previewing ? 'opacity-65' : undefined}>
                 {previewError ? (
                   <p className="text-sm text-destructive">{previewError}</p>
@@ -714,7 +726,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
                   <p className="text-sm text-muted-foreground">请选择定时规则，系统会在这里显示实际执行说明。</p>
                 )}
               </div>
-              {previewing && <span className="absolute right-0 top-0 rounded-full bg-background/80 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">正在验证规则…</span>}
+              {previewing && <p className="mt-3 text-[11px] text-muted-foreground">正在验证规则…</p>}
             </div>
           </div>
         </section>
@@ -723,19 +735,24 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
           <div className="flex items-center gap-2 border-b border-border pb-2"><Clock3 className="size-4 text-primary" /><h3 className="text-sm font-semibold text-foreground">执行边界</h3></div>
           <div className="grid gap-4 md:grid-cols-2">
             {form.crawlMode === 'full' ? (
-              <Field label="人工全量执行上限" help="全量扫描每次手工启动允许处理的最大条目数；不参与定时任务。"><input className={inputClass} type="number" min={1} max={5000} value={form.manualRunLimit} onChange={event => setForm(current => ({ ...current, manualRunLimit: Number(event.target.value) }))} /></Field>
+              <Field label="人工全量执行上限" required help="全量扫描每次手工启动允许处理的最大条目数；不参与定时任务。"><input className={inputClass} required type="number" min={1} max={5000} value={form.manualRunLimit} onChange={event => setForm(current => ({ ...current, manualRunLimit: Number(event.target.value) }))} /></Field>
             ) : (
               <>
-                <Field label="新内容上限" help="每次定时运行优先处理最新内容的数量；它不是数据库新增数量。"><input className={inputClass} type="number" min={1} max={500} value={form.newItemLimit} onChange={event => setForm(current => ({ ...current, newItemLimit: Number(event.target.value) }))} /></Field>
-                <Field label="历史回填上限" help="每次定时运行在最新内容之外继续处理历史游标的数量，避免新内容持续出现时历史永远得不到处理。"><input className={inputClass} type="number" min={1} max={500} value={form.backfillItemLimit} onChange={event => setForm(current => ({ ...current, backfillItemLimit: Number(event.target.value) }))} /></Field>
+                <Field label="新内容上限" required help="每次定时运行优先处理最新内容的数量；它不是数据库新增数量。"><input className={inputClass} required type="number" min={1} max={500} value={form.newItemLimit} onChange={event => setForm(current => ({ ...current, newItemLimit: Number(event.target.value) }))} /></Field>
+                <Field label="历史回填上限" required help="每次定时运行在最新内容之外继续处理历史游标的数量，避免新内容持续出现时历史永远得不到处理。"><input className={inputClass} required type="number" min={1} max={500} value={form.backfillItemLimit} onChange={event => setForm(current => ({ ...current, backfillItemLimit: Number(event.target.value) }))} /></Field>
               </>
             )}
-            <Field label="每次请求间隔（毫秒）" help="两次来源请求之间的最小等待时间。公共来源默认不低于 2000 毫秒，用于遵守限速并减少触发访问控制。"><input className={inputClass} type="number" min={2000} max={60000} value={form.rateLimitMs} onChange={event => setForm(current => ({ ...current, rateLimitMs: Number(event.target.value) }))} /></Field>
-            {form.crawlMode !== 'full' && <Field label="本轮抓完后" help="到达来源末页时的处理方式。推荐保持已完成，只有人工明确选择重新开始周期时才回到第 1 页。"><Select label="本轮抓完后" value={form.endPolicy} onChange={value => setForm(current => ({ ...current, endPolicy: value as CrawlerEndPolicy }))} options={[{ label: '保持已完成，不重复抓取（推荐）', value: 'HOLD_COMPLETED' }, { label: '重新开始一个周期', value: 'RESTART_CYCLE' }]} /></Field>}
+            <Field label="每次请求间隔（毫秒）" required help="两次来源请求之间的最小等待时间。公共来源默认不低于 2000 毫秒，用于遵守限速并减少触发访问控制。"><input className={inputClass} required type="number" min={2000} max={60000} value={form.rateLimitMs} onChange={event => setForm(current => ({ ...current, rateLimitMs: Number(event.target.value) }))} /></Field>
+            {form.crawlMode !== 'full' && <Field label="本轮抓完后" required help="到达来源末页时的处理方式。推荐保持已完成，只有人工明确选择重新开始周期时才回到第 1 页。"><Select label="本轮抓完后" value={form.endPolicy} onChange={value => setForm(current => ({ ...current, endPolicy: value as CrawlerEndPolicy }))} options={[{ label: '保持已完成，不重复抓取（推荐）', value: 'HOLD_COMPLETED' }, { label: '重新开始一个周期', value: 'RESTART_CYCLE' }]} /></Field>}
           </div>
-          <label className="flex items-start gap-3 rounded-xl border border-border bg-card p-4">
-            <input type="checkbox" className="mt-1 size-4 accent-primary" checked={form.enabled === 1} disabled={form.crawlMode === 'full' || !preview?.cronExpression || sourceNeedsReview || sourcePreview?.status !== 'VALIDATED'} onChange={event => setForm(current => ({ ...current, enabled: event.target.checked ? 1 : 0 }))} />
-            <span className="flex items-center gap-1"><span className="text-sm font-medium text-foreground">保存后启用自动调度</span><InfoHint label="保存后启用自动调度" content="未勾选时只保存规则；全量任务和待复核来源不会自动运行，来源预览通过后才可启用。" /></span>
+          <label className={`rounded-xl border border-border bg-card p-4 ${autoScheduleDisabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+            <div className="flex items-start gap-3">
+              <input id="crawler-enable-schedule" type="checkbox" className="mt-1 size-4 accent-primary disabled:cursor-not-allowed disabled:opacity-50" checked={form.enabled === 1} disabled={autoScheduleDisabled} aria-describedby="crawler-enable-schedule-help" onChange={event => setForm(current => ({ ...current, enabled: event.target.checked ? 1 : 0 }))} />
+              <span className="flex items-center gap-1"><span className="text-sm font-medium text-foreground">保存后启用自动调度</span><InfoHint label="保存后启用自动调度" content="只有选择自动定时规则、规则验证通过且来源查询已验证可用时才能启用。仅手工和全量任务不会自动运行。" /></span>
+            </div>
+            <p id="crawler-enable-schedule-help" className={`mt-2 pl-7 text-xs leading-5 ${autoScheduleDisabled ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground'}`}>
+              {autoScheduleDisabledReason || '启用后，保存计划时会同时开启自动调度。'}
+            </p>
           </label>
         </section>
       </div>
