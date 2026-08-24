@@ -157,7 +157,7 @@ export default function AdminSidebar() {
         aria-modal={isMobile && mobileOpen ? true : undefined}
         inert={isMobile && !mobileOpen ? true : undefined}
         className={`
-          fixed inset-y-0 left-0 flex w-64 flex-col border-r border-sidebar-border bg-sidebar
+          fixed inset-y-0 left-0 flex h-full min-h-0 w-64 flex-col border-r border-sidebar-border bg-sidebar
           ${UI_LAYER_CLASSES.sidebar} transform shadow-2xl transition-[width,transform] duration-300 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none
           md:relative md:z-auto md:translate-x-0 md:shadow-none
           overflow-hidden

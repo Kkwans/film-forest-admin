@@ -7,7 +7,6 @@ import {
   type CrawlerProgressEvent,
   type CrawlerJobItemFailure,
   type CrawlerJobItemSuccess,
-  type CrawlerScheduleCursor,
   type CrawlerTaskLog,
   type PageData,
 } from '@/lib/api';
@@ -28,7 +27,6 @@ import {
   crawlerStageProgress,
   crawlerPanelClass,
   crawlerErrorMessage,
-  cursorStateLabel,
   elapsedFor,
   formatCrawlerTime,
   inputClass,
@@ -92,9 +90,9 @@ const jobMetaHelp: Record<string, string> = {
   '最近心跳': '服务端最近一次报告运行进度的时间。',
   '完成时间': 'Job 结束并写入最终统计的时间。',
   '累计耗时': '从排队/开始到结束或当前时刻的累计耗时。',
-  '恢复位置': '异常恢复时使用的列表索引和来源条目；页码已在“当前页”中单独展示。',
-  '游标状态': '当前计划游标的状态；不重复展示页码。',
-  '游标锚点': '恢复分页时用于定位的来源外部 ID。',
+  '列表位置': '当前检查点对应的来源列表位置。',
+  '来源条目': '当前检查点对应的来源外部条目编号。',
+  '当前阶段': '当前正在处理的解析阶段；实时进度区域会展示更详细的阶段进度。',
 };
 
 const outcomeLabels: Record<string, string> = {
@@ -124,17 +122,18 @@ function scoreText(value?: number | null): string {
   return value === null || value === undefined ? '—' : String(value);
 }
 
-function checkpointLabel(value?: string | null): string {
-  if (!value) return '—';
+function checkpointParts(value?: string | null): { item: string; externalId: string } {
+  if (!value) return { item: '—', externalId: '—' };
   try {
     const parsed = JSON.parse(value) as Record<string, unknown>;
-    const parts: string[] = [];
-    if (typeof parsed.nextItemIndex === 'number') parts.push(`列表第 ${parsed.nextItemIndex + 1} 项`);
+    const item = typeof parsed.nextItemIndex === 'number' ? `列表第 ${parsed.nextItemIndex + 1} 项` : '—';
     const externalId = parsed.nextExternalId ?? parsed.lastCommittedExternalId;
-    if (typeof externalId === 'string' && externalId.trim()) parts.push(`来源条目 ${externalId}`);
-    return parts.join(' · ') || '已记录恢复位置';
+    return {
+      item,
+      externalId: typeof externalId === 'string' && externalId.trim() ? externalId : '—',
+    };
   } catch {
-    return value;
+    return { item: '—', externalId: value };
   }
 }
 
@@ -204,7 +203,6 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
   const [successPage, setSuccessPage] = useState(1);
   const [successKeywordInput, setSuccessKeywordInput] = useState('');
   const [successKeyword, setSuccessKeyword] = useState('');
-  const [cursor, setCursor] = useState<CrawlerScheduleCursor | null>(null);
   const [streamConnected, setStreamConnected] = useState(false);
 
   const fetchJob = useCallback(async () => {
@@ -216,12 +214,6 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
         throw new Error(response.data?.message || 'Job 详情加载失败');
       }
       setJob(response.data.data);
-      try {
-        const cursorResponse = await crawlerApi.getCursor(response.data.data.scheduleId);
-        setCursor(cursorResponse.data?.code === 200 ? cursorResponse.data.data || null : null);
-      } catch {
-        setCursor(null);
-      }
       setJobError('');
     } catch (error: unknown) {
       setJobError(extractErrorMessage(error, 'Job 详情加载失败'));
@@ -301,6 +293,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
   }, [categoryInput]);
 
   const active = Boolean(job && activeStatuses.has(job.status));
+  const checkpoint = checkpointParts(job?.checkpoint);
   const successfulCount = job
     ? (job.addedCount ?? 0) + (job.updatedCount ?? 0) + (job.unchangedCount ?? 0)
     : 0;
@@ -389,11 +382,10 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                 ['来源排序', sourceSortLabel(job.sourceSort)], ['遍历模式', traversalModeLabel(job.traversalMode)],
                 ['排队时间', formatCrawlerTime(job.queuedAt)], ['开始时间', formatCrawlerTime(job.startedAt)],
                 ['最近心跳', formatCrawlerTime(job.heartbeatAt)], ['完成时间', formatCrawlerTime(job.finishedAt)],
-                ['累计耗时', elapsedFor(job.startedAt, job.queuedAt, job.durationMs)], ['恢复位置', checkpointLabel(job.checkpoint)],
-                ['游标状态', cursor ? cursorStateLabel(cursor.state) : '-'],
-                ['游标锚点', cursor?.nextExternalId || cursor?.lastCommittedExternalId || '-'],
+                ['累计耗时', elapsedFor(job.startedAt, job.queuedAt, job.durationMs)], ['列表位置', checkpoint.item],
+                ['来源条目', checkpoint.externalId], ['当前阶段', job.currentStage ? crawlerStageLabel(job.currentStage) : '-'],
               ].map(([label, value]) => (
-                <div key={String(label)} className="flex h-[5.5rem] min-w-0 flex-col justify-start overflow-hidden rounded-xl border border-border p-3">
+                <div key={String(label)} className="flex h-[5.4rem] min-w-0 flex-col justify-start overflow-hidden rounded-xl border border-border p-3">
                   <dt className="flex items-center gap-1 text-xs text-muted-foreground">
                     <span>{label}</span>
                     <InfoHint label={String(label)} content={jobMetaHelp[String(label)] || 'Job 运行上下文信息。'} />

@@ -146,8 +146,8 @@ export function CrawlerDetailField({
   return (
     <div className={crawlerDetailFieldClass}>
       <dt className="shrink-0 text-foreground/60">{label}：</dt>
-      <dd className="min-w-0 truncate text-foreground">
-        {title ? <TooltipText className="truncate" content={title}>{children}</TooltipText> : children}
+      <dd className="min-w-0 flex-1 truncate text-foreground">
+        {title ? <TooltipText className="block min-w-0 truncate" content={title}>{children}</TooltipText> : children}
       </dd>
     </div>
   );

@@ -24,7 +24,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
         <AdminSidebar />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <AdminHeader />
-          <main id="main-content" tabIndex={-1} className="app-main flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+          <main id="main-content" tabIndex={-1} className="app-main min-h-0 flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
             {children}
           </main>
         </div>
