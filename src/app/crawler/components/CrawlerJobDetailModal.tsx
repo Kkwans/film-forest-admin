@@ -493,7 +493,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                         <CrawlerDetailField label="语言" title={listText(success.languages)}>{listText(success.languages)}</CrawlerDetailField>
                         <CrawlerDetailField label="日期" title={success.releaseDate || '—'}>{success.releaseDate || '—'}</CrawlerDetailField>
                         <CrawlerDetailField label="时长">{success.duration ? `${success.duration} 分钟` : '—'}</CrawlerDetailField>
-                        <CrawlerDetailField label="来源条目" title={success.externalId}>{success.externalId}</CrawlerDetailField>
+                        <CrawlerDetailField label="条目" title={success.externalId}>{success.externalId}</CrawlerDetailField>
                         <CrawlerDetailField label="内容">{contentTypeLabel(success.contentType)} #{success.contentId}</CrawlerDetailField>
                       </dl>
                     </div>
@@ -539,7 +539,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                         <span className="rounded-full bg-muted px-2 py-1 text-xs text-muted-foreground">{failure.errorCategory}</span>
                         {failure.retryExhausted && <span className="rounded-full bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">重试已耗尽</span>}
                       </div>
-                      <p className="mt-2 break-all text-sm font-medium text-foreground">来源条目 {failure.externalId}</p>
+                      <p className="mt-2 break-all text-sm font-medium text-foreground">条目 {failure.externalId}</p>
                     </div>
                     <a href={failure.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
                       查看来源 <ExternalLink className="size-3" />
