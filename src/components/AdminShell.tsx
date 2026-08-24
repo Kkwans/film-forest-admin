@@ -20,11 +20,11 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   return (
     <>
       <a className="skip-link" href="#main-content">跳到主要内容</a>
-      <div className="app-shell flex h-dvh overflow-hidden">
+      <div className="app-shell flex h-dvh min-h-0 overflow-hidden overscroll-none">
         <AdminSidebar />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <AdminHeader />
-          <main id="main-content" tabIndex={-1} className="app-main min-h-0 flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+          <main id="main-content" tabIndex={-1} className="app-main min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 md:p-6 lg:p-8">
             {children}
           </main>
         </div>

@@ -70,14 +70,13 @@ export function TooltipText({ content, children, className }: TooltipTextProps) 
   );
 
   return (
-    <TooltipPrimitive.Root>
+    <TooltipPrimitive.Root disabled={!isOverflowing}>
       <TooltipPrimitive.Trigger
         delay={0}
         closeDelay={80}
         render={trigger}
-      >
-      </TooltipPrimitive.Trigger>
-      {isOverflowing && <TooltipBubble content={content} />}
+      />
+      <TooltipBubble content={content} />
     </TooltipPrimitive.Root>
   );
 }

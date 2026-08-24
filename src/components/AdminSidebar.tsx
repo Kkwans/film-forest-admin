@@ -202,7 +202,7 @@ export default function AdminSidebar() {
         </div>
 
         {/* Nav */}
-        <nav className={`flex-1 space-y-1 overflow-y-auto py-4 ${desktopCollapsed ? 'px-2' : 'px-3'}`}>
+        <nav className={`flex-1 space-y-1 overflow-y-auto overscroll-contain py-4 ${desktopCollapsed ? 'px-2' : 'px-3'}`}>
           {!desktopCollapsed && <p className="mb-2 px-3 text-[11px] font-semibold tracking-[0.14em] text-sidebar-foreground/50">工作区</p>}
           {NAV_ITEMS.map((item) => {
             const isActive = pathname === item.href;

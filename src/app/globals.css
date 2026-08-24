@@ -181,6 +181,16 @@
     var(--background);
 }
 
+/* Authenticated pages use #main-content as their only document scrollport.
+ * Keep the root viewport from creating a second scrollbar when a page has a
+ * long table or list inside that scrollport. The login route has no .app-shell
+ * and keeps its normal document flow. */
+html:has(.app-shell),
+body:has(.app-shell) {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .app-main {
   scrollbar-gutter: stable;
 }
