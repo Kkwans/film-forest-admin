@@ -399,7 +399,7 @@ export function CrawlerJobDetailModal({ jobId, onClose }: Props) {
                     <InfoHint label={String(label)} content={jobMetaHelp[String(label)] || 'Job 运行上下文信息。'} />
                   </dt>
                   <dd className="mt-1 min-w-0 max-w-full text-foreground">
-                    <TooltipText className="block max-w-full leading-5 line-clamp-2" content={String(value)}>{String(value)}</TooltipText>
+                    <TooltipText className="block max-w-full break-words leading-5 line-clamp-2 [overflow-wrap:anywhere]" content={String(value)}>{String(value)}</TooltipText>
                   </dd>
                 </div>
               ))}

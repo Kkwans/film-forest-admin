@@ -69,8 +69,6 @@ export function TooltipText({ content, children, className }: TooltipTextProps) 
     </span>
   );
 
-  if (!isOverflowing) return trigger;
-
   return (
     <TooltipPrimitive.Root>
       <TooltipPrimitive.Trigger
@@ -79,7 +77,7 @@ export function TooltipText({ content, children, className }: TooltipTextProps) 
         render={trigger}
       >
       </TooltipPrimitive.Trigger>
-      <TooltipBubble content={content} />
+      {isOverflowing && <TooltipBubble content={content} />}
     </TooltipPrimitive.Root>
   );
 }
