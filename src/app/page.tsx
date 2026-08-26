@@ -86,23 +86,42 @@ const CONTENT_TYPES = [
   { code: 'short_drama', label: '短剧', icon: Activity, color: 'bg-emerald-500' },
 ] as const;
 
-const TYPE_LABELS = Object.fromEntries(CONTENT_TYPES.map(item => [item.code, item.label]));
+const CONTENT_TYPE_ALIASES: Record<string, string> = {
+  movie: 'movie',
+  drama: 'drama',
+  variety: 'variety',
+  anime: 'anime',
+  short: 'short_drama',
+  short_drama: 'short_drama',
+  'short-drama': 'short_drama',
+};
 
 function unwrap<T>(response: AxiosResponse<ApiEnvelope<T>>, fallback: string): T {
   if (response.data?.code !== 200) throw new Error(response.data?.message || fallback);
   return response.data.data;
 }
 
-function relativeTime(value?: string | null): string {
-  if (!value) return '尚未运行';
-  const time = new Date(value).getTime();
-  if (!Number.isFinite(time)) return value;
-  const minutes = Math.max(0, Math.floor((Date.now() - time) / 60_000));
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes} 分钟前`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} 小时前`;
-  return `${Math.floor(hours / 24)} 天前`;
+function contentTypeDefinition(value?: string | null) {
+  if (!value) return undefined;
+  const canonical = CONTENT_TYPE_ALIASES[value.trim().toLowerCase()] || value;
+  return CONTENT_TYPES.find(entry => entry.code === canonical);
+}
+
+function contentTypeLabel(value?: string | null): string {
+  return contentTypeDefinition(value)?.label || value || '未知类型';
+}
+
+function recentContentTime(value?: string | null): string {
+  if (!value) return '入库时间未知';
+  const match = value.match(/^(\d{4})[-/](\d{2})[-/](\d{2})[T ](\d{2}):(\d{2})/);
+  if (match) return `${match[2]}/${match[3]} ${match[4]}:${match[5]}`;
+
+  const time = new Date(value);
+  if (!Number.isFinite(time.getTime())) return '时间未知';
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+    timeZone: 'Asia/Shanghai',
+  }).format(time);
 }
 
 function shortScheduleTime(value?: string | null): string {
@@ -245,7 +264,7 @@ export default function AdminDashboard() {
                       </div>
                       <span className={`shrink-0 text-xs font-medium ${state.tone}`}>{state.label}</span>
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">{TYPE_LABELS[item.contentType] || item.contentType} · {item.totalRuns || 0} 次运行 · {item.totalItems || 0} 条</p>
+                    <p className="truncate text-xs text-muted-foreground">{contentTypeLabel(item.contentType)} · {item.totalRuns || 0} 次运行 · {item.totalItems || 0} 条</p>
                     <div className="flex items-center justify-between gap-3 text-[11px] tabular-nums text-muted-foreground">
                       <span className="truncate">上次 {shortScheduleTime(item.lastRunTime)}</span>
                       <span className="truncate text-right">下次 {shortScheduleTime(item.nextRunTime)}</span>
@@ -262,7 +281,7 @@ export default function AdminDashboard() {
         <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">最近内容</h2><p className="text-xs text-muted-foreground">按入库时间展示最近内容，状态保持明确三态。</p></div><Link href="/content" className="flex items-center gap-1 text-xs font-medium text-primary">内容管理<ArrowRight className="size-3" /></Link></div>
           <CardContent className="p-0">
-            {loading ? <div className="grid gap-0 bg-card sm:grid-cols-2">{Array.from({ length: 10 }, (_, index) => index + 1).map(item => <Skeleton key={item} className="h-20 w-full rounded-none" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid gap-0 bg-card sm:grid-cols-2">{recentItems.map(item => { const status = contentStatus(item.status); const type = CONTENT_TYPES.find(entry => entry.code === item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-h-20 min-w-0 items-center gap-3 border-b border-r border-border/70 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}</p><p className="mt-1 truncate text-xs text-muted-foreground">{TYPE_LABELS[item.type] || item.type}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · {relativeTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
+            {loading ? <div className="grid gap-0 bg-card sm:grid-cols-2">{Array.from({ length: 10 }, (_, index) => index + 1).map(item => <Skeleton key={item} className="h-20 w-full rounded-none" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid gap-0 bg-card sm:grid-cols-2">{recentItems.map(item => { const status = contentStatus(item.status); const type = contentTypeDefinition(item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-h-20 min-w-0 items-center gap-3 border-b border-r border-border/70 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}</p><p className="mt-1 truncate text-xs text-muted-foreground">{contentTypeLabel(item.type)}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · 入库 {recentContentTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
           </CardContent>
         </Card>
 
