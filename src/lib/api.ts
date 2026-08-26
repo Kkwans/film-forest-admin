@@ -132,6 +132,7 @@ export interface SaveOnlineData {
   contentId: number;
   sourceCode?: string;
   sourceName: string;
+  providerName?: string;
   sourceUrl: string;
   sourcePageUrl?: string;
   playbackType?: 'HLS' | 'VIDEO' | 'EMBED' | 'EXTERNAL_PAGE' | '';

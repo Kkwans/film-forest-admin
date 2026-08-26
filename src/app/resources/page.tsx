@@ -79,6 +79,7 @@ interface OnlineResource extends BaseResource {
   episodeNumber?: number;
   episodeTitle?: string;
   sourceName: string;
+  providerName?: string;
   sourceUrl: string;
   sourcePageUrl?: string;
   playbackType?: 'HLS' | 'VIDEO' | 'EMBED' | 'EXTERNAL_PAGE' | '';
@@ -268,7 +269,7 @@ function resourceTitle(kind: ResourceKind, resource: ResourceRecord): string {
 function resourceVariant(kind: ResourceKind, resource: ResourceRecord): string {
   if (kind === 'online') {
     const online = resource as OnlineResource;
-    return [online.sourceName || '在线播放', PLAYBACK_TYPE_LABELS[online.playbackType || ''] || online.playbackType]
+    return [online.providerName ? `线路：${online.providerName}` : '', online.sourceName || '在线播放', PLAYBACK_TYPE_LABELS[online.playbackType || ''] || online.playbackType]
       .filter(Boolean).join(' · ');
   }
   if (kind === 'magnet') {
@@ -790,6 +791,7 @@ export default function ResourcesPage() {
               <div><dt className="text-xs text-muted-foreground">最近发现</dt><dd className="mt-1 text-foreground">{formatDate(detailResource.resource.lastSeenAt)}</dd></div>
               <div><dt className="text-xs text-muted-foreground">最近更新</dt><dd className="mt-1 text-foreground">{formatDate(detailResource.resource.updatedAt || detailResource.resource.createdAt)}</dd></div>
               {detailResource.kind === 'online' && <div><dt className="text-xs text-muted-foreground">播放类型</dt><dd className="mt-1 text-foreground">{PLAYBACK_TYPE_LABELS[(detailResource.resource as OnlineResource).playbackType || ''] || '自动识别'}</dd></div>}
+              {detailResource.kind === 'online' && <div><dt className="text-xs text-muted-foreground">线路来源</dt><dd className="mt-1 text-foreground">{(detailResource.resource as OnlineResource).providerName || '未标注（历史记录）'}</dd></div>}
               {detailResource.kind === 'online' && <div><dt className="text-xs text-muted-foreground">来源名称</dt><dd className="mt-1 text-foreground">{(detailResource.resource as OnlineResource).sourceName || '—'}</dd></div>}
               {detailResource.kind === 'online' && <div><dt className="text-xs text-muted-foreground">剧集信息</dt><dd className="mt-1 text-foreground">{resourceTitle(detailResource.kind, detailResource.resource)}</dd></div>}
               {detailResource.kind === 'magnet' && <div><dt className="text-xs text-muted-foreground">字幕</dt><dd className="mt-1 text-foreground">{(detailResource.resource as MagnetResource).hasSubtitle ? '包含字幕' : '无字幕标记'}{(detailResource.resource as MagnetResource).isSpecialSub ? ' · 特效字幕' : ''}</dd></div>}
