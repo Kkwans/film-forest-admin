@@ -53,6 +53,7 @@ interface Overview {
 interface RecentItem {
   id: number;
   title: string;
+  year?: number | null;
   type: string;
   status: number;
   createdAt: string;
@@ -162,7 +163,7 @@ export default function AdminDashboard() {
     setRefreshing(true);
     const results = await Promise.allSettled([
       statsApi.getOverview() as Promise<AxiosResponse<ApiEnvelope<Overview>>>,
-      contentApi.listAll({ page: 1, size: 10, sort: 'createdAt', sortDir: 'desc' }) as Promise<AxiosResponse<ApiEnvelope<{ records: RecentItem[] } | RecentItem[]>>>,
+      contentApi.listAll({ page: 1, size: 5, sort: 'createdAt', sortDir: 'desc' }) as Promise<AxiosResponse<ApiEnvelope<{ records: RecentItem[] } | RecentItem[]>>>,
       crawlerApi.getStatus() as Promise<AxiosResponse<ApiEnvelope<{ schedules: CrawlerScheduleItem[] }>>>,
     ]);
     const issues: string[] = [];
@@ -281,7 +282,7 @@ export default function AdminDashboard() {
         <Card className="flex h-full min-h-0 flex-col overflow-hidden border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4"><div><h2 className="font-semibold text-foreground">最近内容</h2><p className="text-xs text-muted-foreground">按入库时间展示最近内容，状态保持明确三态。</p></div><Link href="/content" className="flex items-center gap-1 text-xs font-medium text-primary">内容管理<ArrowRight className="size-3" /></Link></div>
           <CardContent className="p-0">
-            {loading ? <div className="grid gap-0 bg-card sm:grid-cols-2">{Array.from({ length: 10 }, (_, index) => index + 1).map(item => <Skeleton key={item} className="h-20 w-full rounded-none" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid gap-0 bg-card sm:grid-cols-2">{recentItems.map(item => { const status = contentStatus(item.status); const type = contentTypeDefinition(item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-h-20 min-w-0 items-center gap-3 border-b border-r border-border/70 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}</p><p className="mt-1 truncate text-xs text-muted-foreground">{contentTypeLabel(item.type)}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · 入库 {recentContentTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
+            {loading ? <div className="grid grid-cols-1 gap-0 bg-card">{Array.from({ length: 5 }, (_, index) => index + 1).map(item => <Skeleton key={item} className="h-20 w-full rounded-none" />)}</div> : recentItems.length === 0 ? <div className="grid min-h-40 place-items-center text-sm text-muted-foreground">暂无内容，等待受控爬取或手工录入。</div> : <div className="grid grid-cols-1 gap-0 bg-card">{recentItems.map(item => { const status = contentStatus(item.status); const type = contentTypeDefinition(item.type); const Icon = type?.icon || Film; return <Link key={`${item.type}-${item.id}`} href="/content" className="flex min-h-20 min-w-0 items-center gap-3 border-b border-border/70 bg-card p-4 hover:bg-muted/25"><span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground"><Icon className="size-4" /></span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-foreground">{item.title}{item.year != null ? `（${item.year}）` : ''}</p><p className="mt-1 truncate text-xs text-muted-foreground">{contentTypeLabel(item.type)}{item.scoreDouban ? ` · 豆瓣 ${item.scoreDouban}` : ''} · 入库 {recentContentTime(item.createdAt)}</p></div><Badge className={status.className}>{status.label}</Badge></Link>; })}</div>}
           </CardContent>
         </Card>
 
