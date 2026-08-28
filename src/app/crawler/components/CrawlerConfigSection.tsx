@@ -178,6 +178,7 @@ export function CrawlerConfigSection({ schedules, activeJobs, sources, loading, 
                   <dl className="grid min-w-0 grid-cols-2 content-center gap-x-6 gap-y-3 text-xs sm:grid-cols-3">
                     <div><dt className="text-muted-foreground">运行规则</dt><dd className="mt-0.5 text-foreground">{schedule.crawlMode === 'full' ? '全量手工' : schedule.scheduleMode === 'MANUAL' ? '仅手工' : schedule.scheduleMode === 'CUSTOM_CRON' ? '高级 Cron' : schedule.scheduleMode}</dd></div>
                     <div><dt className="text-muted-foreground">来源排序</dt><dd className="mt-0.5 text-foreground">{sourceSortLabel(schedule.sourceSort || 'TIME')}</dd></div>
+                    <div><dt className="text-muted-foreground">资源范围</dt><dd className="mt-0.5 text-foreground">{schedule.resourceScope === 'ONLINE' ? '仅在线播放' : schedule.resourceScope === 'ALL' ? '全部资源' : '磁力 + 网盘'}</dd></div>
                     <div><dt className="text-muted-foreground">新内容 / 回填</dt><dd className="mt-0.5 text-foreground">{schedule.newItemLimit ?? schedule.batchSize} / {schedule.backfillItemLimit ?? schedule.batchSize}</dd></div>
                     <div><dt className="text-muted-foreground">游标</dt><dd className="mt-0.5 text-foreground">{cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '尚未建立'}</dd></div>
                     <div><dt className="text-muted-foreground">上次运行</dt><dd className="mt-0.5 text-foreground">{formatCrawlerTime(schedule.lastRunTime)}</dd></div>

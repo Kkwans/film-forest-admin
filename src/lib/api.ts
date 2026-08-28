@@ -257,6 +257,7 @@ export interface CrawlerSchedule {
   name: string;
   contentType: string;
   crawlMode: 'latest' | 'full';
+  resourceScope: CrawlerResourceScope;
   sourceSite: string;
   sourceId: number;
   adapterCode: string;
@@ -298,6 +299,8 @@ export type CrawlerScheduleMode =
   | 'WEEKLY'
   | 'MONTHLY'
   | 'CUSTOM_CRON';
+
+export type CrawlerResourceScope = 'DOWNLOADS' | 'ONLINE' | 'ALL';
 
 export interface CrawlerSchedulePreviewRequest {
   scheduleMode?: CrawlerScheduleMode;
@@ -400,6 +403,7 @@ export interface CrawlerTaskLog {
   configSnapshot?: string | null;
   outcomeCode?: string | null;
   crawlMode?: 'latest' | 'full';
+  resourceScope?: CrawlerResourceScope;
   status: string;
   triggerType?: string;
   retryOfJobId?: number | null;

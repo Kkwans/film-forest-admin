@@ -6,6 +6,7 @@ import {
   crawlerApi,
   tagApi,
   type CrawlerSchedule,
+  type CrawlerResourceScope,
   type CrawlerScheduleMode,
   type CrawlerSchedulePreview,
   type CrawlerSourceCapabilities,
@@ -31,6 +32,7 @@ type FormState = {
   adapterCode: string;
   contentType: string;
   crawlMode: 'latest' | 'full';
+  resourceScope: CrawlerResourceScope;
   scheduleMode: CrawlerScheduleMode;
   scheduleConfig: Record<string, unknown>;
   cronExpression: string;
@@ -84,6 +86,7 @@ function defaultForm(sources: CrawlerSourceDescriptor[]): FormState {
     adapterCode: binding?.code ?? '',
     contentType: binding?.contentType ?? 'movie',
     crawlMode: 'latest',
+    resourceScope: 'DOWNLOADS',
     scheduleMode: 'MANUAL',
     scheduleConfig: {},
     cronExpression: '',
@@ -111,6 +114,7 @@ function fromSchedule(schedule: CrawlerSchedule, sources: CrawlerSourceDescripto
     adapterCode: schedule.adapterCode,
     contentType: schedule.contentType,
     crawlMode: schedule.crawlMode || 'latest',
+    resourceScope: schedule.resourceScope || 'DOWNLOADS',
     scheduleMode: schedule.scheduleMode || 'CUSTOM_CRON',
     scheduleConfig: schedule.scheduleConfig || {},
     cronExpression: schedule.cronExpression || '',
@@ -458,6 +462,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
         adapterCode: form.adapterCode,
         contentType: form.contentType,
         crawlMode: form.crawlMode,
+        resourceScope: form.resourceScope,
         scheduleMode: normalized.scheduleMode,
         scheduleConfig: normalized.scheduleConfig,
         cronExpression: normalized.cronExpression,
@@ -524,6 +529,7 @@ export function CrawlerScheduleEditor({ open, schedule, sources, onClose, onSave
             <Field label="内容类型" required><Select label="内容类型" value={form.contentType} onChange={changeContentType} options={CONTENT_TYPES.map(option => ({ ...option, disabled: !selectedSource?.adapters.some(item => item.contentType === option.value) }))} /></Field>
             <Field label="来源适配器"><div className="flex h-9 items-center rounded-lg border border-border bg-muted/35 px-3 text-sm text-foreground">{form.adapterCode || '当前组合不可用'}</div></Field>
             <Field label="抓取模式" required help="最新增量按游标持续同步；全量扫描只允许手工启动，并使用独立的本次执行上限。"><Select label="抓取模式" value={form.crawlMode} onChange={value => setForm(current => ({ ...current, crawlMode: value as 'latest' | 'full', scheduleMode: value === 'full' ? 'MANUAL' : current.scheduleMode, enabled: value === 'full' ? 0 : current.enabled }))} options={[{ label: '最新增量（推荐）', value: 'latest' }, { label: '全量手工', value: 'full' }]} /></Field>
+            <Field label="资源抓取范围" required help="默认只抓取磁力和网盘；需要补充在线播放时，单独创建或编辑为“仅在线播放”的配置。"><Select label="资源抓取范围" value={form.resourceScope} onChange={value => setForm(current => ({ ...current, resourceScope: value as CrawlerResourceScope }))} options={[{ label: '磁力 + 网盘（推荐）', value: 'DOWNLOADS' }, { label: '仅在线播放', value: 'ONLINE' }, { label: '全部资源', value: 'ALL' }]} /></Field>
             <Field label="来源排序" required help={SOURCE_SORT_DESCRIPTIONS[effectiveSourceSort]}>
               <Select
                 label="来源排序"
