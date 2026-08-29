@@ -115,7 +115,12 @@ export default function CrawlerPage() {
       const next = current.filter(item => item.id !== job.id);
       return ACTIVE_JOB_STATUSES.has(job.status || '') ? [...next, job] : next;
     });
-  }, []);
+    if (event.type === 'terminal') {
+      void refreshSchedules().catch(error => {
+        toast.error(extractErrorMessage(error, '任务配置状态同步失败'));
+      });
+    }
+  }, [refreshSchedules, toast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -183,7 +188,7 @@ export default function CrawlerPage() {
       </nav>
 
       {section === 'config' && <CrawlerConfigSection schedules={schedules} activeJobs={activeJobs} sources={sources} loading={staticLoading} onRefresh={refreshConfiguration} onJobStarted={handleJobStarted} onViewJob={handleViewJob} />}
-      {section === 'jobs' && <CrawlerJobsSection jobs={activeJobs} loading={jobsLoading} onRefresh={refreshJobs} focusJobId={focusedJobId} onFocusHandled={clearFocusedJob} />}
+      {section === 'jobs' && <CrawlerJobsSection jobs={activeJobs} loading={jobsLoading} onRefresh={refreshConfiguration} focusJobId={focusedJobId} onFocusHandled={clearFocusedJob} />}
       {section === 'logs' && <CrawlerLogsSection schedules={schedules} sources={sources} hasActiveJobs={activeJobs.length > 0} onJobStarted={handleJobStarted} />}
       {section === 'stats' && <CrawlerStatsSection hasActiveJobs={activeJobs.length > 0} />}
     </div>

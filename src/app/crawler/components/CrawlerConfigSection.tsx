@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useDialog } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/toast';
 import { extractErrorMessage } from '@/lib/utils';
-import { StatusBadge, contentTypeLabel, formatCrawlerTime, sourceSortLabel } from './crawler-ui';
+import { StatusBadge, contentTypeLabel, cursorStateLabel, formatCrawlerTime, scheduleModeLabel, sourceSortLabel } from './crawler-ui';
 import { CrawlerScheduleEditor } from './CrawlerScheduleEditor';
 
 interface Props {
@@ -170,18 +170,17 @@ export function CrawlerConfigSection({ schedules, activeJobs, sources, loading, 
                   <div className="flex min-w-0 flex-col justify-center">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="truncate font-medium text-foreground">{schedule.name}</h3>
-                      <StatusBadge status={schedule.latestResult} />
+                      <StatusBadge status={activeJob?.status || schedule.latestResult} />
                       {needsReview && <span className="rounded-full bg-amber-500/15 px-2 py-1 text-xs font-medium text-amber-700 dark:text-amber-300">待复核</span>}
                     </div>
                     <p className="mt-1 text-xs text-muted-foreground">#{schedule.id} · {sources.find(source => source.id === schedule.sourceId)?.name || schedule.sourceSite} · {contentTypeLabel(schedule.contentType)}</p>
                   </div>
                   <dl className="grid min-w-0 grid-cols-2 content-center gap-x-6 gap-y-3 text-xs sm:grid-cols-3">
-                    <div><dt className="text-muted-foreground">运行规则</dt><dd className="mt-0.5 text-foreground">{schedule.crawlMode === 'full' ? '全量手工' : schedule.scheduleMode === 'MANUAL' ? '仅手工' : schedule.scheduleMode === 'CUSTOM_CRON' ? '高级 Cron' : schedule.scheduleMode}</dd></div>
+                    <div><dt className="text-muted-foreground">运行规则</dt><dd className="mt-0.5 text-foreground">{schedule.crawlMode === 'full' ? '全量手工' : scheduleModeLabel(schedule.scheduleMode)}</dd></div>
                     <div><dt className="text-muted-foreground">来源排序</dt><dd className="mt-0.5 text-foreground">{sourceSortLabel(schedule.sourceSort || 'TIME')}</dd></div>
                     <div><dt className="text-muted-foreground">资源范围</dt><dd className="mt-0.5 text-foreground">{schedule.resourceScope === 'ONLINE' ? '仅在线播放' : schedule.resourceScope === 'ALL' ? '全部资源' : '磁力 + 网盘'}</dd></div>
                     <div><dt className="text-muted-foreground">新内容 / 回填</dt><dd className="mt-0.5 text-foreground">{schedule.newItemLimit ?? schedule.batchSize} / {schedule.backfillItemLimit ?? schedule.batchSize}</dd></div>
-                    <div><dt className="text-muted-foreground">游标</dt><dd className="mt-0.5 text-foreground">{cursor ? `${cursor.state} · 第 ${cursor.nextPage} 页` : '尚未建立'}</dd></div>
-                    <div><dt className="text-muted-foreground">上次运行</dt><dd className="mt-0.5 text-foreground">{formatCrawlerTime(schedule.lastRunTime)}</dd></div>
+                    <div><dt className="text-muted-foreground">游标</dt><dd className="mt-0.5 text-foreground">{cursor ? `${cursorStateLabel(cursor.state)} · 第 ${cursor.nextPage} 页` : '尚未建立'}</dd></div>
                     <div><dt className="text-muted-foreground">下次运行</dt><dd className="mt-0.5 text-foreground">{schedule.enabled === 1 ? formatCrawlerTime(schedule.nextRunTime) : '自动调度关闭'}</dd></div>
                   </dl>
                   <div className="grid min-w-0 gap-2 self-center">
@@ -192,11 +191,12 @@ export function CrawlerConfigSection({ schedules, activeJobs, sources, loading, 
                         variant="outline"
                         size="sm"
                         className={`min-w-0 px-2 text-xs ${schedule.enabled === 1 ? 'border-amber-500/40 text-amber-700 hover:bg-amber-500/10 dark:text-amber-300' : ''}`}
-                        aria-label={schedule.enabled === 1 ? '停用自动调度' : '启用自动调度'}
+                        title={schedule.enabled === 1 ? '关闭自动调度' : '开启自动调度'}
+                        aria-label={schedule.enabled === 1 ? '关闭自动调度' : '开启自动调度'}
                         onClick={() => void toggle(schedule)}
                         disabled={schedule.crawlMode === 'full' || needsReview}
                       >
-                        <Power />{schedule.enabled === 1 ? '停用' : '启用'}
+                        <Power />{schedule.enabled === 1 ? '关闭' : '开启'}
                       </Button>
                       <Button
                         variant={active ? 'destructive' : 'outline'}

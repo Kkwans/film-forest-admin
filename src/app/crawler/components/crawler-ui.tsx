@@ -58,6 +58,19 @@ export function sourceSortLabel(value?: string | null) {
   return value ? SOURCE_SORT_LABELS[value] ?? value : '-';
 }
 
+export const SCHEDULE_MODE_LABELS: Record<string, string> = {
+  MANUAL: '仅手工',
+  INTERVAL: '固定间隔',
+  DAILY: '每天',
+  WEEKLY: '每周',
+  MONTHLY: '每月',
+  CUSTOM_CRON: '自定义规则',
+};
+
+export function scheduleModeLabel(value?: string | null) {
+  return value ? SCHEDULE_MODE_LABELS[value] ?? '未识别规则' : '-';
+}
+
 export const TRAVERSAL_MODE_LABELS: Record<string, string> = {
   CONTINUOUS_SYNC: '持续同步',
   BACKFILL_CONTINUE: '历史回填续爬',
@@ -69,15 +82,15 @@ export function traversalModeLabel(value?: string | null) {
 }
 
 export const CURSOR_STATE_LABELS: Record<string, string> = {
-  ACTIVE: '运行中',
+  ACTIVE: '可继续',
   COMPLETE: '已完成',
-  INVALIDATED: '已失效',
-  RECOVERY_REQUIRED: '需要恢复',
+  INVALIDATED: '需重置',
+  RECOVERY_REQUIRED: '需重置',
   SOURCE_UNAVAILABLE: '来源不可用',
 };
 
 export function cursorStateLabel(value?: string | null) {
-  return value ? CURSOR_STATE_LABELS[value] ?? value : '-';
+  return value ? CURSOR_STATE_LABELS[value] ?? '未知状态' : '-';
 }
 
 export const TRIGGER_TYPE_LABELS: Record<string, string> = {
